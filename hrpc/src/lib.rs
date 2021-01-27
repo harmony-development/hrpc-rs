@@ -41,11 +41,17 @@ impl Client {
         msg: impl prost::Message,
         path: &str,
     ) -> ClientResult<reqwest::Request> {
-        self.buf.reserve(msg.encoded_len() - self.buf.len());
+        self.buf
+            .reserve(msg.encoded_len().saturating_sub(self.buf.len()));
         self.buf.clear();
-        msg.encode(&mut self.buf).unwrap();
+        msg.encode(&mut self.buf)
+            .expect("failed to encode protobuf message, something must be terribly wrong");
 
-        let mut req = self.inner.post(self.server.join(path).unwrap());
+        let mut req = self.inner.post(
+            self.server
+                .join(path)
+                .expect("failed to form request URL, something must be terribly wrong"),
+        );
         req = req.body(self.buf.to_vec());
         if let Some(auth) = self.authorization.as_deref() {
             req = req.bearer_auth(auth);
