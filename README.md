@@ -1,3 +1,5 @@
+[![docs](https://img.shields.io/badge/docs-master-blue)](http://harmonyapp.io/hrpc-rs)
+
 # hrpc-rs
 
 This repo contains implementation of hRPC in Rust:
