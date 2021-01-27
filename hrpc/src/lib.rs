@@ -1,11 +1,12 @@
+use bytes::{Bytes, BytesMut};
 use std::marker::PhantomData;
+use tokio::net::TcpStream;
+use url::Url;
 
 pub use bytes;
-use bytes::{Bytes, BytesMut};
 pub use prost;
 pub use reqwest;
-use tokio::net::TcpStream;
-pub use tokio_tungstenite;
+pub use tokio_tungstenite::{self, tungstenite};
 pub use url;
 
 #[doc(inline)]
@@ -16,19 +17,19 @@ pub use error::*;
 pub struct Client {
     inner: reqwest::Client,
     authorization: Option<String>,
-    server: url::Url,
-    buf: bytes::BytesMut,
+    server: Url,
+    buf: BytesMut,
 }
 
 impl Client {
     /// Creates a new client.
-    pub fn new(inner: reqwest::Client, server: url::Url) -> ClientResult<Self> {
+    pub fn new(inner: reqwest::Client, server: Url) -> ClientResult<Self> {
         if let "http" | "https" = server.scheme() {
             Ok(Self {
                 inner,
                 server,
                 authorization: None,
-                buf: bytes::BytesMut::new(),
+                buf: BytesMut::new(),
             })
         } else {
             Err(ClientError::InvalidUrl(InvalidUrlKind::InvalidScheme))
@@ -84,13 +85,26 @@ impl Client {
         url.set_scheme(match url.scheme() {
             "http" => "ws",
             "https" => "wss",
-            _ => unreachable!("cant happen"),
+            _ => unreachable!("scheme cant be anything other than http or https"),
         })
         .expect("failed to form websocket URL, something must be terribly wrong");
 
         let inner = tokio_tungstenite::connect_async(url).await?.0;
         Ok(Socket::new(inner))
     }
+}
+
+/// A message returned from the [`Socket::get_message()`] method of a [`Socket`].
+#[derive(Debug)]
+pub enum SocketMessage<Msg: prost::Message + Default> {
+    /// A protobuf message.
+    Protobuf(Msg),
+    /// A text message.
+    Text(String),
+    /// A ping, should be responded with a pong.
+    Ping(Bytes),
+    /// A pong.
+    Pong(Bytes),
 }
 
 /// A websocket, wrapped for ease of use with protobuf messages.
@@ -123,6 +137,7 @@ where
     /// Send a protobuf message over the websocket.
     pub async fn send_message(&mut self, msg: Msg) -> ClientResult<()> {
         use futures_util::SinkExt;
+
         self.buf
             .reserve(msg.encoded_len().saturating_sub(self.buf.len()));
         self.buf.clear();
@@ -131,36 +146,51 @@ where
 
         Ok(self
             .inner
-            .send(tokio_tungstenite::tungstenite::Message::Binary(
-                self.buf.to_vec(),
-            ))
+            .send(tungstenite::Message::Binary(self.buf.to_vec()))
             .await?)
     }
 
     /// Get a message from the websocket.
-    pub async fn get_message(&mut self) -> Option<ClientResult<Resp>> {
+    pub async fn get_message(&mut self) -> Option<ClientResult<SocketMessage<Resp>>> {
         use futures_util::StreamExt;
+
         let raw = self.inner.next().await?;
 
         match raw {
             Ok(msg) => {
-                if let tokio_tungstenite::tungstenite::Message::Binary(raw) = msg {
-                    Some(Resp::decode(Bytes::from(raw)).map_err(ClientError::MessageDecode))
-                } else {
-                    panic!()
+                use tungstenite::Message;
+
+                match msg {
+                    Message::Binary(raw) => Some(
+                        Resp::decode(Bytes::from(raw))
+                            .map(SocketMessage::Protobuf)
+                            .map_err(Into::into),
+                    ),
+                    Message::Close(_) => Some(Err(tungstenite::Error::ConnectionClosed.into())),
+                    Message::Text(msg) => Some(Ok(SocketMessage::Text(msg))),
+                    Message::Ping(ping) => Some(Ok(SocketMessage::Ping(ping.into()))),
+                    Message::Pong(pong) => Some(Ok(SocketMessage::Pong(pong.into()))),
                 }
             }
-            Err(err) => Some(Err(ClientError::SocketError(err))),
+            Err(err) => Some(Err(err.into())),
         }
+    }
+
+    /// Sends a "ping" message over the websocket and returns the payload as bytes.
+    pub async fn ping(&mut self) -> ClientResult<Bytes> {
+        use futures_util::SinkExt;
+
+        let bytes = Bytes::from_static(b"ping");
+        self.inner
+            .send(tungstenite::Message::Ping(bytes.to_vec()))
+            .await?;
+
+        Ok(bytes)
     }
 
     /// Close and drop this websocket.
     pub async fn close(mut self) -> ClientResult<()> {
-        use futures_util::SinkExt;
-        Ok(self
-            .inner
-            .send(tokio_tungstenite::tungstenite::Message::Close(None))
-            .await?)
+        Ok(self.inner.close(None).await?)
     }
 }
 
@@ -175,6 +205,7 @@ mod error {
     pub enum ClientError {
         /// Occurs if reqwest, the HTTP client, returns an error.
         Reqwest(reqwest::Error),
+        /// Occurs if a websocket returns an error.
         SocketError(tokio_tungstenite::tungstenite::Error),
         /// Occurs if the data server responded with can't be decoded as a protobuf response.
         MessageDecode(prost::DecodeError),
@@ -191,7 +222,7 @@ mod error {
                     err
                 ),
                 ClientError::SocketError(err) => {
-                    write!(f, "an error occured within a websocket: {}", err)
+                    write!(f, "an error occured within the websocket: {}", err)
                 }
                 ClientError::MessageDecode(err) => write!(
                     f,
