@@ -1,0 +1,15 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Nix
+/result*
+/nix/result*
+/shell.nix
+
+# Direnv
+/.direnv
+/.envrc
+
+# Editor
+/.vscode

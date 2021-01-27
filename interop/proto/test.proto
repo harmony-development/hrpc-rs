@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package test;
+
+option go_package = "hrpc/jiti";
+
+message Ping {
+    string mu = 1;
+}
+message Pong {
+    string mu = 1;
+}
+
+service Mu {
+    rpc Mu(Ping) returns (Pong);
+    rpc MuMute(stream Ping) returns (stream Pong);
+}

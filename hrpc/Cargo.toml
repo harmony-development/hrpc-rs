@@ -1,0 +1,11 @@
+[package]
+name = "hrpc"
+version = "0.1.0"
+authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
+edition = "2018"
+
+[dependencies]
+prost = "0.7"
+bytes = "1.0.1"
+reqwest = { version = "0.11.0", default-features = false, features = [ "rustls-tls-native-roots" ] }
+url = "2.2.0"
