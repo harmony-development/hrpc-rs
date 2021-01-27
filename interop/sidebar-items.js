@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["main",""]],"mod":[["mu_client","Generated client implementations."]],"struct":[["Ping",""],["Pong",""]]});

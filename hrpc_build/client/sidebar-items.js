@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["generate","Generate service for client."]]});

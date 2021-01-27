@@ -1,0 +1,5 @@
+(function() {var implementors = {};
+implementors["hrpc"] = [{"text":"impl Freeze for Client","synthetic":true,"types":[]},{"text":"impl&lt;Msg, Resp&gt; !Freeze for Socket&lt;Msg, Resp&gt;","synthetic":true,"types":[]},{"text":"impl Freeze for ClientError","synthetic":true,"types":[]},{"text":"impl Freeze for InvalidUrlKind","synthetic":true,"types":[]},{"text":"impl&lt;Msg&gt; !Freeze for SocketMessage&lt;Msg&gt;","synthetic":true,"types":[]}];
+implementors["hrpc_build"] = [{"text":"impl Freeze for Builder","synthetic":true,"types":[]}];
+implementors["interop"] = [{"text":"impl Freeze for Ping","synthetic":true,"types":[]},{"text":"impl Freeze for Pong","synthetic":true,"types":[]},{"text":"impl Freeze for MuClient","synthetic":true,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
