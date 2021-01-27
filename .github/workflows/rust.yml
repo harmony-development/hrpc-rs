@@ -1,0 +1,67 @@
+name: Rust
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'README.md'
+      - '**/*.nix'
+      - 'nix/envrc'
+      - 'flake.lock'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - 'README.md'
+      - '**/*.nix'
+      - 'nix/envrc'
+      - 'flake.lock'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  all:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v2
+    - name: Checkout submodules
+      uses: textbook/git-checkout-submodule-action@master
+
+    - name: Install dependencies
+      run: |
+        sudo apt update -yy
+        sudo apt install -yy --no-install-recommends protobuf-compiler protobuf-compiler-grpc
+    - name: Install rust
+      run: rustup default stable && rustup update && rustup component add rustfmt clippy
+
+    - name: Cache rust
+      uses: Swatinem/rust-cache@v1
+
+    - name: Clippy
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build
+      run: cargo build --verbose
+
+    - name: Test
+      run: RUST_LOG=info cargo test --verbose
+    
+    - name: Doc
+      run: cargo doc --no-deps --verbose
+
+    - name: Finalize documentation
+      run: |
+        CRATE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | cut -f2 -d"/")
+        echo "<meta http-equiv=\"refresh\" content=\"0; url=${CRATE_NAME/-/_}\">" > target/doc/index.html
+        touch target/doc/.nojekyll
+
+    - name: Publish docs
+      if: ${{ github.event_name == 'push' }}
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: target/doc/
+        publish_branch: gh-pages
