@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 include!(concat!(env!("OUT_DIR"), "/test.rs"));
 
 #[tokio::main(flavor = "current_thread")]
@@ -15,4 +17,20 @@ async fn main() {
         .await;
 
     println!("{:#?}", resp);
+
+    let mut socket = client.mu_mute().await.unwrap();
+
+    for i in 0..5 {
+        if let Err(err) = socket.send_message(Ping { mu: i.to_string() }).await {
+            eprintln!("failed to send message: {}", err);
+        }
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        if let Some(Ok(msg)) = socket.get_message().await {
+            println!("{:#?}", msg);
+        }
+    }
+
+    socket.close().await.unwrap();
 }

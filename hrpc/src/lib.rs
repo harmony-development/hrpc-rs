@@ -1,6 +1,11 @@
+use std::marker::PhantomData;
+
 pub use bytes;
+use bytes::{Bytes, BytesMut};
 pub use prost;
 pub use reqwest;
+use tokio::net::TcpStream;
+pub use tokio_tungstenite;
 pub use url;
 
 #[doc(inline)]
@@ -69,6 +74,94 @@ impl Client {
         let raw = resp.bytes().await?;
         Ok(Msg::decode(raw)?)
     }
+
+    pub async fn connect_socket<Msg, Resp>(&self, path: &str) -> ClientResult<Socket<Msg, Resp>>
+    where
+        Msg: prost::Message,
+        Resp: prost::Message + Default,
+    {
+        let mut url = self.server.join(path).unwrap();
+        url.set_scheme(match url.scheme() {
+            "http" => "ws",
+            "https" => "wss",
+            _ => unreachable!("cant happen"),
+        })
+        .expect("failed to form websocket URL, something must be terribly wrong");
+
+        let inner = tokio_tungstenite::connect_async(url).await?.0;
+        Ok(Socket::new(inner))
+    }
+}
+
+/// A websocket, wrapped for ease of use with protobuf messages.
+#[derive(Debug)]
+pub struct Socket<Msg, Resp>
+where
+    Msg: prost::Message,
+    Resp: prost::Message + Default,
+{
+    inner: tokio_tungstenite::WebSocketStream<TcpStream>,
+    buf: BytesMut,
+    _msg: PhantomData<Msg>,
+    _resp: PhantomData<Resp>,
+}
+
+impl<Msg, Resp> Socket<Msg, Resp>
+where
+    Msg: prost::Message,
+    Resp: prost::Message + Default,
+{
+    fn new(inner: tokio_tungstenite::WebSocketStream<TcpStream>) -> Self {
+        Self {
+            inner,
+            buf: BytesMut::new(),
+            _msg: Default::default(),
+            _resp: Default::default(),
+        }
+    }
+
+    /// Send a protobuf message over the websocket.
+    pub async fn send_message(&mut self, msg: Msg) -> ClientResult<()> {
+        use futures_util::SinkExt;
+        self.buf
+            .reserve(msg.encoded_len().saturating_sub(self.buf.len()));
+        self.buf.clear();
+        msg.encode(&mut self.buf)
+            .expect("failed to encode protobuf message, something must be terribly wrong");
+
+        Ok(self
+            .inner
+            .send(tokio_tungstenite::tungstenite::Message::Binary(
+                self.buf.to_vec(),
+            ))
+            .await?)
+    }
+
+    /// Get a message from the websocket.
+    pub async fn get_message(&mut self) -> Option<ClientResult<Resp>> {
+        use futures_util::StreamExt;
+        let raw = self.inner.next().await?;
+
+        match raw {
+            Ok(msg) => {
+                if let tokio_tungstenite::tungstenite::Message::Binary(raw) = msg {
+                    Some(Resp::decode(Bytes::from(raw)).map_err(ClientError::MessageDecode))
+                } else {
+                    panic!()
+                }
+            }
+            Err(err) => Some(Err(ClientError::SocketError(err))),
+        }
+    }
+
+    /// Close and drop this websocket.
+    pub async fn close(mut self) -> ClientResult<()> {
+        use futures_util::SinkExt;
+        Ok(self
+            .inner
+            .send(tokio_tungstenite::tungstenite::Message::Close(None))
+            .await?)
+    }
 }
 
 mod error {
@@ -82,6 +175,7 @@ mod error {
     pub enum ClientError {
         /// Occurs if reqwest, the HTTP client, returns an error.
         Reqwest(reqwest::Error),
+        SocketError(tokio_tungstenite::tungstenite::Error),
         /// Occurs if the data server responded with can't be decoded as a protobuf response.
         MessageDecode(prost::DecodeError),
         /// Occurs if the given URL is invalid.
@@ -93,9 +187,12 @@ mod error {
             match self {
                 ClientError::Reqwest(err) => write!(
                     f,
-                    "an error occured with the HTTP client, or the server returned an error: {}",
+                    "an error occured within the HTTP client, or the server returned an error: {}",
                     err
                 ),
+                ClientError::SocketError(err) => {
+                    write!(f, "an error occured within a websocket: {}", err)
+                }
                 ClientError::MessageDecode(err) => write!(
                     f,
                     "failed to decode response data as protobuf response: {}",
@@ -115,6 +212,12 @@ mod error {
     impl From<prost::DecodeError> for ClientError {
         fn from(err: prost::DecodeError) -> Self {
             ClientError::MessageDecode(err)
+        }
+    }
+
+    impl From<tokio_tungstenite::tungstenite::Error> for ClientError {
+        fn from(err: tokio_tungstenite::tungstenite::Error) -> Self {
+            ClientError::SocketError(err)
         }
     }
 

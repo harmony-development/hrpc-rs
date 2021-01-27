@@ -8,5 +8,8 @@ license = "MIT"
 [dependencies]
 prost = "0.7"
 bytes = "1.0.1"
+tokio = "1.1"
 reqwest = { version = "0.11.0", default-features = false, features = [ "rustls-tls-native-roots" ] }
 url = "2.2.0"
+tokio-tungstenite = "0.13.0"
+futures-util = "0.3"

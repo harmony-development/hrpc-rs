@@ -70,10 +70,9 @@ fn generate_methods<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             method.identifier()
         );
 
-        println!("{:#?}", method.options());
-
         let mtd = match (method.client_streaming(), method.server_streaming()) {
             (false, false) => generate_unary(method, proto_path, path),
+            (true, true) => generate_socket(method, proto_path, path),
             _ => continue,
         };
 
@@ -95,6 +94,19 @@ fn generate_unary<T: Method>(method: &T, proto_path: &str, path: String) -> Toke
         ) -> hrpc::ClientResult<#response> {
             let req = self.inner.make_request(request.into(), #path)?;
             self.inner.execute_request(req).await
+        }
+    }
+}
+
+fn generate_socket<T: Method>(method: &T, proto_path: &str, path: String) -> TokenStream {
+    let ident = format_ident!("{}", method.name());
+    let (request, response) = method.request_response_name(proto_path);
+
+    quote! {
+        pub async fn #ident(
+            &mut self,
+        ) -> hrpc::ClientResult<hrpc::Socket<#request, #response>> {
+            self.connect_socket(#path).await
         }
     }
 }
