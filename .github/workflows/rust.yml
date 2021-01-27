@@ -2,14 +2,14 @@ name: Rust
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
     paths-ignore:
       - 'README.md'
       - '**/*.nix'
       - 'nix/envrc'
       - 'flake.lock'
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
     paths-ignore:
       - 'README.md'
       - '**/*.nix'
