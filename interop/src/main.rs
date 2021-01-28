@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-include!(concat!(env!("OUT_DIR"), "/test.rs"));
+hrpc::include_proto!("test");
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {

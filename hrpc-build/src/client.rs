@@ -58,6 +58,12 @@ fn generate_methods<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let mut stream = TokenStream::new();
 
     for method in service.methods() {
+        let make_method = match (method.client_streaming(), method.server_streaming()) {
+            (false, false) => generate_unary,
+            (true, true) => generate_socket,
+            _ => continue,
+        };
+
         let path = format!(
             "/{}{}{}/{}",
             service.package(),
@@ -70,14 +76,8 @@ fn generate_methods<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             method.identifier()
         );
 
-        let mtd = match (method.client_streaming(), method.server_streaming()) {
-            (false, false) => generate_unary(method, proto_path, path),
-            (true, true) => generate_socket(method, proto_path, path),
-            _ => continue,
-        };
-
         stream.extend(generate_doc_comments(method.comment()));
-        stream.extend(mtd);
+        stream.extend(make_method(method, proto_path, path));
     }
 
     stream
