@@ -40,7 +40,7 @@
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">time</span>::<span class="ident">Duration</span>;
 
-<span class="macro">include</span><span class="macro">!</span>(<span class="macro">concat</span><span class="macro">!</span>(<span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/test.rs&quot;</span>));
+<span class="ident">hrpc</span>::<span class="macro">include_proto</span><span class="macro">!</span>(<span class="string">&quot;test&quot;</span>);
 
 <span class="attribute">#[<span class="ident">tokio</span>::<span class="ident">main</span>(<span class="ident">flavor</span> <span class="op">=</span> <span class="string">&quot;current_thread&quot;</span>)]</span>
 <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {

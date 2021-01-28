@@ -174,6 +174,12 @@
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">TokenStream</span>::<span class="ident">new</span>();
 
     <span class="kw">for</span> <span class="ident">method</span> <span class="kw">in</span> <span class="ident">service</span>.<span class="ident">methods</span>() {
+        <span class="kw">let</span> <span class="ident">make_method</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">method</span>.<span class="ident">client_streaming</span>(), <span class="ident">method</span>.<span class="ident">server_streaming</span>()) {
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">generate_unary</span>,
+            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">generate_socket</span>,
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">continue</span>,
+        };
+
         <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(
             <span class="string">&quot;/{}{}{}/{}&quot;</span>,
             <span class="ident">service</span>.<span class="ident">package</span>(),
@@ -186,14 +192,8 @@
             <span class="ident">method</span>.<span class="ident">identifier</span>()
         );
 
-        <span class="kw">let</span> <span class="ident">mtd</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">method</span>.<span class="ident">client_streaming</span>(), <span class="ident">method</span>.<span class="ident">server_streaming</span>()) {
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">generate_unary</span>(<span class="ident">method</span>, <span class="ident">proto_path</span>, <span class="ident">path</span>),
-            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">generate_socket</span>(<span class="ident">method</span>, <span class="ident">proto_path</span>, <span class="ident">path</span>),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">continue</span>,
-        };
-
         <span class="ident">stream</span>.<span class="ident">extend</span>(<span class="ident">generate_doc_comments</span>(<span class="ident">method</span>.<span class="ident">comment</span>()));
-        <span class="ident">stream</span>.<span class="ident">extend</span>(<span class="ident">mtd</span>);
+        <span class="ident">stream</span>.<span class="ident">extend</span>(<span class="ident">make_method</span>(<span class="ident">method</span>, <span class="ident">proto_path</span>, <span class="ident">path</span>));
     }
 
     <span class="ident">stream</span>
