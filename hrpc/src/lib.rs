@@ -89,7 +89,18 @@ impl Client {
         })
         .expect("failed to form websocket URL, something must be terribly wrong");
 
-        let inner = tokio_tungstenite::connect_async(url).await?.0;
+        let request = if let Some(auth) = self.authorization.as_deref() {
+            tungstenite::handshake::client::Request::get(url.to_string())
+                .header("Authorization", auth)
+                .body(())
+                .unwrap()
+        } else {
+            tungstenite::handshake::client::Request::get(url.to_string())
+                .body(())
+                .unwrap()
+        };
+
+        let inner = tokio_tungstenite::connect_async(request).await?.0;
         Ok(Socket::new(inner))
     }
 }
