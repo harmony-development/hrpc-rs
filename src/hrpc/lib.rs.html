@@ -317,6 +317,21 @@
 <span id="314">314</span>
 <span id="315">315</span>
 <span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span>;
@@ -391,7 +406,16 @@
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">req</span>: <span class="ident">reqwest</span>::<span class="ident">Request</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Msg</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">execute</span>(<span class="ident">req</span>).<span class="ident">await</span><span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">execute</span>(<span class="ident">req</span>).<span class="ident">await</span><span class="question-mark">?</span>.<span class="ident">error_for_status</span>()<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">resp</span>
+            .<span class="ident">headers</span>()
+            .<span class="ident">get</span>(<span class="string">&quot;Content-Type&quot;</span>)
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">to_str</span>().<span class="ident">ok</span>())
+            .<span class="ident">flatten</span>()
+            .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span> <span class="op">=</span><span class="op">=</span> <span class="string">&quot;application/octet-stream&quot;</span>)
+        {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError</span>::<span class="ident">NonProtobuf</span>(<span class="ident">resp</span>.<span class="ident">bytes</span>().<span class="ident">await</span><span class="question-mark">?</span>));
+        }
         <span class="kw">let</span> <span class="ident">raw</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">bytes</span>().<span class="ident">await</span><span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">Msg</span>::<span class="ident">decode</span>(<span class="ident">raw</span>)<span class="question-mark">?</span>)
     }
@@ -526,6 +550,7 @@
 }
 
 <span class="kw">mod</span> <span class="ident">error</span> {
+    <span class="kw">use</span> <span class="ident">bytes</span>::<span class="ident">Bytes</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>};
 
     <span class="doccomment">/// Convenience type for [`Client`] operation result.</span>
@@ -540,6 +565,8 @@
         <span class="ident">SocketError</span>(<span class="ident">tokio_tungstenite</span>::<span class="ident">tungstenite</span>::<span class="ident">Error</span>),
         <span class="doccomment">/// Occurs if the data server responded with can&#39;t be decoded as a protobuf response.</span>
         <span class="ident">MessageDecode</span>(<span class="ident">prost</span>::<span class="ident">DecodeError</span>),
+        <span class="doccomment">/// Occurs if the data server responded with isn&#39;t a protobuf response.</span>
+        <span class="ident">NonProtobuf</span>(<span class="ident">Bytes</span>),
         <span class="doccomment">/// Occurs if the given URL is invalid.</span>
         <span class="ident">InvalidUrl</span>(<span class="ident">InvalidUrlKind</span>),
     }
@@ -554,6 +581,9 @@
                 ),
                 <span class="ident">ClientError</span>::<span class="ident">SocketError</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;an error occured within the websocket: {}&quot;</span>, <span class="ident">err</span>)
+                }
+                <span class="ident">ClientError</span>::<span class="ident">NonProtobuf</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;server responded with a non protobuf response&quot;</span>)
                 }
                 <span class="ident">ClientError</span>::<span class="ident">MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
                     <span class="ident">f</span>,
