@@ -71,7 +71,16 @@ impl Client {
         &mut self,
         req: reqwest::Request,
     ) -> ClientResult<Msg> {
-        let resp = self.inner.execute(req).await?;
+        let resp = self.inner.execute(req).await?.error_for_status()?;
+        if resp
+            .headers()
+            .get("Content-Type")
+            .map(|v| v.to_str().ok())
+            .flatten()
+            .map_or(false, |t| t == "application/octet-stream")
+        {
+            return Err(ClientError::NonProtobuf(resp.bytes().await?));
+        }
         let raw = resp.bytes().await?;
         Ok(Msg::decode(raw)?)
     }
@@ -206,6 +215,7 @@ where
 }
 
 mod error {
+    use bytes::Bytes;
     use std::fmt::{self, Display, Formatter};
 
     /// Convenience type for [`Client`] operation result.
@@ -220,6 +230,8 @@ mod error {
         SocketError(tokio_tungstenite::tungstenite::Error),
         /// Occurs if the data server responded with can't be decoded as a protobuf response.
         MessageDecode(prost::DecodeError),
+        /// Occurs if the data server responded with isn't a protobuf response.
+        NonProtobuf(Bytes),
         /// Occurs if the given URL is invalid.
         InvalidUrl(InvalidUrlKind),
     }
@@ -234,6 +246,9 @@ mod error {
                 ),
                 ClientError::SocketError(err) => {
                     write!(f, "an error occured within the websocket: {}", err)
+                }
+                ClientError::NonProtobuf(_) => {
+                    write!(f, "server responded with a non protobuf response")
                 }
                 ClientError::MessageDecode(err) => write!(
                     f,
