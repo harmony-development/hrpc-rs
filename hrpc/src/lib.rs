@@ -77,7 +77,9 @@ impl Client {
             .get("Content-Type")
             .map(|v| v.to_str().ok())
             .flatten()
-            .map_or(false, |t| t == "application/octet-stream")
+            .map(|t| t.split(';').next())
+            .flatten()
+            .map_or(true, |t| t != "application/octet-stream")
         {
             return Err(ClientError::NonProtobuf(resp.bytes().await?));
         }
