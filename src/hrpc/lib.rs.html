@@ -397,7 +397,7 @@
         );
         <span class="ident">req</span> <span class="op">=</span> <span class="ident">req</span>.<span class="ident">body</span>(<span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">to_vec</span>());
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">auth</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">authorization</span>.<span class="ident">as_deref</span>() {
-            <span class="ident">req</span> <span class="op">=</span> <span class="ident">req</span>.<span class="ident">bearer_auth</span>(<span class="ident">auth</span>);
+            <span class="ident">req</span> <span class="op">=</span> <span class="ident">req</span>.<span class="ident">header</span>(<span class="string">&quot;Authorization&quot;</span>, <span class="ident">auth</span>);
         }
 
         <span class="prelude-val">Ok</span>(<span class="ident">req</span>.<span class="ident">build</span>()<span class="question-mark">?</span>)
