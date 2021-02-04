@@ -60,7 +60,7 @@ impl Client {
         );
         req = req.body(self.buf.to_vec());
         if let Some(auth) = self.authorization.as_deref() {
-            req = req.bearer_auth(auth);
+            req = req.header("Authorization", auth);
         }
 
         Ok(req.build()?)
