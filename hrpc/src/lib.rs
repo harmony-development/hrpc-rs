@@ -1,16 +1,27 @@
 use bytes::{Bytes, BytesMut};
-use std::marker::PhantomData;
-use tokio::net::TcpStream;
+use std::{
+    fmt::{self, Debug, Formatter},
+    marker::PhantomData,
+};
 use url::Url;
 
+pub use async_tungstenite::{self, tungstenite};
 pub use bytes;
 pub use prost;
 pub use reqwest;
-pub use tokio_tungstenite::{self, tungstenite};
 pub use url;
 
 #[doc(inline)]
 pub use error::*;
+
+type WebSocketStream = async_tungstenite::WebSocketStream<
+    async_tungstenite::stream::Stream<
+        async_tungstenite::tokio::TokioAdapter<tokio::net::TcpStream>,
+        async_tungstenite::tokio::TokioAdapter<
+            tokio_rustls::client::TlsStream<tokio::net::TcpStream>,
+        >,
+    >,
+>;
 
 /// Generic client implementation with common methods.
 #[derive(Debug, Clone)]
@@ -111,7 +122,7 @@ impl Client {
                 .unwrap()
         };
 
-        let inner = tokio_tungstenite::connect_async(request).await?.0;
+        let inner = async_tungstenite::tokio::connect_async(request).await?.0;
         Ok(Socket::new(inner))
     }
 }
@@ -130,16 +141,28 @@ pub enum SocketMessage<Msg: prost::Message + Default> {
 }
 
 /// A websocket, wrapped for ease of use with protobuf messages.
-#[derive(Debug)]
 pub struct Socket<Msg, Resp>
 where
     Msg: prost::Message,
     Resp: prost::Message + Default,
 {
-    inner: tokio_tungstenite::WebSocketStream<TcpStream>,
+    inner: WebSocketStream,
     buf: BytesMut,
     _msg: PhantomData<Msg>,
     _resp: PhantomData<Resp>,
+}
+
+impl<Msg, Resp> Debug for Socket<Msg, Resp>
+where
+    Msg: prost::Message,
+    Resp: prost::Message + Default,
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("Socket")
+            .field("inner", self.inner.get_config())
+            .field("buf", &self.buf)
+            .finish()
+    }
 }
 
 impl<Msg, Resp> Socket<Msg, Resp>
@@ -147,7 +170,7 @@ where
     Msg: prost::Message,
     Resp: prost::Message + Default,
 {
-    fn new(inner: tokio_tungstenite::WebSocketStream<TcpStream>) -> Self {
+    fn new(inner: WebSocketStream) -> Self {
         Self {
             inner,
             buf: BytesMut::new(),
@@ -229,7 +252,7 @@ mod error {
         /// Occurs if reqwest, the HTTP client, returns an error.
         Reqwest(reqwest::Error),
         /// Occurs if a websocket returns an error.
-        SocketError(tokio_tungstenite::tungstenite::Error),
+        SocketError(async_tungstenite::tungstenite::Error),
         /// Occurs if the data server responded with can't be decoded as a protobuf response.
         MessageDecode(prost::DecodeError),
         /// Occurs if the data server responded with isn't a protobuf response.
@@ -274,8 +297,8 @@ mod error {
         }
     }
 
-    impl From<tokio_tungstenite::tungstenite::Error> for ClientError {
-        fn from(err: tokio_tungstenite::tungstenite::Error) -> Self {
+    impl From<async_tungstenite::tungstenite::Error> for ClientError {
+        fn from(err: async_tungstenite::tungstenite::Error) -> Self {
             ClientError::SocketError(err)
         }
     }

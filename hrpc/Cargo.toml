@@ -9,7 +9,8 @@ license = "MIT"
 prost = "0.7"
 bytes = "1.0.1"
 tokio = "1.1"
-reqwest = { version = "0.11.0", default-features = false, features = [ "rustls-tls-native-roots" ] }
+tokio-rustls = "0.22.0"
+reqwest = { version = "0.11.0", default-features = false, features = ["rustls-tls-native-roots"] }
 url = "2.2.0"
-tokio-tungstenite = "0.13.0"
+async-tungstenite = { version = "0.12.0", features = ["tokio-rustls"] }
 futures-util = "0.3"
