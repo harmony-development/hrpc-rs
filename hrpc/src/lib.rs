@@ -82,7 +82,21 @@ impl Client {
         &mut self,
         req: reqwest::Request,
     ) -> ClientResult<Msg> {
-        let resp = self.inner.execute(req).await?.error_for_status()?;
+        let resp = self.inner.execute(req).await?;
+
+        // Handle errors
+        if let Err(error) = resp.error_for_status_ref() {
+            let raw_error = resp.bytes().await?;
+            return Err(ClientError::EndpointError {
+                raw_error,
+                status: error.status().unwrap(), // We always generate the error from a response, so this is always safe
+                endpoint: error
+                    .url()
+                    .map_or_else(|| "unknown".to_string(), ToString::to_string),
+            });
+        }
+
+        // Handle non-protobuf successful responses
         if resp
             .headers()
             .get("Content-Type")
@@ -94,6 +108,7 @@ impl Client {
         {
             return Err(ClientError::NonProtobuf(resp.bytes().await?));
         }
+
         let raw = resp.bytes().await?;
         Ok(Msg::decode(raw)?)
     }
@@ -251,6 +266,12 @@ mod error {
     pub enum ClientError {
         /// Occurs if reqwest, the HTTP client, returns an error.
         Reqwest(reqwest::Error),
+        /// Occurs if an endpoint returns an error.
+        EndpointError {
+            raw_error: Bytes,
+            status: reqwest::StatusCode,
+            endpoint: String,
+        },
         /// Occurs if a websocket returns an error.
         SocketError(async_tungstenite::tungstenite::Error),
         /// Occurs if the data server responded with can't be decoded as a protobuf response.
@@ -264,10 +285,17 @@ mod error {
     impl Display for ClientError {
         fn fmt(&self, f: &mut Formatter) -> fmt::Result {
             match self {
-                ClientError::Reqwest(err) => write!(
+                ClientError::Reqwest(err) => {
+                    write!(f, "an error occured within the HTTP client: {}", err)
+                }
+                ClientError::EndpointError {
+                    raw_error: _,
+                    status,
+                    endpoint,
+                } => write!(
                     f,
-                    "an error occured within the HTTP client, or the server returned an error: {}",
-                    err
+                    "endpoint {} returned an error with status code {}",
+                    endpoint, status,
                 ),
                 ClientError::SocketError(err) => {
                     write!(f, "an error occured within the websocket: {}", err)
