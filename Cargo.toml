@@ -1,2 +1,2 @@
 [workspace]
-members = [ "hrpc", "hrpc-build", "interop" ]
+members = ["hrpc", "hrpc-build", "interop"]
