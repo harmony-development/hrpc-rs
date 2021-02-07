@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-tungstenite",
  "bytes",
