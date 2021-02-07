@@ -8,7 +8,7 @@ license = "MIT"
 [dependencies]
 prost = "0.7"
 hrpc = { path = "../hrpc" }
-tokio = { version = "1.1", features = ["rt", "macros", "fs"] }
+tokio = { version = "1.2", features = ["rt", "macros", "fs"] }
 
 [build-dependencies]
 hrpc-build = { path = "../hrpc-build" }
