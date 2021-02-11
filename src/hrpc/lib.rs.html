@@ -385,6 +385,9 @@
 <span id="382">382</span>
 <span id="383">383</span>
 <span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -485,6 +488,7 @@
         }
 
         <span class="comment">// Handle non-protobuf successful responses</span>
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">blocks_in_if_conditions</span>)]</span>
         <span class="kw">if</span> <span class="ident">resp</span>
             .<span class="ident">headers</span>()
             .<span class="ident">get</span>(<span class="string">&quot;Content-Type&quot;</span>)
@@ -492,7 +496,9 @@
             .<span class="ident">flatten</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span>.<span class="ident">split</span>(<span class="string">&#39;;&#39;</span>).<span class="ident">next</span>())
             .<span class="ident">flatten</span>()
-            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span> <span class="op">!</span><span class="op">=</span> <span class="string">&quot;application/octet-stream&quot;</span>)
+            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">t</span><span class="op">|</span> {
+                <span class="op">!</span><span class="macro">matches</span><span class="macro">!</span>(<span class="ident">t</span>, <span class="string">&quot;application/octet-stream&quot;</span> <span class="op">|</span> <span class="string">&quot;application/hrpc&quot;</span>)
+            })
         {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError</span>::<span class="ident">NonProtobuf</span>(<span class="ident">resp</span>.<span class="ident">bytes</span>().<span class="ident">await</span><span class="question-mark">?</span>));
         }
