@@ -97,6 +97,7 @@ impl Client {
         }
 
         // Handle non-protobuf successful responses
+        #[allow(clippy::blocks_in_if_conditions)]
         if resp
             .headers()
             .get("Content-Type")
@@ -104,7 +105,9 @@ impl Client {
             .flatten()
             .map(|t| t.split(';').next())
             .flatten()
-            .map_or(true, |t| t != "application/octet-stream")
+            .map_or(true, |t| {
+                !matches!(t, "application/octet-stream" | "application/hrpc")
+            })
         {
             return Err(ClientError::NonProtobuf(resp.bytes().await?));
         }
