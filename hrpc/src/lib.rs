@@ -70,6 +70,7 @@ impl Client {
                 .expect("failed to form request URL, something must be terribly wrong"),
         );
         req = req.body(self.buf.to_vec());
+        req = req.header("Content-Type", "application/hrpc");
         if let Some(auth) = self.authorization.as_deref() {
             req = req.header("Authorization", auth);
         }
