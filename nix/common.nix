@@ -41,17 +41,12 @@ in
       nativeBuildInputs = [ /* Add compile time dependencies here */ ];
     };
 
-  /* Put env variables here, like so:
-
-    env = {
-      PROTOC = "${pkgs.protobuf}/bin/protoc";
-    };
-
-    The variables are not (shell) escaped.
-    Variables put here will appear in both dev env and build env.
-  */
-  env = {
-    PROTOC = "${pkgs.protobuf}/bin/protoc";
-    PROTOC_INCLUDE = "${pkgs.protobuf}/include";
-  };
+  env =
+    let
+      nv = pkgs.lib.nameValuePair;
+    in
+    [
+      (nv "PROTOC" "${pkgs.protobuf}/bin/protoc")
+      (nv "PROTOC_INCLUDE" "${pkgs.protobuf}/include")
+    ];
 }
