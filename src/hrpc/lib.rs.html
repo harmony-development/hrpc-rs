@@ -366,29 +366,6 @@
 <span id="363">363</span>
 <span id="364">364</span>
 <span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-<span id="386">386</span>
-<span id="387">387</span>
-<span id="388">388</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -538,19 +515,6 @@
     }
 }
 
-<span class="doccomment">/// A message returned from the [`Socket::get_message()`] method of a [`Socket`].</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SocketMessage</span><span class="op">&lt;</span><span class="ident">Msg</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// A protobuf message.</span>
-    <span class="ident">Protobuf</span>(<span class="ident">Msg</span>),
-    <span class="doccomment">/// A text message.</span>
-    <span class="ident">Text</span>(<span class="ident">String</span>),
-    <span class="doccomment">/// A ping, should be responded with a pong.</span>
-    <span class="ident">Ping</span>(<span class="ident">Bytes</span>),
-    <span class="doccomment">/// A pong.</span>
-    <span class="ident">Pong</span>(<span class="ident">Bytes</span>),
-}
-
 <span class="doccomment">/// A websocket, wrapped for ease of use with protobuf messages.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Msg</span>, <span class="ident">Resp</span><span class="op">&gt;</span>
 <span class="kw">where</span>
@@ -607,41 +571,31 @@
     }
 
     <span class="doccomment">/// Get a message from the websocket.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">SocketMessage</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident">futures_util</span>::<span class="ident">StreamExt</span>;
 
         <span class="kw">let</span> <span class="ident">raw</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">next</span>().<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">match</span> <span class="ident">raw</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">use</span> <span class="ident">futures_util</span>::<span class="ident">SinkExt</span>;
                 <span class="kw">use</span> <span class="ident">tungstenite</span>::<span class="ident">Message</span>;
 
                 <span class="kw">match</span> <span class="ident">msg</span> {
-                    <span class="ident">Message</span>::<span class="ident">Binary</span>(<span class="ident">raw</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(
-                        <span class="ident">Resp</span>::<span class="ident">decode</span>(<span class="ident">Bytes</span>::<span class="ident">from</span>(<span class="ident">raw</span>))
-                            .<span class="ident">map</span>(<span class="ident">SocketMessage</span>::<span class="ident">Protobuf</span>)
-                            .<span class="ident">map_err</span>(<span class="ident">Into</span>::<span class="ident">into</span>),
-                    ),
+                    <span class="ident">Message</span>::<span class="ident">Binary</span>(<span class="ident">raw</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="prelude-val">Some</span>(<span class="ident">Resp</span>::<span class="ident">decode</span>(<span class="ident">Bytes</span>::<span class="ident">from</span>(<span class="ident">raw</span>)).<span class="ident">map_err</span>(<span class="ident">Into</span>::<span class="ident">into</span>))
+                    }
                     <span class="ident">Message</span>::<span class="ident">Close</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="ident">tungstenite</span>::<span class="ident">Error</span>::<span class="ident">ConnectionClosed</span>.<span class="ident">into</span>())),
-                    <span class="ident">Message</span>::<span class="ident">Text</span>(<span class="ident">msg</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(<span class="ident">SocketMessage</span>::<span class="ident">Text</span>(<span class="ident">msg</span>))),
-                    <span class="ident">Message</span>::<span class="ident">Ping</span>(<span class="ident">ping</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(<span class="ident">SocketMessage</span>::<span class="ident">Ping</span>(<span class="ident">ping</span>.<span class="ident">into</span>()))),
-                    <span class="ident">Message</span>::<span class="ident">Pong</span>(<span class="ident">pong</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(<span class="ident">SocketMessage</span>::<span class="ident">Pong</span>(<span class="ident">pong</span>.<span class="ident">into</span>()))),
+                    <span class="ident">Message</span>::<span class="ident">Ping</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>
+                        .<span class="ident">inner</span>
+                        .<span class="ident">send</span>(<span class="ident">tungstenite</span>::<span class="ident">Message</span>::<span class="ident">Pong</span>(<span class="ident">data</span>))
+                        .<span class="kw">await</span>
+                        .<span class="ident">map_or_else</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>.<span class="ident">into</span>())), <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">None</span>),
+                    <span class="ident">Message</span>::<span class="ident">Pong</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Message</span>::<span class="ident">Text</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
                 }
             }
             <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>.<span class="ident">into</span>())),
         }
-    }
-
-    <span class="doccomment">/// Sends a &quot;ping&quot; message over the websocket and returns the payload as bytes.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">ping</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Bytes</span><span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">futures_util</span>::<span class="ident">SinkExt</span>;
-
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">Bytes</span>::<span class="ident">from_static</span>(<span class="string">b&quot;ping&quot;</span>);
-        <span class="self">self</span>.<span class="ident">inner</span>
-            .<span class="ident">send</span>(<span class="ident">tungstenite</span>::<span class="ident">Message</span>::<span class="ident">Ping</span>(<span class="ident">bytes</span>.<span class="ident">to_vec</span>()))
-            .<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(<span class="ident">bytes</span>)
     }
 
     <span class="doccomment">/// Close and drop this websocket.</span>
