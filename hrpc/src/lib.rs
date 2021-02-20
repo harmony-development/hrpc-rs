@@ -146,19 +146,6 @@ impl Client {
     }
 }
 
-/// A message returned from the [`Socket::get_message()`] method of a [`Socket`].
-#[derive(Debug)]
-pub enum SocketMessage<Msg: prost::Message + Default> {
-    /// A protobuf message.
-    Protobuf(Msg),
-    /// A text message.
-    Text(String),
-    /// A ping, should be responded with a pong.
-    Ping(Bytes),
-    /// A pong.
-    Pong(Bytes),
-}
-
 /// A websocket, wrapped for ease of use with protobuf messages.
 pub struct Socket<Msg, Resp>
 where
@@ -215,41 +202,31 @@ where
     }
 
     /// Get a message from the websocket.
-    pub async fn get_message(&mut self) -> Option<ClientResult<SocketMessage<Resp>>> {
+    pub async fn get_message(&mut self) -> Option<ClientResult<Resp>> {
         use futures_util::StreamExt;
 
         let raw = self.inner.next().await?;
 
         match raw {
             Ok(msg) => {
+                use futures_util::SinkExt;
                 use tungstenite::Message;
 
                 match msg {
-                    Message::Binary(raw) => Some(
-                        Resp::decode(Bytes::from(raw))
-                            .map(SocketMessage::Protobuf)
-                            .map_err(Into::into),
-                    ),
+                    Message::Binary(raw) => {
+                        Some(Resp::decode(Bytes::from(raw)).map_err(Into::into))
+                    }
                     Message::Close(_) => Some(Err(tungstenite::Error::ConnectionClosed.into())),
-                    Message::Text(msg) => Some(Ok(SocketMessage::Text(msg))),
-                    Message::Ping(ping) => Some(Ok(SocketMessage::Ping(ping.into()))),
-                    Message::Pong(pong) => Some(Ok(SocketMessage::Pong(pong.into()))),
+                    Message::Ping(data) => self
+                        .inner
+                        .send(tungstenite::Message::Pong(data))
+                        .await
+                        .map_or_else(|err| Some(Err(err.into())), |_| None),
+                    Message::Pong(_) | Message::Text(_) => None,
                 }
             }
             Err(err) => Some(Err(err.into())),
         }
-    }
-
-    /// Sends a "ping" message over the websocket and returns the payload as bytes.
-    pub async fn ping(&mut self) -> ClientResult<Bytes> {
-        use futures_util::SinkExt;
-
-        let bytes = Bytes::from_static(b"ping");
-        self.inner
-            .send(tungstenite::Message::Ping(bytes.to_vec()))
-            .await?;
-
-        Ok(bytes)
     }
 
     /// Close and drop this websocket.
