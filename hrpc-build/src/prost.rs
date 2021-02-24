@@ -1,3 +1,5 @@
+use crate::server;
+
 use super::client;
 use proc_macro2::TokenStream;
 use prost_build::{Config, Method, Service};
@@ -151,10 +153,10 @@ impl ServiceGenerator {
 
 impl prost_build::ServiceGenerator for ServiceGenerator {
     fn generate(&mut self, service: prost_build::Service, _buf: &mut String) {
-        /*if self.builder.build_server {
+        if self.builder.build_server {
             let server = server::generate(&service, &self.builder.proto_path);
             self.servers.extend(server);
-        }*/
+        }
 
         if self.builder.build_client {
             let client = client::generate(&service, &self.builder.proto_path);

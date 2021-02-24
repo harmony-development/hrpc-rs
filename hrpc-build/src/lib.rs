@@ -15,6 +15,8 @@ pub use self::prost::{compile_protos, configure, Builder};
 
 /// Service code generation for client
 pub mod client;
+/// Service code generation for server
+pub mod server;
 
 /// Service generation trait.
 ///
