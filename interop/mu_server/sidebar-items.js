@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["MuServer",""]],"trait":[["Mu","Generated trait containing hRPC methods that should be implemented for use with MuServer."]]});

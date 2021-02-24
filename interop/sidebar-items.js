@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["main",""]],"mod":[["mu_client","Generated client implementations."]],"struct":[["Ping",""],["Pong",""]]});
+initSidebarItems({"enum":[["ServerError",""]],"fn":[["client",""],["main",""],["server",""]],"mod":[["mu_client","Generated client implementations."],["mu_server","Generated server implementations."]],"struct":[["Ping",""],["Pong",""],["Server",""]]});

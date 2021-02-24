@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ClientError","Errors that can occur within `Client` operation."],["InvalidUrlKind","Errors that can occur while parsing the URL given to `Client::new()`."]],"struct":[["Socket","A websocket, wrapped for ease of use with protobuf messages."]],"type":[["ClientResult","Convenience type for `Client` operation result."]]});
