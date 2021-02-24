@@ -138,7 +138,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                         let svr = svr.clone();
                         async move {
                             let mut buf = BytesMut::new();
-                            match #req_message :: decode(bin) {
+                            match <#req_message> :: decode(bin) {
                                 Ok(req) => {
                                     match svr. #name (req) .await {
                                         Ok(bin) => {
@@ -180,7 +180,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                 if let Some(msg) = msg_maybe {
                                     if msg.is_binary() {
                                         let msg_bin = Bytes::from(msg.into_bytes());
-                                        let resp = match #req_message :: decode(msg_bin) {
+                                        let resp = match <#req_message> :: decode(msg_bin) {
                                             Ok(req) => {
                                                 match svr. #name (req) .await {
                                                     Ok(bin) => {
