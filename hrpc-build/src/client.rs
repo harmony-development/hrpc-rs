@@ -19,6 +19,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
         #[allow(dead_code, unused_imports)]
         pub mod #client_mod {
             use prost::Message;
+            use std::ops::{DerefMut, Deref};
 
             #service_doc
             #[derive(Debug, Clone)]
@@ -34,6 +35,20 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 }
 
                 #methods
+            }
+
+            impl DerefMut for #service_ident {
+                fn deref_mut(&mut self) -> &mut Self::Target {
+                    &mut self.inner
+                }
+            }
+
+            impl Deref for #service_ident {
+                type Target = hrpc::client::Client;
+
+                fn deref(&self) -> &Self::Target {
+                    &self.inner
+                }
             }
         }
     }

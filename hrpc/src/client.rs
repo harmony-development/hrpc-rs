@@ -20,7 +20,6 @@ type WebSocketStream = async_tungstenite::WebSocketStream<
 >;
 
 /// Generic client implementation with common methods.
-#[doc(hidden)]
 #[derive(Debug, Clone)]
 pub struct Client {
     inner: reqwest::Client,
