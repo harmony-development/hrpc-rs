@@ -1,6 +1,8 @@
-use crate::server;
-
+#[cfg(feature = "client")]
 use super::client;
+#[cfg(feature = "server")]
+use super::server;
+
 use proc_macro2::TokenStream;
 use prost_build::{Config, Method, Service};
 use quote::ToTokens;
@@ -12,7 +14,9 @@ use std::path::{Path, PathBuf};
 /// Use [`compile_protos`] instead if you don't need to tweak anything.
 pub fn configure() -> Builder {
     Builder {
+        #[cfg(feature = "client")]
         build_client: true,
+        #[cfg(feature = "server")]
         build_server: true,
         out_dir: None,
         extern_path: Vec::new(),
@@ -137,7 +141,9 @@ impl crate::Method for Method {
 
 struct ServiceGenerator {
     builder: Builder,
+    #[cfg(feature = "client")]
     clients: TokenStream,
+    #[cfg(feature = "server")]
     servers: TokenStream,
 }
 
@@ -145,7 +151,9 @@ impl ServiceGenerator {
     fn new(builder: Builder) -> Self {
         ServiceGenerator {
             builder,
+            #[cfg(feature = "client")]
             clients: TokenStream::default(),
+            #[cfg(feature = "server")]
             servers: TokenStream::default(),
         }
     }
@@ -153,11 +161,13 @@ impl ServiceGenerator {
 
 impl prost_build::ServiceGenerator for ServiceGenerator {
     fn generate(&mut self, service: prost_build::Service, _buf: &mut String) {
+        #[cfg(feature = "server")]
         if self.builder.build_server {
             let server = server::generate(&service, &self.builder.proto_path);
             self.servers.extend(server);
         }
 
+        #[cfg(feature = "client")]
         if self.builder.build_client {
             let client = client::generate(&service, &self.builder.proto_path);
             self.clients.extend(client);
@@ -165,6 +175,7 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
     }
 
     fn finalize(&mut self, buf: &mut String) {
+        #[cfg(feature = "client")]
         if self.builder.build_client && !self.clients.is_empty() {
             let clients = &self.clients;
 
@@ -178,6 +189,7 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
             self.clients = TokenStream::default();
         }
 
+        #[cfg(feature = "server")]
         if self.builder.build_server && !self.servers.is_empty() {
             let servers = &self.servers;
 
@@ -196,7 +208,9 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
 /// Service generator builder.
 #[derive(Debug, Clone)]
 pub struct Builder {
+    #[cfg(feature = "client")]
     pub(crate) build_client: bool,
+    #[cfg(feature = "server")]
     pub(crate) build_server: bool,
     pub(crate) extern_path: Vec<(String, String)>,
     pub(crate) field_attributes: Vec<(String, String)>,
@@ -209,13 +223,15 @@ pub struct Builder {
 }
 
 impl Builder {
-    /// Enable or disable gRPC client code generation.
+    #[cfg(feature = "client")]
+    /// Enable or disable hRPC client code generation.
     pub fn build_client(mut self, enable: bool) -> Self {
         self.build_client = enable;
         self
     }
 
-    /// Enable or disable gRPC server code generation.
+    #[cfg(feature = "server")]
+    /// Enable or disable hRPC server code generation.
     pub fn build_server(mut self, enable: bool) -> Self {
         self.build_server = enable;
         self

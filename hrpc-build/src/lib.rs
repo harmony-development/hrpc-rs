@@ -14,8 +14,10 @@ mod prost;
 pub use self::prost::{compile_protos, configure, Builder};
 
 /// Service code generation for client
+#[cfg(feature = "client")]
 pub mod client;
 /// Service code generation for server
+#[cfg(feature = "server")]
 pub mod server;
 
 /// Service generation trait.
