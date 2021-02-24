@@ -75,6 +75,12 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
     let mut stream = TokenStream::new();
 
     for method in service.methods() {
+        let streaming = (method.client_streaming(), method.server_streaming());
+        match streaming {
+            (true, true) | (false, false) => {}
+            _ => continue,
+        }
+
         let name = quote::format_ident!("{}", method.name());
 
         let (req_message, res_message) = method.request_response_name(proto_path);
@@ -95,19 +101,10 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, TokenStream) {
     let mut stream = TokenStream::new();
     let mut comb_stream = TokenStream::new();
+    let mut comb_index = 0;
 
-    for (index, method) in service.methods().iter().enumerate() {
+    for method in service.methods() {
         let name = quote::format_ident!("{}", method.name());
-
-        if index > 0 {
-            comb_stream.extend(quote! {
-                .or(#name)
-            });
-        } else {
-            comb_stream.extend(quote! {
-                #name
-            });
-        }
 
         let package_name = format!(
             "{}{}{}",
@@ -234,6 +231,17 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
             },
             _ => continue,
         };
+
+        if comb_index > 0 {
+            comb_stream.extend(quote! {
+                .or(#name)
+            });
+        } else {
+            comb_stream.extend(quote! {
+                #name
+            });
+        }
+        comb_index += 1;
 
         stream.extend(method);
     }
