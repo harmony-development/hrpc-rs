@@ -2,23 +2,30 @@
 #[doc(inline)]
 pub use async_trait::async_trait;
 #[doc(hidden)]
-pub use async_tungstenite::{self, tungstenite};
-#[doc(hidden)]
 pub use bytes;
 #[doc(hidden)]
 pub use futures_util;
 #[doc(hidden)]
 pub use log;
 #[doc(hidden)]
-pub use reqwest;
-#[doc(hidden)]
 pub use url;
+
 #[doc(hidden)]
+#[cfg(feature = "client")]
+pub use async_tungstenite::{self, tungstenite};
+#[doc(hidden)]
+#[cfg(feature = "client")]
+pub use reqwest;
+
+#[doc(hidden)]
+#[cfg(feature = "server")]
 pub use warp;
 
 /// Common client types and functions.
+#[cfg(feature = "client")]
 pub mod client;
 /// Common server types and functions.
+#[cfg(feature = "server")]
 pub mod server;
 
 #[doc(hidden)]
