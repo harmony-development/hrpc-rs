@@ -1,1 +1,1 @@
-initSidebarItems({"attr":[["async_trait",""]],"macro":[["include_proto","Include generated proto server and client items."]],"mod":[["client","Common client types and functions."],["server","Common server types and functions."]]});
+initSidebarItems({"attr":[["async_trait",""]],"macro":[["include_proto","Include generated proto server and client items."],["serve_multiple","Serves multiple services' filters on the same address."]],"mod":[["client","Common client types and functions."],["server","Common server types and functions."]]});
