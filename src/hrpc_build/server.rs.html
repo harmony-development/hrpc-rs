@@ -251,6 +251,12 @@
 <span id="248">248</span>
 <span id="249">249</span>
 <span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Method</span>, <span class="ident">Service</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">generate_doc_comment</span>, <span class="ident">generate_doc_comments</span>, <span class="ident">naive_snake_case</span>};
@@ -293,12 +299,18 @@
 
                 <span class="doccomment">/// Start serving.</span>
                 <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">serve</span>(<span class="self">self</span>, <span class="ident">address</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">std</span>::<span class="ident">net</span>::<span class="ident">SocketAddr</span><span class="op">&gt;</span>) {
+                    <span class="ident">warp</span>::<span class="ident">serve</span>(<span class="self">self</span>.<span class="ident">filters</span>()).<span class="ident">run</span>(<span class="ident">address</span>).<span class="kw">await</span>
+                }
+
+                <span class="doccomment">/// Extract `warp` filters.</span>
+                <span class="doccomment">///</span>
+                <span class="doccomment">/// This can be used to compose multiple services.</span>
+                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">redundant_clone</span>)]</span>
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">filters</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">warp</span>::<span class="ident">filters</span>::<span class="ident">BoxedFilter</span><span class="op">&lt;</span>(<span class="kw">impl</span> <span class="ident">warp</span>::<span class="ident">Reply</span>,)<span class="op">&gt;</span> {
                     <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>;
 
                     #<span class="ident">serve_filters</span>
-                    <span class="kw">let</span> <span class="ident">filters</span> <span class="op">=</span> #<span class="ident">serve_combined_filters</span>.<span class="ident">recover</span>(<span class="ident">hrpc</span>::<span class="ident">server</span>::<span class="ident">handle_rejection</span>::<span class="op">&lt;</span><span class="ident">T</span>::<span class="ident">Error</span><span class="op">&gt;</span>);
-
-                    <span class="ident">warp</span>::<span class="ident">serve</span>(<span class="ident">filters</span>).<span class="ident">run</span>(<span class="ident">address</span>).<span class="kw">await</span>
+                    #<span class="ident">serve_combined_filters</span>.<span class="ident">recover</span>(<span class="ident">hrpc</span>::<span class="ident">server</span>::<span class="ident">handle_rejection</span>::<span class="op">&lt;</span><span class="ident">T</span>::<span class="ident">Error</span><span class="op">&gt;</span>).<span class="ident">boxed</span>()
                 }
             }
         }
