@@ -148,7 +148,12 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                     match svr. #name (req) .await {
                                         Ok(bin) => {
                                             hrpc::encode_protobuf_message(&mut buf, bin);
-                                            Ok(buf.to_vec())
+                                            let mut resp = warp::reply::Response::new(buf.to_vec().into());
+                                            resp
+                                                .headers_mut()
+                                                .entry("content-type")
+                                                .or_insert("application/hrpc".parse().unwrap());
+                                            Ok(resp)
                                         }
                                         Err(err) => {
                                             log::error!("{}/{}: {}", #package_name, #method_name, err);
@@ -228,10 +233,12 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                 if last_ping_time.elapsed().as_secs() > T::PING_PERIOD {
                                     if let Err(e) = tx.send(WsMessage::ping(PING_DATA)).await {
                                         log::error!("{}/{}: error pinging client socket: {}", #package_name, #method_name, e);
+                                        log::error!("{}/{}: can't reach client, closing socket", #package_name, #method_name);
+                                        break;
                                     } else {
                                         log::debug!("{}/{}: pinged client socket, last ping was {} ago", #package_name, #method_name, last_ping_time.elapsed().as_secs());
-                                        last_ping_time = Instant::now();
                                     }
+                                    last_ping_time = Instant::now();
                                 }
                             }
                         })
