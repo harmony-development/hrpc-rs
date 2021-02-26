@@ -39,12 +39,18 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
                 /// Start serving.
                 pub async fn serve(self, address: impl Into<std::net::SocketAddr>) {
+                    warp::serve(self.filters()).run(address).await
+                }
+
+                /// Extract `warp` filters.
+                ///
+                /// This can be used to compose multiple services.
+                #[allow(clippy::redundant_clone)]
+                pub fn filters(self) -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
                     let server = self.inner;
 
                     #serve_filters
-                    let filters = #serve_combined_filters.recover(hrpc::server::handle_rejection::<T::Error>);
-
-                    warp::serve(filters).run(address).await
+                    #serve_combined_filters.recover(hrpc::server::handle_rejection::<T::Error>).boxed()
                 }
             }
         }
