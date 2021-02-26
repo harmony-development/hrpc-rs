@@ -1,4 +1,4 @@
-use hrpc::server::StatusCode;
+use hrpc::server::{json_err_bytes, StatusCode};
 use simplelog::Config;
 use std::{
     fmt::{self, Display, Formatter},
@@ -105,9 +105,9 @@ impl hrpc::server::CustomError for ServerError {
         }
     }
 
-    fn message(&self) -> &str {
+    fn message(&self) -> Vec<u8> {
         match self {
-            ServerError::PingEmpty => "sent empty ping",
+            ServerError::PingEmpty => json_err_bytes("sent empty ping"),
         }
     }
 }

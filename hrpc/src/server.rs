@@ -21,7 +21,7 @@ pub trait CustomError: Debug + Display {
     /// Status code that will be used in client response.
     fn code(&self) -> StatusCode;
     /// Message that will be used in client response.
-    fn message(&self) -> &str;
+    fn message(&self) -> Vec<u8>;
 }
 
 #[doc(hidden)]
@@ -51,12 +51,12 @@ pub async fn handle_rejection<Err: CustomError + Send + Sync + 'static>(
 
     if err.is_not_found() {
         code = StatusCode::NOT_FOUND;
-        message = "not found";
+        message = json_err_bytes("not found");
     } else if let Some(e) = err.find::<ServerError<Err>>() {
         match e {
             ServerError::MessageDecode(_) => {
                 code = StatusCode::BAD_REQUEST;
-                message = "invalid protobuf message";
+                message = json_err_bytes("invalid protobuf message");
             }
             ServerError::Custom(err) => {
                 code = err.code();
@@ -66,10 +66,16 @@ pub async fn handle_rejection<Err: CustomError + Send + Sync + 'static>(
     } else {
         log::error!("unhandled rejection: {:?}", err);
         code = StatusCode::INTERNAL_SERVER_ERROR;
-        message = "internal server error";
+        message = json_err_bytes("internal server error");
     }
 
-    let json = warp::reply::json(&format!("{{ \"message\": \"{}\" }}", message));
+    let mut reply = warp::reply::Response::new(message.into());
+    *reply.status_mut() = code;
 
-    Ok(warp::reply::with_status(json, code))
+    Ok(reply)
+}
+
+/// Creates a JSON error response from a message.
+pub fn json_err_bytes(msg: &str) -> Vec<u8> {
+    format!("{{ \"message\": \"{}\" }}", msg).into_bytes()
 }
