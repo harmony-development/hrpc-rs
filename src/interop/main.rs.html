@@ -112,8 +112,6 @@
 <span id="109">109</span>
 <span id="110">110</span>
 <span id="111">111</span>
-<span id="112">112</span>
-<span id="113">113</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">hrpc</span>::<span class="ident">server</span>::{<span class="ident">json_err_bytes</span>, <span class="ident">StatusCode</span>};
 <span class="kw">use</span> <span class="ident">simplelog</span>::<span class="ident">Config</span>;
@@ -186,8 +184,6 @@
 
 <span class="attribute">#[<span class="ident">hrpc</span>::<span class="ident">async_trait</span>]</span>
 <span class="kw">impl</span> <span class="ident">mu_server</span>::<span class="ident">Mu</span> <span class="kw">for</span> <span class="ident">Server</span> {
-    <span class="kw">const</span> <span class="ident">SOCKET_PING_PERIOD</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">15</span>;
-
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">ServerError</span>;
 
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Ping</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Pong</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
