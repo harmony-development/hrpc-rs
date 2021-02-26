@@ -115,7 +115,7 @@
 <span id="112">112</span>
 <span id="113">113</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="ident">hrpc</span>::<span class="ident">server</span>::<span class="ident">StatusCode</span>;
+<span class="kw">use</span> <span class="ident">hrpc</span>::<span class="ident">server</span>::{<span class="ident">json_err_bytes</span>, <span class="ident">StatusCode</span>};
 <span class="kw">use</span> <span class="ident">simplelog</span>::<span class="ident">Config</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>},
@@ -222,9 +222,9 @@
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">str</span> {
+    <span class="kw">fn</span> <span class="ident">message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">ServerError</span>::<span class="ident">PingEmpty</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;sent empty ping&quot;</span>,
+            <span class="ident">ServerError</span>::<span class="ident">PingEmpty</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">json_err_bytes</span>(<span class="string">&quot;sent empty ping&quot;</span>),
         }
     }
 }
