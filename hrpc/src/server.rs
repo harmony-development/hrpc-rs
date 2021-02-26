@@ -79,3 +79,23 @@ pub async fn handle_rejection<Err: CustomError + Send + Sync + 'static>(
 pub fn json_err_bytes(msg: &str) -> Vec<u8> {
     format!("{{ \"message\": \"{}\" }}", msg).into_bytes()
 }
+
+/// Serves multiple services' filters on the same address.
+#[macro_export]
+macro_rules! serve_multiple {
+    {
+        addr: $address:expr,
+        err: $err:ty,
+        filters: $first:expr, $( $filter:expr, )+
+    } => {
+        async move {
+            use $crate::warp::Filter;
+
+            let filter = $first $( .or($filter) )+ ;
+
+            $crate::warp::serve(filter.recover($crate::server::handle_rejection::<$err>))
+                .run($address)
+                .await
+        }
+    };
+}
