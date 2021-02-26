@@ -17,11 +17,29 @@ pub mod prelude {
 pub use warp::http::StatusCode;
 
 /// Trait that needs to be implemented to use an error type with a generated service server.
-pub trait CustomError: Debug + Display {
+pub trait CustomError: Debug + Display + Send + Sync {
     /// Status code that will be used in client response.
     fn code(&self) -> StatusCode;
     /// Message that will be used in client response.
     fn message(&self) -> Vec<u8>;
+    /// Return a message decode error.
+    fn decode_error() -> (StatusCode, Vec<u8>) {
+        (
+            StatusCode::BAD_REQUEST,
+            json_err_bytes("invalid protobuf message"),
+        )
+    }
+    /// Return a not fonud error.
+    fn not_found_error() -> (StatusCode, Vec<u8>) {
+        (StatusCode::NOT_FOUND, json_err_bytes("not found"))
+    }
+    /// Return an internal server error.
+    fn internal_server_error() -> (StatusCode, Vec<u8>) {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            json_err_bytes("internal server error"),
+        )
+    }
 }
 
 #[doc(hidden)]
@@ -40,34 +58,23 @@ impl<Err: CustomError> Display for ServerError<Err> {
     }
 }
 
-impl<Err: CustomError + Send + Sync + 'static> warp::reject::Reject for ServerError<Err> {}
+impl<Err: CustomError + 'static> warp::reject::Reject for ServerError<Err> {}
 
 #[doc(hidden)]
-pub async fn handle_rejection<Err: CustomError + Send + Sync + 'static>(
+pub async fn handle_rejection<Err: CustomError + 'static>(
     err: Rejection,
 ) -> Result<impl Reply, Infallible> {
-    let code;
-    let message;
-
-    if err.is_not_found() {
-        code = StatusCode::NOT_FOUND;
-        message = json_err_bytes("not found");
+    let (code, message) = if err.is_not_found() {
+        Err::not_found_error()
     } else if let Some(e) = err.find::<ServerError<Err>>() {
         match e {
-            ServerError::MessageDecode(_) => {
-                code = StatusCode::BAD_REQUEST;
-                message = json_err_bytes("invalid protobuf message");
-            }
-            ServerError::Custom(err) => {
-                code = err.code();
-                message = err.message();
-            }
+            ServerError::MessageDecode(_) => Err::decode_error(),
+            ServerError::Custom(err) => (err.code(), err.message()),
         }
     } else {
         log::error!("unhandled rejection: {:?}", err);
-        code = StatusCode::INTERNAL_SERVER_ERROR;
-        message = json_err_bytes("internal server error");
-    }
+        Err::internal_server_error()
+    };
 
     let mut reply = warp::reply::Response::new(message.into());
     *reply.status_mut() = code;
