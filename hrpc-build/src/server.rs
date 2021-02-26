@@ -70,7 +70,8 @@ fn generate_trait<T: Service>(service: &T, proto_path: &str, server_trait: Ident
         #trait_doc
         #[hrpc::async_trait]
         pub trait #server_trait : Send + Sync + 'static {
-            const SOCKET_PING_PERIOD: u64;
+            const SOCKET_PING_PERIOD: u64 = 15;
+            const SOCKET_PING_DATA: [u8; 32] = [1; 32];
 
             type Error: CustomError + Send + Sync + 'static;
 
@@ -182,7 +183,6 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
 
                             let (mut tx, mut rx) = ws.split();
                             let mut buf = BytesMut::new();
-                            const PING_DATA: &[u8] = &[45; 32];
                             let mut last_ping_time = Instant::now();
 
                             loop {
@@ -216,7 +216,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                         }
                                     } else if msg.is_pong() {
                                         let msg_bin = Bytes::from(msg.into_bytes());
-                                        if PING_DATA != msg_bin {
+                                        if T::SOCKET_PING_DATA != msg_bin.as_ref() {
                                             if let Err(e) = tx.send(WsMessage::close()).await {
                                                 log::error!("{}/{}: error closing socket: {}", #package_name, #method_name, e);
                                             } else {
@@ -231,7 +231,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                     }
                                 }
                                 if last_ping_time.elapsed().as_secs() > T::SOCKET_PING_PERIOD {
-                                    if let Err(e) = tx.send(WsMessage::ping(PING_DATA)).await {
+                                    if let Err(e) = tx.send(WsMessage::ping(T::SOCKET_PING_DATA)).await {
                                         log::error!("{}/{}: error pinging client socket: {}", #package_name, #method_name, e);
                                         log::error!("{}/{}: can't reach client, closing socket", #package_name, #method_name);
                                         break;

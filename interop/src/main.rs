@@ -69,8 +69,6 @@ struct Server;
 
 #[hrpc::async_trait]
 impl mu_server::Mu for Server {
-    const SOCKET_PING_PERIOD: u64 = 15;
-
     type Error = ServerError;
 
     async fn mu(&self, request: Ping) -> Result<Pong, Self::Error> {
