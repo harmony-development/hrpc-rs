@@ -70,7 +70,7 @@ fn generate_trait<T: Service>(service: &T, proto_path: &str, server_trait: Ident
         #trait_doc
         #[hrpc::async_trait]
         pub trait #server_trait : Send + Sync + 'static {
-            const PING_PERIOD: u64;
+            const SOCKET_PING_PERIOD: u64;
 
             type Error: CustomError + Send + Sync + 'static;
 
@@ -230,7 +230,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                         break;
                                     }
                                 }
-                                if last_ping_time.elapsed().as_secs() > T::PING_PERIOD {
+                                if last_ping_time.elapsed().as_secs() > T::SOCKET_PING_PERIOD {
                                     if let Err(e) = tx.send(WsMessage::ping(PING_DATA)).await {
                                         log::error!("{}/{}: error pinging client socket: {}", #package_name, #method_name, e);
                                         log::error!("{}/{}: can't reach client, closing socket", #package_name, #method_name);
