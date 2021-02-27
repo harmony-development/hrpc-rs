@@ -158,9 +158,9 @@
         <span class="kw">pub</span> <span class="kw">mod</span> #<span class="ident">client_mod</span> {
             <span class="kw">use</span> <span class="ident">prost</span>::<span class="ident">Message</span>;
             <span class="kw">use</span> <span class="ident">hrpc</span>::{
+                <span class="ident">IntoRequest</span>, <span class="ident">Request</span>,
                 <span class="ident">client</span>::{
-                    <span class="ident">Client</span>, <span class="ident">Socket</span>, <span class="ident">Request</span>, <span class="ident">ClientResult</span>, <span class="ident">IntoRequest</span>,
-                    <span class="ident">ReadSocket</span>, <span class="ident">WriteSocket</span>,
+                    <span class="ident">Client</span>, <span class="ident">Socket</span>, <span class="ident">ClientResult</span>, <span class="ident">ReadSocket</span>, <span class="ident">WriteSocket</span>,
                 },
                 <span class="ident">reqwest</span>::<span class="ident">Client</span> <span class="kw">as</span> <span class="ident">ReqwestClient</span>,
                 <span class="ident">url</span>::<span class="ident">Url</span>,
