@@ -1,4 +1,8 @@
 //! Common code used in hRPC code generation.
+use reqwest::header::HeaderName;
+use std::collections::HashMap;
+use warp::http::HeaderValue;
+
 #[doc(inline)]
 pub use async_trait::async_trait;
 #[doc(hidden)]
@@ -27,6 +31,79 @@ pub mod client;
 /// Common server types and functions.
 #[cfg(feature = "server")]
 pub mod server;
+
+/// A hRPC request.
+pub struct Request<T> {
+    message: T,
+    header_map: HashMap<HeaderName, HeaderValue>,
+}
+
+impl<T> Request<T> {
+    /// Create a new request with the specified message.
+    ///
+    /// This adds the default "content-type" header used for hRPC unary requests.
+    pub fn new(message: T) -> Self {
+        Self {
+            message,
+            header_map: {
+                #[allow(clippy::mutable_key_type)]
+                let mut map: HashMap<HeaderName, HeaderValue> = HashMap::with_capacity(1);
+                map.insert(
+                    "content-type".parse().unwrap(),
+                    "application/hrpc".parse().unwrap(),
+                );
+                map
+            },
+        }
+    }
+
+    /// Create an empty request.
+    ///
+    /// This is useful for hRPC socket requests, since they don't send any messages.
+    pub fn empty() -> Request<()> {
+        Request {
+            message: (),
+            header_map: HashMap::new(),
+        }
+    }
+
+    /// Change / add a header.
+    pub fn header(mut self, key: HeaderName, value: HeaderValue) -> Self {
+        self.header_map.insert(key, value);
+        self
+    }
+
+    /// Change the contained message.
+    pub fn message<S>(self, message: S) -> Request<S> {
+        let Request {
+            message: _,
+            header_map,
+        } = self;
+
+        Request {
+            message,
+            header_map,
+        }
+    }
+}
+
+/// Trait used for blanket impls on generated protobuf types.
+pub trait IntoRequest<T> {
+    /// Convert this to a request.
+    fn into_request(self) -> Request<T>;
+}
+
+impl<T> IntoRequest<T> for T {
+    fn into_request(self) -> Request<Self> {
+        Request::new(self)
+    }
+}
+
+impl<T> IntoRequest<T> for Request<T> {
+    fn into_request(self) -> Request<T> {
+        self
+    }
+}
 
 #[doc(hidden)]
 pub fn encode_protobuf_message(buf: &mut bytes::BytesMut, msg: impl prost::Message) {

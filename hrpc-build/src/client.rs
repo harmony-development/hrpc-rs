@@ -20,9 +20,9 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
         pub mod #client_mod {
             use prost::Message;
             use hrpc::{
+                IntoRequest, Request,
                 client::{
-                    Client, Socket, Request, ClientResult, IntoRequest,
-                    ReadSocket, WriteSocket,
+                    Client, Socket, ClientResult, ReadSocket, WriteSocket,
                 },
                 reqwest::Client as ReqwestClient,
                 url::Url,
