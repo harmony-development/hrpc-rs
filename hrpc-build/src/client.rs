@@ -19,36 +19,26 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
         #[allow(dead_code, unused_imports)]
         pub mod #client_mod {
             use prost::Message;
-            use std::ops::{DerefMut, Deref};
+            use hrpc::{
+                client::{Client, Socket, Request, ClientResult, IntoRequest},
+                reqwest::Client as ReqwestClient,
+                url::Url,
+            };
 
             #service_doc
             #[derive(Debug, Clone)]
             pub struct #service_ident {
-                inner: hrpc::client::Client,
+                inner: Client,
             }
 
             impl #service_ident {
-                pub fn new(inner: hrpc::reqwest::Client, host_url: hrpc::url::Url) -> hrpc::client::ClientResult<Self> {
+                pub fn new(inner: ReqwestClient, host_url: Url) -> ClientResult<Self> {
                     Ok(Self {
-                        inner: hrpc::client::Client::new(inner, host_url)?,
+                        inner: Client::new(inner, host_url)?,
                     })
                 }
 
                 #methods
-            }
-
-            impl DerefMut for #service_ident {
-                fn deref_mut(&mut self) -> &mut Self::Target {
-                    &mut self.inner
-                }
-            }
-
-            impl Deref for #service_ident {
-                type Target = hrpc::client::Client;
-
-                fn deref(&self) -> &Self::Target {
-                    &self.inner
-                }
             }
         }
     }
@@ -90,10 +80,9 @@ fn generate_unary<T: Method>(method: &T, proto_path: &str, path: String) -> Toke
     quote! {
         pub async fn #ident(
             &mut self,
-            request: impl Into<#request>,
-        ) -> hrpc::client::ClientResult<#response> {
-            let req = self.inner.make_request(request.into(), #path)?;
-            self.inner.execute_request(req).await
+            request: impl IntoRequest<#request>,
+        ) -> ClientResult<#response> {
+            self.inner.execute_request(#path, request.into_request()).await
         }
     }
 }
@@ -105,8 +94,9 @@ fn generate_socket<T: Method>(method: &T, proto_path: &str, path: String) -> Tok
     quote! {
         pub async fn #ident(
             &mut self,
-        ) -> hrpc::client::ClientResult<hrpc::client::Socket<#request, #response>> {
-            self.inner.connect_socket(#path).await
+            request: impl IntoRequest<()>,
+        ) -> ClientResult<Socket<#request, #response>> {
+            self.inner.connect_socket(#path, request.into_request()).await
         }
     }
 }

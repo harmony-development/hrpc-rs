@@ -42,7 +42,7 @@ async fn client() {
     let resp = client.mu(Ping { mu: "".to_string() }).await;
     println!("{:#?}", resp);
 
-    let socket = Arc::new(client.mu_mute().await.unwrap());
+    let socket = Arc::new(client.mu_mute(()).await.unwrap());
 
     tokio::spawn({
         let socket = socket.clone();
@@ -51,8 +51,8 @@ async fn client() {
                 let ins = Instant::now();
                 match socket.get_message().await {
                     Some(Ok(msg)) => {
-                        println!("{:#?}", msg);
                         println!("got in {}", ins.elapsed().as_secs_f64());
+                        println!("{:#?}", msg);
                     }
                     Some(Err(_)) => break,
                     _ => {}

@@ -1,12 +1,15 @@
 use super::*;
 
 use bytes::{Bytes, BytesMut};
+use reqwest::header::HeaderName;
 use std::{
+    collections::HashMap,
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
     sync::{Arc, Mutex},
     time::Duration,
 };
+use tungstenite::http::HeaderValue;
 use url::Url;
 
 #[doc(inline)]
@@ -24,11 +27,83 @@ type WebSocketStream = async_tungstenite::WebSocketStream<
 type SocketRequest = tungstenite::handshake::client::Request;
 type UnaryRequest = reqwest::Request;
 
+/// A hRPC request.
+pub struct Request<T> {
+    message: T,
+    header_map: HashMap<HeaderName, HeaderValue>,
+}
+
+impl<T> Request<T> {
+    /// Create a new request with the specified message.
+    ///
+    /// This adds the default "content-type" header used for hRPC unary requests.
+    pub fn new(message: T) -> Self {
+        Self {
+            message,
+            header_map: {
+                #[allow(clippy::mutable_key_type)]
+                let mut map: HashMap<HeaderName, HeaderValue> = HashMap::with_capacity(1);
+                map.insert(
+                    "content-type".parse().unwrap(),
+                    "application/hrpc".parse().unwrap(),
+                );
+                map
+            },
+        }
+    }
+
+    /// Create an empty request.
+    ///
+    /// This is useful for hRPC socket requests, since they don't send any messages.
+    pub fn empty() -> Request<()> {
+        Request {
+            message: (),
+            header_map: HashMap::new(),
+        }
+    }
+
+    /// Change / add a header.
+    pub fn header(mut self, key: HeaderName, value: HeaderValue) -> Self {
+        self.header_map.insert(key, value);
+        self
+    }
+
+    /// Change the contained message.
+    pub fn message<S>(self, message: S) -> Request<S> {
+        let Request {
+            message: _,
+            header_map,
+        } = self;
+
+        Request {
+            message,
+            header_map,
+        }
+    }
+}
+
+/// Trait used for blanket impls on generated protobuf types.
+pub trait IntoRequest<T> {
+    /// Convert this to a request.
+    fn into_request(self) -> Request<T>;
+}
+
+impl<T> IntoRequest<T> for T {
+    fn into_request(self) -> Request<Self> {
+        Request::new(self)
+    }
+}
+
+impl<T> IntoRequest<T> for Request<T> {
+    fn into_request(self) -> Request<T> {
+        self
+    }
+}
+
 /// Generic client implementation with common methods.
 #[derive(Debug, Clone)]
 pub struct Client {
     inner: reqwest::Client,
-    authorization: Option<String>,
     server: Url,
     buf: BytesMut,
 }
@@ -40,7 +115,6 @@ impl Client {
             Ok(Self {
                 inner,
                 server,
-                authorization: None,
                 buf: BytesMut::new(),
             })
         } else {
@@ -48,39 +122,28 @@ impl Client {
         }
     }
 
-    /// Sets the authorization token of this client.
-    pub fn set_auth_token(&mut self, authorization: Option<String>) {
-        self.authorization = authorization;
-    }
-
-    /// Makes a unary request from a protobuf message and the given endpoint path.
-    pub fn make_request(
-        &mut self,
-        msg: impl prost::Message,
-        path: &str,
-    ) -> ClientResult<UnaryRequest> {
-        encode_protobuf_message(&mut self.buf, msg);
-
-        let mut req = self.inner.post(
-            self.server
-                .join(path)
-                .expect("failed to form request URL, something must be terribly wrong"),
-        );
-        req = req.body(self.buf.to_vec());
-        req = req.header("Content-Type", "application/hrpc");
-        if let Some(auth) = self.authorization.as_deref() {
-            req = req.header("Authorization", auth);
-        }
-
-        Ok(req.build()?)
-    }
-
     /// Executes an unary request returns the decoded response.
-    pub async fn execute_request<Msg: prost::Message + Default>(
+    pub async fn execute_request<Msg: prost::Message, Resp: prost::Message + Default>(
         &mut self,
-        req: UnaryRequest,
-    ) -> ClientResult<Msg> {
-        let resp = self.inner.execute(req).await?;
+        path: &str,
+        req: Request<Msg>,
+    ) -> ClientResult<Resp> {
+        let request = {
+            encode_protobuf_message(&mut self.buf, req.message);
+            let mut request = UnaryRequest::new(
+                reqwest::Method::POST,
+                self.server
+                    .join(path)
+                    .expect("failed to form request URL, something must be terribly wrong"),
+            );
+            *request.body_mut() = Some(self.buf.to_vec().into());
+            for (key, value) in req.header_map {
+                request.headers_mut().entry(key).or_insert(value);
+            }
+            request
+        };
+
+        let resp = self.inner.execute(request).await?;
 
         // Handle errors
         if let Err(error) = resp.error_for_status_ref() {
@@ -111,10 +174,15 @@ impl Client {
         }
 
         let raw = resp.bytes().await?;
-        Ok(Msg::decode(raw)?)
+        Ok(Resp::decode(raw)?)
     }
 
-    pub async fn connect_socket<Msg, Resp>(&self, path: &str) -> ClientResult<Socket<Msg, Resp>>
+    /// Connect a socket with the server and return it.
+    pub async fn connect_socket<Msg, Resp>(
+        &self,
+        path: &str,
+        req: Request<()>,
+    ) -> ClientResult<Socket<Msg, Resp>>
     where
         Msg: prost::Message,
         Resp: prost::Message + Default,
@@ -128,11 +196,8 @@ impl Client {
         .expect("failed to form websocket URL, something must be terribly wrong");
 
         let mut request = SocketRequest::get(url.into_string()).body(()).unwrap();
-        if let Some(auth) = self.authorization.as_deref() {
-            request
-                .headers_mut()
-                .entry("Authorization")
-                .or_insert(auth.parse().unwrap());
+        for (key, value) in req.header_map {
+            request.headers_mut().entry(key).or_insert(value);
         }
 
         let inner = async_tungstenite::tokio::connect_async(request).await?.0;
