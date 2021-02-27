@@ -1,4 +1,7 @@
-use hrpc::server::{json_err_bytes, StatusCode};
+use hrpc::{
+    server::{json_err_bytes, StatusCode},
+    Request,
+};
 use simplelog::Config;
 use std::{
     fmt::{self, Display, Formatter},
@@ -91,19 +94,25 @@ struct Server {
 impl mu_server::Mu for Server {
     type Error = ServerError;
 
-    async fn mu(&self, request: Ping) -> Result<Pong, Self::Error> {
-        if request.mu.is_empty() {
+    async fn mu(&self, request: Request<Ping>) -> Result<Pong, Self::Error> {
+        if request.get_message().mu.is_empty() {
             return Err(ServerError::PingEmpty);
         }
-        Ok(Pong { mu: request.mu })
+        Ok(Pong {
+            mu: request.into_parts().0.mu,
+        })
     }
 
     async fn mu_mute(&self, request: Option<Ping>) -> Result<Option<Pong>, Self::Error> {
         if let Some(req) = request {
-            return self.mu(req).await.map(Some);
+            return Ok(Some(Pong { mu: req.mu }));
         }
 
         Ok(None)
+    }
+
+    async fn mu_mute_validate(&self, _request: Request<()>) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
 

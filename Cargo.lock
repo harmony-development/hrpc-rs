@@ -423,6 +423,7 @@ dependencies = [
  "async-tungstenite",
  "bytes",
  "futures-util",
+ "http",
  "log",
  "prost",
  "reqwest",

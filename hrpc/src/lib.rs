@@ -23,6 +23,9 @@ pub use reqwest;
 
 #[doc(hidden)]
 #[cfg(feature = "server")]
+pub use http;
+#[doc(hidden)]
+#[cfg(feature = "server")]
 pub use warp;
 
 /// Common client types and functions.
@@ -32,10 +35,12 @@ pub mod client;
 #[cfg(feature = "server")]
 pub mod server;
 
+type HeaderMap = HashMap<HeaderName, HeaderValue>;
+
 /// A hRPC request.
 pub struct Request<T> {
     message: T,
-    header_map: HashMap<HeaderName, HeaderValue>,
+    header_map: HeaderMap,
 }
 
 impl<T> Request<T> {
@@ -47,7 +52,7 @@ impl<T> Request<T> {
             message,
             header_map: {
                 #[allow(clippy::mutable_key_type)]
-                let mut map: HashMap<HeaderName, HeaderValue> = HashMap::with_capacity(1);
+                let mut map: HeaderMap = HeaderMap::with_capacity(1);
                 map.insert(
                     "content-type".parse().unwrap(),
                     "application/hrpc".parse().unwrap(),
@@ -63,7 +68,7 @@ impl<T> Request<T> {
     pub fn empty() -> Request<()> {
         Request {
             message: (),
-            header_map: HashMap::new(),
+            header_map: HeaderMap::new(),
         }
     }
 
@@ -83,6 +88,29 @@ impl<T> Request<T> {
         Request {
             message,
             header_map,
+        }
+    }
+
+    /// Get a reference to the inner message.
+    pub fn get_message(&self) -> &T {
+        &self.message
+    }
+
+    /// Get a header.
+    pub fn get_header(&self, key: &HeaderName) -> Option<&HeaderValue> {
+        self.header_map.get(key)
+    }
+
+    /// Destructure this request into parts.
+    pub fn into_parts(self) -> (T, HeaderMap) {
+        (self.message, self.header_map)
+    }
+
+    /// Create a request from parts.
+    pub fn from_parts(parts: (T, HeaderMap)) -> Self {
+        Self {
+            message: parts.0,
+            header_map: parts.1,
         }
     }
 }
