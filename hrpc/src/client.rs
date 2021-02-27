@@ -4,6 +4,8 @@ use bytes::{Bytes, BytesMut};
 use std::{
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
+    sync::{Arc, Mutex},
+    time::Duration,
 };
 use url::Url;
 
@@ -138,16 +140,22 @@ impl Client {
     }
 }
 
+#[derive(Clone)]
 /// A websocket, wrapped for ease of use with protobuf messages.
 pub struct Socket<Msg, Resp>
 where
     Msg: prost::Message,
     Resp: prost::Message + Default,
 {
-    inner: WebSocketStream,
-    buf: BytesMut,
+    data: Arc<SocketData>,
     _msg: PhantomData<Msg>,
     _resp: PhantomData<Resp>,
+}
+
+struct SocketData {
+    tx: futures_util::lock::BiLock<WebSocketStream>,
+    rx: futures_util::lock::BiLock<WebSocketStream>,
+    buf: Mutex<BytesMut>,
 }
 
 impl<Msg, Resp> Debug for Socket<Msg, Resp>
@@ -157,8 +165,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_struct("Socket")
-            .field("inner", self.inner.get_config())
-            .field("buf", &self.buf)
+            .field("buf", &self.data.buf)
             .finish()
     }
 }
@@ -169,31 +176,52 @@ where
     Resp: prost::Message + Default,
 {
     fn new(inner: WebSocketStream) -> Self {
+        let (tx, rx) = futures_util::lock::BiLock::new(inner);
         Self {
-            inner,
-            buf: BytesMut::new(),
+            data: Arc::new(SocketData {
+                tx,
+                rx,
+                buf: Mutex::new(BytesMut::new()),
+            }),
             _msg: Default::default(),
             _resp: Default::default(),
         }
     }
 
     /// Send a protobuf message over the websocket.
-    pub async fn send_message(&mut self, msg: Msg) -> ClientResult<()> {
+    pub async fn send_message(&self, msg: Msg) -> ClientResult<()> {
         use futures_util::SinkExt;
 
-        encode_protobuf_message(&mut self.buf, msg);
+        encode_protobuf_message(&mut self.data.buf.lock().unwrap(), msg);
 
         Ok(self
-            .inner
-            .send(tungstenite::Message::Binary(self.buf.to_vec()))
+            .data
+            .tx
+            .lock()
+            .await
+            .send(tungstenite::Message::Binary(
+                self.data.buf.lock().unwrap().to_vec(),
+            ))
             .await?)
     }
 
     /// Get a message from the websocket.
-    pub async fn get_message(&mut self) -> Option<ClientResult<Resp>> {
+    pub async fn get_message(&self) -> Option<ClientResult<Resp>> {
         use futures_util::StreamExt;
 
-        let raw = self.inner.next().await?;
+        // Without this timeout and the sleep after the timeout expires it blocks and will result in a deadlock
+        let raw = tokio::time::timeout(Duration::from_nanos(1), async {
+            self.data.rx.lock().await.next().await
+        })
+        .await;
+
+        let raw = match raw {
+            Ok(raw) => raw?,
+            Err(_) => {
+                tokio::time::sleep(Duration::from_nanos(1)).await;
+                return None;
+            }
+        };
 
         match raw {
             Ok(msg) => {
@@ -206,7 +234,10 @@ where
                     }
                     Message::Close(_) => Some(Err(tungstenite::Error::ConnectionClosed.into())),
                     Message::Ping(data) => self
-                        .inner
+                        .data
+                        .tx
+                        .lock()
+                        .await
                         .send(tungstenite::Message::Pong(data))
                         .await
                         .map_or_else(|err| Some(Err(err.into())), |_| None),
@@ -217,9 +248,10 @@ where
         }
     }
 
-    /// Close and drop this websocket.
-    pub async fn close(mut self) -> ClientResult<()> {
-        Ok(self.inner.close(None).await?)
+    /// Close this websocket.
+    /// All subsequent message sending operations will return an "connection closed" error.
+    pub async fn close(&self) -> ClientResult<()> {
+        Ok(self.data.tx.lock().await.close(None).await?)
     }
 }
 

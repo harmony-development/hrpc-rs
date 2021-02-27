@@ -2,7 +2,8 @@ use hrpc::server::{json_err_bytes, StatusCode};
 use simplelog::Config;
 use std::{
     fmt::{self, Display, Formatter},
-    time::Duration,
+    sync::Arc,
+    time::{Duration, Instant},
 };
 
 hrpc::include_proto!("test");
@@ -41,31 +42,50 @@ async fn client() {
     let resp = client.mu(Ping { mu: "".to_string() }).await;
     println!("{:#?}", resp);
 
-    let mut socket = client.mu_mute().await.unwrap();
+    let socket = Arc::new(client.mu_mute().await.unwrap());
+
+    tokio::spawn({
+        let socket = socket.clone();
+        async move {
+            loop {
+                let ins = Instant::now();
+                match socket.get_message().await {
+                    Some(Ok(msg)) => {
+                        println!("{:#?}", msg);
+                        println!("got in {}", ins.elapsed().as_secs_f64());
+                    }
+                    Some(Err(_)) => break,
+                    _ => {}
+                }
+            }
+        }
+    });
 
     for i in 0..100 {
+        let ins = Instant::now();
         if let Err(err) = socket.send_message(Ping { mu: i.to_string() }).await {
             eprintln!("failed to send message: {}", err);
         }
+        println!("sent in {}", ins.elapsed().as_secs_f64());
 
         tokio::time::sleep(Duration::from_secs(1)).await;
-
-        if let Some(Ok(msg)) = socket.get_message().await {
-            println!("{:#?}", msg);
-        }
     }
 
     socket.close().await.unwrap();
 }
 
 async fn server() {
-    mu_server::MuServer::new(Server)
-        .serve(([127, 0, 0, 1], 2289))
-        .await
+    mu_server::MuServer::new(Server {
+        creation_timestamp: Instant::now(),
+    })
+    .serve(([127, 0, 0, 1], 2289))
+    .await
 }
 
 #[derive(Debug)]
-struct Server;
+struct Server {
+    creation_timestamp: Instant,
+}
 
 #[hrpc::async_trait]
 impl mu_server::Mu for Server {
@@ -78,8 +98,12 @@ impl mu_server::Mu for Server {
         Ok(Pong { mu: request.mu })
     }
 
-    async fn mu_mute(&self, request: Ping) -> Result<Pong, Self::Error> {
-        self.mu(request).await
+    async fn mu_mute(&self, request: Option<Ping>) -> Result<Option<Pong>, Self::Error> {
+        if let Some(req) = request {
+            return self.mu(req).await.map(Some);
+        }
+
+        Ok(None)
     }
 }
 

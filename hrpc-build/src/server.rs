@@ -85,10 +85,6 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
     for method in service.methods() {
         let streaming = (method.client_streaming(), method.server_streaming());
-        match streaming {
-            (true, true) | (false, false) => {}
-            _ => continue,
-        }
 
         let name = quote::format_ident!("{}", method.name());
 
@@ -96,9 +92,16 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
         let method_doc = generate_doc_comments(method.comment());
 
-        let method = quote! {
-            #method_doc
-            async fn #name(&self, request: #req_message) -> Result<#res_message, Self::Error>;
+        let method = match streaming {
+            (false, false) => quote! {
+                #method_doc
+                async fn #name(&self, request: #req_message) -> Result<#res_message, Self::Error>;
+            },
+            (true, true) => quote! {
+                #method_doc
+                async fn #name(&self, request: Option<#req_message>) -> Result<Option<#res_message>, Self::Error>;
+            },
+            _ => continue,
         };
 
         stream.extend(method);
@@ -187,32 +190,23 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
 
                             loop {
                                 let msg_maybe = rx.next().await.map(Result::ok).flatten();
-                                if let Some(msg) = msg_maybe {
+
+                                let req_maybe = if let Some(msg) = msg_maybe {
                                     if msg.is_binary() {
                                         let msg_bin = Bytes::from(msg.into_bytes());
-                                        let resp = match <#req_message> :: decode(msg_bin) {
+                                        match <#req_message> :: decode(msg_bin) {
                                             Ok(req) => {
-                                                match svr. #name (req) .await {
-                                                    Ok(bin) => {
-                                                        hrpc::encode_protobuf_message(&mut buf, bin);
-                                                        buf.to_vec()
-                                                    }
-                                                    Err(err) => {
-                                                        log::error!("{}/{}: {}", #package_name, #method_name, err);
-                                                        err.message()
-                                                    }
-                                                }
+                                                Some(req)
                                             }
                                             Err(err) => {
                                                 log::error!("{}/{}: received invalid protobuf message: {}", #package_name, #method_name, err);
-                                                T::Error::decode_error().1
+                                                if let Err(e) = tx.send(WsMessage::binary(T::Error::decode_error().1)).await {
+                                                    log::error!("{}/{}: error responding to client socket: {}", #package_name, #method_name, e);
+                                                } else {
+                                                    log::debug!("{}/{}: responded to client socket", #package_name, #method_name);
+                                                }
+                                                None
                                             }
-                                        };
-
-                                        if let Err(e) = tx.send(WsMessage::binary(resp)).await {
-                                            log::error!("{}/{}: error responding to client socket: {}", #package_name, #method_name, e);
-                                        } else {
-                                            log::debug!("{}/{}: responded to client socket", #package_name, #method_name);
                                         }
                                     } else if msg.is_pong() {
                                         let msg_bin = Bytes::from(msg.into_bytes());
@@ -225,12 +219,19 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                             break;
                                         } else {
                                             log::debug!("{}/{}: received pong", #package_name, #method_name);
+                                            None
                                         }
                                     } else if msg.is_close() {
                                         break;
+                                    } else {
+                                        None
                                     }
-                                }
-                                if last_ping_time.elapsed().as_secs() > T::SOCKET_PING_PERIOD {
+                                } else {
+                                    None
+                                };
+
+                                let ping_lapse = last_ping_time.elapsed();
+                                if ping_lapse.as_secs() >= T::SOCKET_PING_PERIOD {
                                     if let Err(e) = tx.send(WsMessage::ping(T::SOCKET_PING_DATA)).await {
                                         log::error!("{}/{}: error pinging client socket: {}", #package_name, #method_name, e);
                                         log::error!("{}/{}: can't reach client, closing socket", #package_name, #method_name);
@@ -239,6 +240,26 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                         log::debug!("{}/{}: pinged client socket, last ping was {} ago", #package_name, #method_name, last_ping_time.elapsed().as_secs());
                                     }
                                     last_ping_time = Instant::now();
+                                }
+
+                                let maybe_resp = match svr. #name (req_maybe) .await {
+                                    Ok(Some(bin)) => {
+                                        hrpc::encode_protobuf_message(&mut buf, bin);
+                                        Some(buf.to_vec())
+                                    }
+                                    Ok(None) => None,
+                                    Err(err) => {
+                                        log::error!("{}/{}: {}", #package_name, #method_name, err);
+                                        Some(err.message())
+                                    }
+                                };
+
+                                if let Some(resp) = maybe_resp {
+                                    if let Err(e) = tx.send(WsMessage::binary(resp)).await {
+                                        log::error!("{}/{}: error responding to client socket: {}", #package_name, #method_name, e);
+                                    } else {
+                                        log::debug!("{}/{}: responded to client socket", #package_name, #method_name);
+                                    }
                                 }
                             }
                         })
