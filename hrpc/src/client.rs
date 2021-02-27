@@ -21,6 +21,9 @@ type WebSocketStream = async_tungstenite::WebSocketStream<
     >,
 >;
 
+type SocketRequest = tungstenite::handshake::client::Request;
+type UnaryRequest = reqwest::Request;
+
 /// Generic client implementation with common methods.
 #[derive(Debug, Clone)]
 pub struct Client {
@@ -55,7 +58,7 @@ impl Client {
         &mut self,
         msg: impl prost::Message,
         path: &str,
-    ) -> ClientResult<reqwest::Request> {
+    ) -> ClientResult<UnaryRequest> {
         encode_protobuf_message(&mut self.buf, msg);
 
         let mut req = self.inner.post(
@@ -75,7 +78,7 @@ impl Client {
     /// Executes an unary request returns the decoded response.
     pub async fn execute_request<Msg: prost::Message + Default>(
         &mut self,
-        req: reqwest::Request,
+        req: UnaryRequest,
     ) -> ClientResult<Msg> {
         let resp = self.inner.execute(req).await?;
 
@@ -124,16 +127,13 @@ impl Client {
         })
         .expect("failed to form websocket URL, something must be terribly wrong");
 
-        let request = if let Some(auth) = self.authorization.as_deref() {
-            tungstenite::handshake::client::Request::get(url.to_string())
-                .header("Authorization", auth)
-                .body(())
-                .unwrap()
-        } else {
-            tungstenite::handshake::client::Request::get(url.to_string())
-                .body(())
-                .unwrap()
-        };
+        let mut request = SocketRequest::get(url.into_string()).body(()).unwrap();
+        if let Some(auth) = self.authorization.as_deref() {
+            request
+                .headers_mut()
+                .entry("Authorization")
+                .or_insert(auth.parse().unwrap());
+        }
 
         let inner = async_tungstenite::tokio::connect_async(request).await?.0;
         Ok(Socket::new(inner))
