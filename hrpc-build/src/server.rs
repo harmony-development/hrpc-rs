@@ -199,13 +199,13 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                                     }
                                                     Err(err) => {
                                                         log::error!("{}/{}: {}", #package_name, #method_name, err);
-                                                        format!("{{ \"message\": \"{}\" }}", err).into_bytes()
+                                                        err.message()
                                                     }
                                                 }
                                             }
                                             Err(err) => {
                                                 log::error!("{}/{}: received invalid protobuf message: {}", #package_name, #method_name, err);
-                                                "{ \"message\": \"invalid protobuf message\" }".as_bytes().to_vec()
+                                                T::Error::decode_error().1
                                             }
                                         };
 
