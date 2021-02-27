@@ -110,10 +110,6 @@ impl mu_server::Mu for Server {
 
         Ok(None)
     }
-
-    async fn mu_mute_validate(&self, _request: Request<()>) -> Result<(), Self::Error> {
-        Ok(())
-    }
 }
 
 #[derive(Debug)]

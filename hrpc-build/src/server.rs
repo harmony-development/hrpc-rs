@@ -99,21 +99,30 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
             },
             (false, true) => quote! {
                 /// Validation for this socket request.
-                async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error>;
+                async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error> {
+                    let _ = request;
+                    Ok(())
+                }
 
                 #method_doc
                 async fn #name(&self) -> Result<Option<#res_message>, Self::Error>;
             },
             (true, false) => quote! {
                 /// Validation for this socket request.
-                async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error>;
+                async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error> {
+                    let _ = request;
+                    Ok(())
+                }
 
                 #method_doc
                 async fn #name(&self, request: Option<#req_message>) -> Result<(), Self::Error>;
             },
             (true, true) => quote! {
                 /// Validation for this socket request.
-                async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error>;
+                async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error> {
+                    let _ = request;
+                    Ok(())
+                }
 
                 #method_doc
                 async fn #name(&self, request: Option<#req_message>) -> Result<Option<#res_message>, Self::Error>;
