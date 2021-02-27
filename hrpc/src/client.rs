@@ -6,9 +6,10 @@ use std::{
     collections::HashMap,
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
+use tokio::sync::Mutex;
 use tungstenite::http::HeaderValue;
 use url::Url;
 
@@ -205,7 +206,6 @@ impl Client {
     }
 }
 
-#[derive(Clone)]
 /// A websocket, wrapped for ease of use with protobuf messages.
 pub struct Socket<Msg, Resp>
 where
@@ -257,17 +257,10 @@ where
     pub async fn send_message(&self, msg: Msg) -> ClientResult<()> {
         use futures_util::SinkExt;
 
-        encode_protobuf_message(&mut self.data.buf.lock().unwrap(), msg);
+        encode_protobuf_message(&mut *self.data.buf.lock().await, msg);
+        let msg = tungstenite::Message::Binary(self.data.buf.lock().await.to_vec());
 
-        Ok(self
-            .data
-            .tx
-            .lock()
-            .await
-            .send(tungstenite::Message::Binary(
-                self.data.buf.lock().unwrap().to_vec(),
-            ))
-            .await?)
+        Ok(self.data.tx.lock().await.send(msg).await?)
     }
 
     /// Get a message from the websocket.
@@ -317,6 +310,86 @@ where
     /// All subsequent message sending operations will return an "connection closed" error.
     pub async fn close(&self) -> ClientResult<()> {
         Ok(self.data.tx.lock().await.close(None).await?)
+    }
+
+    /// Split this socket into a read and write socket.
+    pub fn split(self) -> (ReadSocket<Msg, Resp>, WriteSocket<Msg, Resp>) {
+        let read = ReadSocket {
+            inner: self.clone(),
+        };
+        let write = WriteSocket { inner: self };
+
+        (read, write)
+    }
+}
+
+impl<Msg, Resp> Clone for Socket<Msg, Resp>
+where
+    Msg: prost::Message,
+    Resp: prost::Message + Default,
+{
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data.clone(),
+            _msg: PhantomData::default(),
+            _resp: PhantomData::default(),
+        }
+    }
+}
+
+/// A read-only version of [`Socket`].
+#[derive(Debug, Clone)]
+pub struct ReadSocket<Msg, Resp>
+where
+    Msg: prost::Message,
+    Resp: prost::Message + Default,
+{
+    inner: Socket<Msg, Resp>,
+}
+
+impl<Msg, Resp> ReadSocket<Msg, Resp>
+where
+    Msg: prost::Message,
+    Resp: prost::Message + Default,
+{
+    /// Get a message from the websocket.
+    pub async fn get_message(&self) -> Option<ClientResult<Resp>> {
+        self.inner.get_message().await
+    }
+}
+
+/// A write-only version of [`Socket`].
+#[derive(Debug, Clone)]
+pub struct WriteSocket<Msg, Resp>
+where
+    Msg: prost::Message,
+    Resp: prost::Message + Default,
+{
+    inner: Socket<Msg, Resp>,
+}
+
+impl<Msg, Resp> WriteSocket<Msg, Resp>
+where
+    Msg: prost::Message,
+    Resp: prost::Message + Default,
+{
+    /// Send a protobuf message over the websocket.
+    pub async fn send_message(&self, msg: Msg) -> ClientResult<()> {
+        self.inner.send_message(msg).await
+    }
+
+    /// Handle ping messages.
+    pub async fn handle_ping(&self) -> ClientResult<()> {
+        if let Some(res) = self.inner.get_message().await {
+            res?;
+        }
+        Ok(())
+    }
+
+    /// Close this websocket.
+    /// All subsequent message sending operations will return an "connection closed" error.
+    pub async fn close(&self) -> ClientResult<()> {
+        Ok(self.inner.close().await?)
     }
 }
 

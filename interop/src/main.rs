@@ -128,8 +128,6 @@ impl hrpc::server::CustomError for ServerError {
     }
 
     fn message(&self) -> Vec<u8> {
-        match self {
-            ServerError::PingEmpty => json_err_bytes("sent empty ping"),
-        }
+        json_err_bytes(&self.to_string())
     }
 }

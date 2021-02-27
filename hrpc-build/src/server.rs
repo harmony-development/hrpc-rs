@@ -97,11 +97,18 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 #method_doc
                 async fn #name(&self, request: #req_message) -> Result<#res_message, Self::Error>;
             },
+            (false, true) => quote! {
+                #method_doc
+                async fn #name(&self) -> Result<Option<#res_message>, Self::Error>;
+            },
+            (true, false) => quote! {
+                #method_doc
+                async fn #name(&self, request: Option<#req_message>) -> Result<(), Self::Error>;
+            },
             (true, true) => quote! {
                 #method_doc
                 async fn #name(&self, request: Option<#req_message>) -> Result<Option<#res_message>, Self::Error>;
             },
-            _ => continue,
         };
 
         stream.extend(method);
@@ -113,9 +120,8 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, TokenStream) {
     let mut stream = TokenStream::new();
     let mut comb_stream = TokenStream::new();
-    let mut comb_index = 0;
 
-    for method in service.methods() {
+    for (index, method) in service.methods().iter().enumerate() {
         let name = quote::format_ident!("{}", method.name());
 
         let package_name = format!(
@@ -143,34 +149,171 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                         "content-type",
                         "application/hrpc",
                     ))
-                    .and_then(move |bin| {
+                    .and_then(|bin| async {
+                        <#req_message> :: decode(bin) .map_err(|err| {
+                            log::error!("{}/{}: received invalid protobuf message: {}", #package_name, #method_name, err);
+                            warp::reject::custom(ServerError::<T::Error>::MessageDecode(err))
+                        })
+                    })
+                    .and_then(move |req| {
                         let svr = svr.clone();
                         async move {
                             let mut buf = BytesMut::new();
-                            match <#req_message> :: decode(bin) {
-                                Ok(req) => {
-                                    match svr. #name (req) .await {
-                                        Ok(bin) => {
-                                            hrpc::encode_protobuf_message(&mut buf, bin);
-                                            let mut resp = warp::reply::Response::new(buf.to_vec().into());
-                                            resp
-                                                .headers_mut()
-                                                .entry("content-type")
-                                                .or_insert("application/hrpc".parse().unwrap());
-                                            Ok(resp)
-                                        }
-                                        Err(err) => {
-                                            log::error!("{}/{}: {}", #package_name, #method_name, err);
-                                            Err(warp::reject::custom(ServerError::Custom(err)))
-                                        }
-                                    }
+                            match svr. #name (req) .await {
+                                Ok(bin) => {
+                                    hrpc::encode_protobuf_message(&mut buf, bin);
+                                    let mut resp = warp::reply::Response::new(buf.to_vec().into());
+                                    resp
+                                        .headers_mut()
+                                        .entry("content-type")
+                                        .or_insert("application/hrpc".parse().unwrap());
+                                    Ok(resp)
                                 }
                                 Err(err) => {
-                                    log::error!("{}/{}: received invalid protobuf message: {}", #package_name, #method_name, err);
-                                    Err(warp::reject::custom(ServerError::<T::Error>::MessageDecode(err)))
+                                    log::error!("{}/{}: {}", #package_name, #method_name, err);
+                                    Err(warp::reject::custom(ServerError::Custom(err)))
                                 }
                             }
                         }
+                    });
+            },
+            (false, true) => quote! {
+                let svr = server.clone();
+                let #name = warp::path(#package_name)
+                    .and(warp::path(#method_name))
+                    .and(warp::ws())
+                    .map(move |ws: warp::ws::Ws| {
+                        let svr = svr.clone();
+                        ws.on_upgrade(move |ws| async move {
+                            use std::time::Instant;
+
+                            let (mut tx, mut rx) = ws.split();
+                            let mut buf = BytesMut::new();
+                            let mut last_ping_time = Instant::now();
+
+                            loop {
+                                let msg_maybe = rx.next().await.map(Result::ok).flatten();
+
+                                if let Some(msg) = msg_maybe {
+                                    if msg.is_pong() {
+                                        let msg_bin = Bytes::from(msg.into_bytes());
+                                        if T::SOCKET_PING_DATA != msg_bin.as_ref() {
+                                            if let Err(e) = tx.send(WsMessage::close()).await {
+                                                log::error!("{}/{}: error closing socket: {}", #package_name, #method_name, e);
+                                            } else {
+                                                log::debug!("{}/{}: closed client socket", #package_name, #method_name);
+                                            }
+                                            break;
+                                        } else {
+                                            log::debug!("{}/{}: received pong", #package_name, #method_name);
+                                        }
+                                    } else if msg.is_close() {
+                                        break;
+                                    }
+                                }
+
+                                let ping_lapse = last_ping_time.elapsed();
+                                if ping_lapse.as_secs() >= T::SOCKET_PING_PERIOD {
+                                    if let Err(e) = tx.send(WsMessage::ping(T::SOCKET_PING_DATA)).await {
+                                        log::error!("{}/{}: error pinging client socket: {}", #package_name, #method_name, e);
+                                        log::error!("{}/{}: can't reach client, closing socket", #package_name, #method_name);
+                                        break;
+                                    } else {
+                                        log::debug!("{}/{}: pinged client socket, last ping was {} ago", #package_name, #method_name, last_ping_time.elapsed().as_secs());
+                                    }
+                                    last_ping_time = Instant::now();
+                                }
+
+                                let maybe_resp = match svr. #name () .await {
+                                    Ok(Some(bin)) => {
+                                        hrpc::encode_protobuf_message(&mut buf, bin);
+                                        Some(buf.to_vec())
+                                    }
+                                    Ok(None) => None,
+                                    Err(err) => {
+                                        log::error!("{}/{}: {}", #package_name, #method_name, err);
+                                        Some(err.message())
+                                    }
+                                };
+
+                                if let Some(resp) = maybe_resp {
+                                    if let Err(e) = tx.send(WsMessage::binary(resp)).await {
+                                        log::error!("{}/{}: error responding to client socket: {}", #package_name, #method_name, e);
+                                    } else {
+                                        log::debug!("{}/{}: responded to client socket", #package_name, #method_name);
+                                    }
+                                }
+                            }
+                        })
+                    });
+            },
+            (true, false) => quote! {
+                let svr = server.clone();
+                let #name = warp::path(#package_name)
+                    .and(warp::path(#method_name))
+                    .and(warp::ws())
+                    .map(move |ws: warp::ws::Ws| {
+                        let svr = svr.clone();
+                        ws.on_upgrade(move |ws| async move {
+                            use std::time::Instant;
+
+                            let (mut tx, mut rx) = ws.split();
+                            let mut last_ping_time = Instant::now();
+
+                            loop {
+                                let msg_maybe = rx.next().await.map(Result::ok).flatten();
+
+                                let req_maybe = if let Some(msg) = msg_maybe {
+                                    if msg.is_binary() {
+                                        let msg_bin = Bytes::from(msg.into_bytes());
+                                        match <#req_message> :: decode(msg_bin) {
+                                            Ok(req) => {
+                                                Some(req)
+                                            }
+                                            Err(err) => {
+                                                log::error!("{}/{}: received invalid protobuf message: {}", #package_name, #method_name, err);
+                                                None
+                                            }
+                                        }
+                                    } else if msg.is_pong() {
+                                        let msg_bin = Bytes::from(msg.into_bytes());
+                                        if T::SOCKET_PING_DATA != msg_bin.as_ref() {
+                                            if let Err(e) = tx.send(WsMessage::close()).await {
+                                                log::error!("{}/{}: error closing socket: {}", #package_name, #method_name, e);
+                                            } else {
+                                                log::debug!("{}/{}: closed client socket", #package_name, #method_name);
+                                            }
+                                            break;
+                                        } else {
+                                            log::debug!("{}/{}: received pong", #package_name, #method_name);
+                                            None
+                                        }
+                                    } else if msg.is_close() {
+                                        break;
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                };
+
+                                let ping_lapse = last_ping_time.elapsed();
+                                if ping_lapse.as_secs() >= T::SOCKET_PING_PERIOD {
+                                    if let Err(e) = tx.send(WsMessage::ping(T::SOCKET_PING_DATA)).await {
+                                        log::error!("{}/{}: error pinging client socket: {}", #package_name, #method_name, e);
+                                        log::error!("{}/{}: can't reach client, closing socket", #package_name, #method_name);
+                                        break;
+                                    } else {
+                                        log::debug!("{}/{}: pinged client socket, last ping was {} ago", #package_name, #method_name, last_ping_time.elapsed().as_secs());
+                                    }
+                                    last_ping_time = Instant::now();
+                                }
+
+                                if let Err(err) = svr. #name (req_maybe) .await {
+                                    log::error!("{}/{}: {}", #package_name, #method_name, err);
+                                }
+                            }
+                        })
                     });
             },
             // TODO: Somehow make it so that most of the code here is shared
@@ -265,19 +408,17 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                         })
                     });
             },
-            _ => continue,
         };
 
-        if comb_index > 0 {
-            comb_stream.extend(quote! {
+        comb_stream.extend(if index > 0 {
+            quote! {
                 .or(#name)
-            });
+            }
         } else {
-            comb_stream.extend(quote! {
+            quote! {
                 #name
-            });
-        }
-        comb_index += 1;
+            }
+        });
 
         stream.extend(method);
     }

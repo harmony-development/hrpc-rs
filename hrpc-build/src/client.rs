@@ -20,7 +20,10 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
         pub mod #client_mod {
             use prost::Message;
             use hrpc::{
-                client::{Client, Socket, Request, ClientResult, IntoRequest},
+                client::{
+                    Client, Socket, Request, ClientResult, IntoRequest,
+                    ReadSocket, WriteSocket,
+                },
                 reqwest::Client as ReqwestClient,
                 url::Url,
             };
@@ -50,8 +53,9 @@ fn generate_methods<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     for method in service.methods() {
         let make_method = match (method.client_streaming(), method.server_streaming()) {
             (false, false) => generate_unary,
-            (true, true) => generate_socket,
-            _ => continue,
+            (true, true) => generate_streaming,
+            (false, true) => generate_server_streaming,
+            (true, false) => generate_client_streaming,
         };
 
         let path = format!(
@@ -87,7 +91,7 @@ fn generate_unary<T: Method>(method: &T, proto_path: &str, path: String) -> Toke
     }
 }
 
-fn generate_socket<T: Method>(method: &T, proto_path: &str, path: String) -> TokenStream {
+fn generate_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> TokenStream {
     let ident = format_ident!("{}", method.name());
     let (request, response) = method.request_response_name(proto_path);
 
@@ -97,6 +101,34 @@ fn generate_socket<T: Method>(method: &T, proto_path: &str, path: String) -> Tok
             request: impl IntoRequest<()>,
         ) -> ClientResult<Socket<#request, #response>> {
             self.inner.connect_socket(#path, request.into_request()).await
+        }
+    }
+}
+
+fn generate_client_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> TokenStream {
+    let ident = format_ident!("{}", method.name());
+    let (request, response) = method.request_response_name(proto_path);
+
+    quote! {
+        pub async fn #ident(
+            &mut self,
+            request: impl IntoRequest<()>,
+        ) -> ClientResult<WriteSocket<#request, #response>> {
+            Ok(self.inner.connect_socket(#path, request.into_request()).await?.split().1)
+        }
+    }
+}
+
+fn generate_server_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> TokenStream {
+    let ident = format_ident!("{}", method.name());
+    let (request, response) = method.request_response_name(proto_path);
+
+    quote! {
+        pub async fn #ident(
+            &mut self,
+            request: impl IntoRequest<()>,
+        ) -> ClientResult<ReadSocket<#request, #response>> {
+            Ok(self.inner.connect_socket(#path, request.into_request()).await?.split().0)
         }
     }
 }
