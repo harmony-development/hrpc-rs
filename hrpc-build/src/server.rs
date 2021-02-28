@@ -86,11 +86,26 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
         let streaming = (method.client_streaming(), method.server_streaming());
 
         let name = quote::format_ident!("{}", method.name());
-        let name_validate = quote::format_ident!("{}_validate", name);
 
         let (req_message, res_message) = method.request_response_name(proto_path);
 
         let method_doc = generate_doc_comments(method.comment());
+
+        if !matches!(streaming, (false, false)) {
+            let name_validate = quote::format_ident!("{}_validate", name);
+            let validate_doc = generate_doc_comment(&format!(
+                "Validation for `{}` socket connection request.",
+                name
+            ));
+            let validate_method = quote! {
+                #validate_doc
+                async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error> {
+                    let _ = request;
+                    Ok(())
+                }
+            };
+            stream.extend(validate_method);
+        }
 
         let method = match streaming {
             (false, false) => quote! {
@@ -98,32 +113,14 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 async fn #name(&self, request: Request<#req_message>) -> Result<#res_message, Self::Error>;
             },
             (false, true) => quote! {
-                /// Validation for this socket request.
-                async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error> {
-                    let _ = request;
-                    Ok(())
-                }
-
                 #method_doc
                 async fn #name(&self) -> Result<Option<#res_message>, Self::Error>;
             },
             (true, false) => quote! {
-                /// Validation for this socket request.
-                async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error> {
-                    let _ = request;
-                    Ok(())
-                }
-
                 #method_doc
                 async fn #name(&self, request: Option<#req_message>) -> Result<(), Self::Error>;
             },
             (true, true) => quote! {
-                /// Validation for this socket request.
-                async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error> {
-                    let _ = request;
-                    Ok(())
-                }
-
                 #method_doc
                 async fn #name(&self, request: Option<#req_message>) -> Result<Option<#res_message>, Self::Error>;
             },
@@ -174,8 +171,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
             (false, true) => {
                 let name_validate = quote::format_ident!("{}_validate", name);
                 quote! {
-                    let svr = server.clone();
-                    let svr2 = server.clone();
+                    let (svr, svr2) = (server.clone(), server.clone());
                     let #name = socket_common::base_filter(#package_name, #method_name)
                         .and_then(move |headers, ws: Ws| {
                             let svr = svr2.clone();
@@ -208,8 +204,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
             (true, false) => {
                 let name_validate = quote::format_ident!("{}_validate", name);
                 quote! {
-                    let svr = server.clone();
-                    let svr2 = server.clone();
+                    let (svr, svr2) = (server.clone(), server.clone());
                     let #name = socket_common::base_filter(#package_name, #method_name)
                         .and_then(move |headers, ws: Ws| {
                             let svr = svr2.clone();
@@ -243,8 +238,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
             (true, true) => {
                 let name_validate = quote::format_ident!("{}_validate", name);
                 quote! {
-                    let svr = server.clone();
-                    let svr2 = server.clone();
+                    let (svr, svr2) = (server.clone(), server.clone());
                     let #name = socket_common::base_filter(#package_name, #method_name)
                         .and_then(move |headers, ws: Ws| {
                             let svr = svr2.clone();
