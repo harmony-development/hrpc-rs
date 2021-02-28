@@ -138,7 +138,6 @@
 <span id="135">135</span>
 <span id="136">136</span>
 <span id="137">137</span>
-<span id="138">138</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">hrpc</span>::{
     <span class="ident">server</span>::{<span class="ident">json_err_bytes</span>, <span class="ident">StatusCode</span>},
@@ -147,7 +146,6 @@
 <span class="kw">use</span> <span class="ident">simplelog</span>::<span class="ident">Config</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>},
-    <span class="ident">sync</span>::<span class="ident">Arc</span>,
     <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
 };
 
@@ -187,7 +185,7 @@
     <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">client</span>.<span class="ident">mu</span>(<span class="ident">Ping</span> { <span class="ident">mu</span>: <span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>() }).<span class="kw">await</span>;
     <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:#?}&quot;</span>, <span class="ident">resp</span>);
 
-    <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">client</span>.<span class="ident">mu_mute</span>(()).<span class="kw">await</span>.<span class="ident">unwrap</span>());
+    <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">client</span>.<span class="ident">mu_mute</span>(()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
 
     <span class="ident">tokio</span>::<span class="ident">spawn</span>({
         <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">socket</span>.<span class="ident">clone</span>();

@@ -166,6 +166,10 @@
 <span id="163">163</span>
 <span id="164">164</span>
 <span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, ::<span class="ident">prost</span>::<span class="ident">Message</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Ping</span> {
@@ -181,7 +185,10 @@
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">unused_imports</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">mu_client</span> {
     <span class="kw">use</span> <span class="ident">hrpc</span>::{
-        <span class="ident">client</span>::{<span class="ident">Client</span>, <span class="ident">ClientResult</span>, <span class="ident">ReadSocket</span>, <span class="ident">Socket</span>, <span class="ident">WriteSocket</span>},
+        <span class="ident">client</span>::{
+            <span class="ident">socket</span>::{<span class="ident">ReadSocket</span>, <span class="ident">Socket</span>},
+            <span class="ident">Client</span>, <span class="ident">ClientResult</span>,
+        },
         <span class="ident">reqwest</span>::<span class="ident">Client</span> <span class="kw">as</span> <span class="ident">ReqwestClient</span>,
         <span class="ident">url</span>::<span class="ident">Url</span>,
         <span class="ident">IntoRequest</span>, <span class="ident">Request</span>,
@@ -287,6 +294,7 @@
                                 .<span class="kw">await</span>,
                         )
                         .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">ws</span>)
+                        .<span class="ident">map_err</span>(<span class="ident">warp</span>::<span class="ident">reject</span>::<span class="ident">custom</span>)
                     }
                 })
                 .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {

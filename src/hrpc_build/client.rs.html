@@ -121,6 +121,7 @@
 <span id="118">118</span>
 <span id="119">119</span>
 <span id="120">120</span>
+<span id="121">121</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Method</span>, <span class="ident">Service</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">generate_doc_comments</span>, <span class="ident">naive_snake_case</span>};
@@ -146,7 +147,8 @@
             <span class="kw">use</span> <span class="ident">hrpc</span>::{
                 <span class="ident">IntoRequest</span>, <span class="ident">Request</span>,
                 <span class="ident">client</span>::{
-                    <span class="ident">Client</span>, <span class="ident">Socket</span>, <span class="ident">ClientResult</span>, <span class="ident">ReadSocket</span>, <span class="ident">WriteSocket</span>,
+                    <span class="ident">Client</span>, <span class="ident">ClientResult</span>,
+                    <span class="ident">socket</span>::{<span class="ident">Socket</span>, <span class="ident">ReadSocket</span>},
                 },
                 <span class="ident">reqwest</span>::<span class="ident">Client</span> <span class="kw">as</span> <span class="ident">ReqwestClient</span>,
                 <span class="ident">url</span>::<span class="ident">Url</span>,
@@ -236,9 +238,9 @@
     <span class="macro">quote</span><span class="macro">!</span> {
         <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">ident</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-            <span class="ident">request</span>: <span class="kw">impl</span> <span class="ident">IntoRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
+            <span class="ident">request</span>: <span class="kw">impl</span> <span class="ident">IntoRequest</span><span class="op">&lt;</span>#<span class="ident">request</span><span class="op">&gt;</span>,
         ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">ReadSocket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-            <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">connect_socket</span>(#<span class="ident">path</span>, <span class="ident">request</span>.<span class="ident">into_request</span>()).<span class="kw">await</span><span class="question-mark">?</span>.<span class="ident">split</span>().<span class="number">0</span>)
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">connect_socket_req</span>(#<span class="ident">path</span>, <span class="ident">request</span>.<span class="ident">into_request</span>()).<span class="kw">await</span>
         }
     }
 }
