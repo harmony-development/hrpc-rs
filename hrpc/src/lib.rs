@@ -1,7 +1,6 @@
 //! Common code used in hRPC code generation.
-use reqwest::header::HeaderName;
+use http::{header::HeaderName, HeaderValue};
 use std::collections::HashMap;
-use warp::http::HeaderValue;
 
 #[doc(inline)]
 pub use async_trait::async_trait;
