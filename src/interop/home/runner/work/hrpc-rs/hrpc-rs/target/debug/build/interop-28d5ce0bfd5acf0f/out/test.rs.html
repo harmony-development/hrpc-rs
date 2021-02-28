@@ -166,7 +166,6 @@
 <span id="163">163</span>
 <span id="164">164</span>
 <span id="165">165</span>
-<span id="166">166</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, ::<span class="ident">prost</span>::<span class="ident">Message</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Ping</span> {
@@ -227,7 +226,7 @@
         <span class="kw">const</span> <span class="ident">SOCKET_PING_DATA</span>: [<span class="ident">u8</span>; <span class="number">32</span>] <span class="op">=</span> [<span class="number">1</span>; <span class="number">32</span>];
         <span class="kw">type</span> <span class="ident">Error</span>: <span class="ident">CustomError</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>;
         <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="kw">super</span>::<span class="ident">Ping</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">super</span>::<span class="ident">Pong</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
-        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">r&quot; Validation for this socket request.&quot;</span>]</span>
+        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;Validation for `mu_mute` socket connection request.&quot;</span>]</span>
         <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu_mute_validate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">request</span>;
             <span class="prelude-val">Ok</span>(())
@@ -276,8 +275,7 @@
                     }
                 })
                 .<span class="ident">with</span>(<span class="ident">warp</span>::<span class="ident">filters</span>::<span class="ident">log</span>::<span class="ident">log</span>(<span class="string">&quot;test.Mu/Mu&quot;</span>));
-            <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
-            <span class="kw">let</span> <span class="ident">svr2</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
+            <span class="kw">let</span> (<span class="ident">svr</span>, <span class="ident">svr2</span>) <span class="op">=</span> (<span class="ident">server</span>.<span class="ident">clone</span>(), <span class="ident">server</span>.<span class="ident">clone</span>());
             <span class="kw">let</span> <span class="ident">mu_mute</span> <span class="op">=</span> <span class="ident">socket_common</span>::<span class="ident">base_filter</span>(<span class="string">&quot;test.Mu&quot;</span>, <span class="string">&quot;MuMute&quot;</span>)
                 .<span class="ident">and_then</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">headers</span>, <span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {
                     <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">svr2</span>.<span class="ident">clone</span>();

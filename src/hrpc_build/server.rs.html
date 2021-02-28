@@ -264,36 +264,6 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Method</span>, <span class="ident">Service</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">generate_doc_comment</span>, <span class="ident">generate_doc_comments</span>, <span class="ident">naive_snake_case</span>};
@@ -383,47 +353,50 @@
         <span class="kw">let</span> <span class="ident">streaming</span> <span class="op">=</span> (<span class="ident">method</span>.<span class="ident">client_streaming</span>(), <span class="ident">method</span>.<span class="ident">server_streaming</span>());
 
         <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">quote</span>::<span class="macro">format_ident</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">method</span>.<span class="ident">name</span>());
-        <span class="kw">let</span> <span class="ident">name_validate</span> <span class="op">=</span> <span class="ident">quote</span>::<span class="macro">format_ident</span><span class="macro">!</span>(<span class="string">&quot;{}_validate&quot;</span>, <span class="ident">name</span>);
 
         <span class="kw">let</span> (<span class="ident">req_message</span>, <span class="ident">res_message</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">request_response_name</span>(<span class="ident">proto_path</span>);
 
         <span class="kw">let</span> <span class="ident">method_doc</span> <span class="op">=</span> <span class="ident">generate_doc_comments</span>(<span class="ident">method</span>.<span class="ident">comment</span>());
+
+        <span class="kw">let</span> <span class="ident">gen_validate_method</span> <span class="op">=</span> <span class="op">|</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">name_validate</span> <span class="op">=</span> <span class="ident">quote</span>::<span class="macro">format_ident</span><span class="macro">!</span>(<span class="string">&quot;{}_validate&quot;</span>, <span class="ident">name</span>);
+            <span class="kw">let</span> <span class="ident">validate_doc</span> <span class="op">=</span> <span class="ident">generate_doc_comment</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(
+                <span class="string">&quot;Validation for `{}` socket connection request.&quot;</span>,
+                <span class="ident">name</span>
+            ));
+            <span class="macro">quote</span><span class="macro">!</span> {
+                #<span class="ident">validate_doc</span>
+                <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name_validate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
+                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">request</span>;
+                    <span class="prelude-val">Ok</span>(())
+                }
+            }
+        };
 
         <span class="kw">let</span> <span class="ident">method</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">streaming</span> {
             (<span class="bool-val">false</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">quote</span><span class="macro">!</span> {
                 #<span class="ident">method_doc</span>
                 <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>#<span class="ident">res_message</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
             },
-            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">quote</span><span class="macro">!</span> {
-                <span class="doccomment">/// Validation for this socket request.</span>
-                <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name_validate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
-                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">request</span>;
-                    <span class="prelude-val">Ok</span>(())
-                }
+            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">validate</span> <span class="op">=</span> <span class="ident">gen_validate_method</span>();
+                <span class="macro">quote</span><span class="macro">!</span> {
+                    #<span class="ident">validate</span>
 
-                #<span class="ident">method_doc</span>
-                <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span>#<span class="ident">res_message</span><span class="op">&gt;</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
-            },
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">quote</span><span class="macro">!</span> {
-                <span class="doccomment">/// Validation for this socket request.</span>
-                <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name_validate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
-                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">request</span>;
-                    <span class="prelude-val">Ok</span>(())
+                    #<span class="ident">method_doc</span>
+                    <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span>#<span class="ident">res_message</span><span class="op">&gt;</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
                 }
+            }
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;{}: Client streaming server unary method is invalid.&quot;</span>, <span class="ident">name</span>),
+            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">validate</span> <span class="op">=</span> <span class="ident">gen_validate_method</span>();
+                <span class="macro">quote</span><span class="macro">!</span> {
+                    #<span class="ident">validate</span>
 
-                #<span class="ident">method_doc</span>
-                <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
-            },
-            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">quote</span><span class="macro">!</span> {
-                <span class="doccomment">/// Validation for this socket request.</span>
-                <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name_validate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
-                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">request</span>;
-                    <span class="prelude-val">Ok</span>(())
+                    #<span class="ident">method_doc</span>
+                    <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span>#<span class="ident">res_message</span><span class="op">&gt;</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
                 }
-
-                #<span class="ident">method_doc</span>
-                <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span>#<span class="ident">res_message</span><span class="op">&gt;</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
-            },
+            }
         };
 
         <span class="ident">stream</span>.<span class="ident">extend</span>(<span class="ident">method</span>);
@@ -471,8 +444,7 @@
             (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">name_validate</span> <span class="op">=</span> <span class="ident">quote</span>::<span class="macro">format_ident</span><span class="macro">!</span>(<span class="string">&quot;{}_validate&quot;</span>, <span class="ident">name</span>);
                 <span class="macro">quote</span><span class="macro">!</span> {
-                    <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
-                    <span class="kw">let</span> <span class="ident">svr2</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
+                    <span class="kw">let</span> (<span class="ident">svr</span>, <span class="ident">svr2</span>) <span class="op">=</span> (<span class="ident">server</span>.<span class="ident">clone</span>(), <span class="ident">server</span>.<span class="ident">clone</span>());
                     <span class="kw">let</span> #<span class="ident">name</span> <span class="op">=</span> <span class="ident">socket_common</span>::<span class="ident">base_filter</span>(#<span class="ident">package_name</span>, #<span class="ident">method_name</span>)
                         .<span class="ident">and_then</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">headers</span>, <span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {
                             <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">svr2</span>.<span class="ident">clone</span>();
@@ -502,46 +474,14 @@
                         .<span class="ident">with</span>(<span class="ident">warp</span>::<span class="ident">filters</span>::<span class="ident">log</span>::<span class="ident">log</span>(#<span class="ident">concatted</span>));
                 }
             }
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">name_validate</span> <span class="op">=</span> <span class="ident">quote</span>::<span class="macro">format_ident</span><span class="macro">!</span>(<span class="string">&quot;{}_validate&quot;</span>, <span class="ident">name</span>);
-                <span class="macro">quote</span><span class="macro">!</span> {
-                    <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
-                    <span class="kw">let</span> <span class="ident">svr2</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
-                    <span class="kw">let</span> #<span class="ident">name</span> <span class="op">=</span> <span class="ident">socket_common</span>::<span class="ident">base_filter</span>(#<span class="ident">package_name</span>, #<span class="ident">method_name</span>)
-                        .<span class="ident">and_then</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">headers</span>, <span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {
-                            <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">svr2</span>.<span class="ident">clone</span>();
-                            <span class="kw">async</span> <span class="kw">move</span> {
-                                <span class="ident">socket_common</span>::<span class="ident">process_validate</span>::<span class="op">&lt;</span><span class="ident">T</span>::<span class="ident">Error</span><span class="op">&gt;</span>
-                                    (#<span class="ident">package_name</span>, #<span class="ident">method_name</span>, <span class="ident">svr</span>. #<span class="ident">name_validate</span> (<span class="ident">Request</span>::<span class="ident">from_parts</span>(((), <span class="ident">headers</span>))) .<span class="kw">await</span>)
-                                    .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">ws</span>)
-                            }
-                        })
-                        .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {
-                            <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">svr</span>.<span class="ident">clone</span>();
-
-                            <span class="ident">ws</span>.<span class="ident">on_upgrade</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">ws</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> {
-                                <span class="kw">let</span> ((<span class="kw-2">mut</span> <span class="ident">tx</span>, <span class="kw-2">mut</span> <span class="ident">rx</span>), <span class="kw-2">mut</span> <span class="ident">lpt</span>) <span class="op">=</span> (<span class="ident">ws</span>.<span class="ident">split</span>(), <span class="ident">Instant</span>::<span class="ident">now</span>());
-
-                                <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">maybe_req</span>) <span class="op">=</span> <span class="ident">socket_common</span>::<span class="ident">process_request</span>::<span class="op">&lt;</span>#<span class="ident">req_message</span>, <span class="ident">T</span>::<span class="ident">Error</span><span class="op">&gt;</span>
-                                    (#<span class="ident">package_name</span>, #<span class="ident">method_name</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">tx</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rx</span>, <span class="ident">T</span>::<span class="ident">SOCKET_PING_DATA</span>).<span class="kw">await</span>
-                                {
-                                    <span class="kw">if</span> <span class="ident">socket_common</span>::<span class="ident">check_ping</span>(#<span class="ident">package_name</span>, #<span class="ident">method_name</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">tx</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">lpt</span>, <span class="ident">T</span>::<span class="ident">SOCKET_PING_DATA</span>, <span class="ident">T</span>::<span class="ident">SOCKET_PING_PERIOD</span>).<span class="kw">await</span> {
-                                        <span class="kw">break</span>;
-                                    }
-                                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">svr</span>. #<span class="ident">name</span> (<span class="ident">maybe_req</span>) .<span class="kw">await</span> {
-                                        <span class="ident">log</span>::<span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;{}/{}: {}&quot;</span>, #<span class="ident">package_name</span>, #<span class="ident">method_name</span>, <span class="ident">err</span>);
-                                    }
-                                }
-                            })
-                        })
-                        .<span class="ident">with</span>(<span class="ident">warp</span>::<span class="ident">filters</span>::<span class="ident">log</span>::<span class="ident">log</span>(#<span class="ident">concatted</span>));
-                }
-            }
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(
+                <span class="string">&quot;{}.{}: Client streaming server unary method is invalid.&quot;</span>,
+                <span class="ident">package_name</span>, <span class="ident">method_name</span>
+            ),
             (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">name_validate</span> <span class="op">=</span> <span class="ident">quote</span>::<span class="macro">format_ident</span><span class="macro">!</span>(<span class="string">&quot;{}_validate&quot;</span>, <span class="ident">name</span>);
                 <span class="macro">quote</span><span class="macro">!</span> {
-                    <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
-                    <span class="kw">let</span> <span class="ident">svr2</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
+                    <span class="kw">let</span> (<span class="ident">svr</span>, <span class="ident">svr2</span>) <span class="op">=</span> (<span class="ident">server</span>.<span class="ident">clone</span>(), <span class="ident">server</span>.<span class="ident">clone</span>());
                     <span class="kw">let</span> #<span class="ident">name</span> <span class="op">=</span> <span class="ident">socket_common</span>::<span class="ident">base_filter</span>(#<span class="ident">package_name</span>, #<span class="ident">method_name</span>)
                         .<span class="ident">and_then</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">headers</span>, <span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {
                             <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">svr2</span>.<span class="ident">clone</span>();
