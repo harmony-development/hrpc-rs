@@ -91,43 +91,24 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
         let method_doc = generate_doc_comments(method.comment());
 
-        let gen_validate_method = |req| {
-            let name_validate = quote::format_ident!("{}_validate", name);
-            let validate_doc = generate_doc_comment(&format!(
-                "Validation for `{}` socket connection request.",
-                name
-            ));
-            quote! {
-                #validate_doc
-                async fn #name_validate(&self, request: Request<#req>) -> Result<(), Self::Error> {
-                    let _ = request;
-                    Ok(())
-                }
-            }
-        };
-
         let method = match streaming {
             (false, false) => quote! {
                 #method_doc
                 async fn #name(&self, request: Request<#req_message>) -> Result<#res_message, Self::Error>;
             },
             (false, true) => {
-                let validate = gen_validate_method(req_message);
                 quote! {
-                    #validate
-
                     #method_doc
-                    async fn #name(&self) -> Result<Option<#res_message>, Self::Error>;
+                    async fn #name(&self, validation_request: &Request<#req_message>)
+                        -> Result<Option<#res_message>, Self::Error>;
                 }
             }
             (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
             (true, true) => {
-                let validate = gen_validate_method(quote! { () });
                 quote! {
-                    #validate
-
                     #method_doc
-                    async fn #name(&self, request: Option<#req_message>) -> Result<Option<#res_message>, Self::Error>;
+                    async fn #name(&self, validation_request: &Request<()>, request: Option<#req_message>)
+                        -> Result<Option<#res_message>, Self::Error>;
                 }
             }
         };
@@ -175,7 +156,6 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                     .with(warp::filters::log::log(#concatted));
             },
             (false, true) => {
-                let name_validate = quote::format_ident!("{}_validate", name);
                 quote! {
                     let svr = server.clone();
                     let #name = socket_common::base_filter(#package_name, #method_name)
@@ -185,13 +165,16 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                             ws.on_upgrade(move |ws| async move {
                                 let ((mut tx, mut rx), mut buf, mut lpt) = (ws.split(), BytesMut::new(), Instant::now());
 
+                                let req;
                                 loop {
                                     let validate_start = Instant::now();
                                     if let Ok(Some(request)) = socket_common::process_request::<#req_message, T::Error>
                                         (#package_name, #method_name, &mut tx, &mut rx, T::SOCKET_PING_DATA).await
                                     {
+                                        req = Request::from_parts((request, headers));
+
                                         if let Err(err) = socket_common::process_validate::<T::Error>
-                                            (#package_name, #method_name, svr. #name_validate (Request::from_parts((request, headers))) .await)
+                                            (#package_name, #method_name, svr. #name (&req) .await.map(|_| ()))
                                         {
                                             log::error!("{}/{}: failed to validate socket request: {}", #package_name, #method_name, err);
                                             socket_common::close_socket(#package_name, #method_name, &mut tx).await;
@@ -212,7 +195,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                         break;
                                     }
                                     socket_common::respond::<#resp_message, T::Error>
-                                        (#package_name, #method_name, svr. #name () .await, &mut tx, &mut buf).await;
+                                        (#package_name, #method_name, svr. #name (&req) .await, &mut tx, &mut buf).await;
                                 }
                             })
                         })
@@ -224,20 +207,20 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                 package_name, method_name
             ),
             (true, true) => {
-                let name_validate = quote::format_ident!("{}_validate", name);
                 quote! {
                     let (svr, svr2) = (server.clone(), server.clone());
                     let #name = socket_common::base_filter(#package_name, #method_name)
                         .and_then(move |headers, ws: Ws| {
                             let svr = svr2.clone();
+                            let req = Request::from_parts(((), headers));
                             async move {
                                 socket_common::process_validate::<T::Error>
-                                    (#package_name, #method_name, svr. #name_validate (Request::from_parts(((), headers))) .await)
-                                    .map(|_| ws)
+                                    (#package_name, #method_name, svr. #name (&req, None) .await.map(|_| ()))
+                                    .map(|_| (req, ws))
                                     .map_err(warp::reject::custom)
                             }
                         })
-                        .map(move |ws: Ws| {
+                        .map(move |(req, ws): (Request<()>, Ws)| {
                             let svr = svr.clone();
 
                             ws.on_upgrade(move |ws| async move {
@@ -250,7 +233,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                         break;
                                     }
                                     socket_common::respond::<#resp_message, T::Error>
-                                        (#package_name, #method_name, svr. #name (maybe_req) .await, &mut tx, &mut buf).await;
+                                        (#package_name, #method_name, svr. #name (&req, maybe_req) .await, &mut tx, &mut buf).await;
                                 }
                             })
                         })

@@ -102,7 +102,11 @@ impl mu_server::Mu for Server {
         })
     }
 
-    async fn mu_mute(&self, request: Option<Ping>) -> Result<Option<Pong>, Self::Error> {
+    async fn mu_mute(
+        &self,
+        _validation_request: &Request<()>,
+        request: Option<Ping>,
+    ) -> Result<Option<Pong>, Self::Error> {
         if let Some(req) = request {
             return Ok(Some(Pong { mu: req.mu }));
         }
