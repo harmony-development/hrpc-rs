@@ -51,13 +51,6 @@ fn generate_methods<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let mut stream = TokenStream::new();
 
     for method in service.methods() {
-        let make_method = match (method.client_streaming(), method.server_streaming()) {
-            (false, false) => generate_unary,
-            (true, true) => generate_streaming,
-            (false, true) => generate_server_streaming,
-            (true, false) => generate_client_streaming,
-        };
-
         let path = format!(
             "/{}{}{}/{}",
             service.package(),
@@ -69,6 +62,13 @@ fn generate_methods<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             service.identifier(),
             method.identifier()
         );
+
+        let make_method = match (method.client_streaming(), method.server_streaming()) {
+            (false, false) => generate_unary,
+            (true, true) => generate_streaming,
+            (false, true) => generate_server_streaming,
+            (true, false) => panic!("{}: Client streaming server unary method is invalid.", path),
+        };
 
         stream.extend(generate_doc_comments(method.comment()));
         stream.extend(make_method(method, proto_path, path));
@@ -101,20 +101,6 @@ fn generate_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> 
             request: impl IntoRequest<()>,
         ) -> ClientResult<Socket<#request, #response>> {
             self.inner.connect_socket(#path, request.into_request()).await
-        }
-    }
-}
-
-fn generate_client_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> TokenStream {
-    let ident = format_ident!("{}", method.name());
-    let (request, response) = method.request_response_name(proto_path);
-
-    quote! {
-        pub async fn #ident(
-            &mut self,
-            request: impl IntoRequest<()>,
-        ) -> ClientResult<WriteSocket<#request, #response>> {
-            Ok(self.inner.connect_socket(#path, request.into_request()).await?.split().1)
         }
     }
 }

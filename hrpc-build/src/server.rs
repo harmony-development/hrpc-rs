@@ -91,39 +91,45 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
         let method_doc = generate_doc_comments(method.comment());
 
-        if !matches!(streaming, (false, false)) {
+        let gen_validate_method = || {
             let name_validate = quote::format_ident!("{}_validate", name);
             let validate_doc = generate_doc_comment(&format!(
                 "Validation for `{}` socket connection request.",
                 name
             ));
-            let validate_method = quote! {
+            quote! {
                 #validate_doc
                 async fn #name_validate(&self, request: Request<()>) -> Result<(), Self::Error> {
                     let _ = request;
                     Ok(())
                 }
-            };
-            stream.extend(validate_method);
-        }
+            }
+        };
 
         let method = match streaming {
             (false, false) => quote! {
                 #method_doc
                 async fn #name(&self, request: Request<#req_message>) -> Result<#res_message, Self::Error>;
             },
-            (false, true) => quote! {
-                #method_doc
-                async fn #name(&self) -> Result<Option<#res_message>, Self::Error>;
-            },
-            (true, false) => quote! {
-                #method_doc
-                async fn #name(&self, request: Option<#req_message>) -> Result<(), Self::Error>;
-            },
-            (true, true) => quote! {
-                #method_doc
-                async fn #name(&self, request: Option<#req_message>) -> Result<Option<#res_message>, Self::Error>;
-            },
+            (false, true) => {
+                let validate = gen_validate_method();
+                quote! {
+                    #validate
+
+                    #method_doc
+                    async fn #name(&self) -> Result<Option<#res_message>, Self::Error>;
+                }
+            }
+            (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
+            (true, true) => {
+                let validate = gen_validate_method();
+                quote! {
+                    #validate
+
+                    #method_doc
+                    async fn #name(&self, request: Option<#req_message>) -> Result<Option<#res_message>, Self::Error>;
+                }
+            }
         };
 
         stream.extend(method);
@@ -201,40 +207,10 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                         .with(warp::filters::log::log(#concatted));
                 }
             }
-            (true, false) => {
-                let name_validate = quote::format_ident!("{}_validate", name);
-                quote! {
-                    let (svr, svr2) = (server.clone(), server.clone());
-                    let #name = socket_common::base_filter(#package_name, #method_name)
-                        .and_then(move |headers, ws: Ws| {
-                            let svr = svr2.clone();
-                            async move {
-                                socket_common::process_validate::<T::Error>
-                                    (#package_name, #method_name, svr. #name_validate (Request::from_parts(((), headers))) .await)
-                                    .map(|_| ws)
-                            }
-                        })
-                        .map(move |ws: Ws| {
-                            let svr = svr.clone();
-
-                            ws.on_upgrade(move |ws| async move {
-                                let ((mut tx, mut rx), mut lpt) = (ws.split(), Instant::now());
-
-                                while let Ok(maybe_req) = socket_common::process_request::<#req_message, T::Error>
-                                    (#package_name, #method_name, &mut tx, &mut rx, T::SOCKET_PING_DATA).await
-                                {
-                                    if socket_common::check_ping(#package_name, #method_name, &mut tx, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await {
-                                        break;
-                                    }
-                                    if let Err(err) = svr. #name (maybe_req) .await {
-                                        log::error!("{}/{}: {}", #package_name, #method_name, err);
-                                    }
-                                }
-                            })
-                        })
-                        .with(warp::filters::log::log(#concatted));
-                }
-            }
+            (true, false) => panic!(
+                "{}.{}: Client streaming server unary method is invalid.",
+                package_name, method_name
+            ),
             (true, true) => {
                 let name_validate = quote::format_ident!("{}_validate", name);
                 quote! {
