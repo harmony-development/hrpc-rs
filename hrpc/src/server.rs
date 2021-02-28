@@ -100,7 +100,7 @@ pub mod socket_common {
     use warp::{
         filters::BoxedFilter,
         ws::{Message as WsMessage, Ws},
-        Filter, Future, Rejection,
+        Filter, Future,
     };
 
     #[doc(hidden)]
@@ -124,7 +124,7 @@ pub mod socket_common {
         pkg: &'static str,
         method: &'static str,
         result: Result<(), Err>,
-    ) -> Result<(), Rejection> {
+    ) -> Result<(), ServerError<Err>> {
         result.map_err(|err| {
             log::error!(
                 "{}/{}: socket request validation failed: {}",
@@ -132,7 +132,7 @@ pub mod socket_common {
                 method,
                 err
             );
-            warp::reject::custom(ServerError::Custom(err))
+            ServerError::Custom(err)
         })
     }
 
@@ -189,8 +189,13 @@ pub mod socket_common {
             let ping_lapse = last_ping_time.elapsed();
             if ping_lapse.as_secs() >= socket_ping_period {
                 if let Err(e) = tx.send(WsMessage::ping(socket_ping_data)).await {
-                    log::error!("{}/{}: error pinging client socket: {}", pkg, method, e);
-                    log::error!("{}/{}: can't reach client, closing socket", pkg, method);
+                    // TODO: replace this with error source downcasting?
+                    if "Connection closed normally" == e.to_string() {
+                        log::info!("{}/{}: socket closed normally", pkg, method);
+                    } else {
+                        log::error!("{}/{}: error pinging client socket: {}", pkg, method, e);
+                        log::error!("{}/{}: can't reach client, closing socket", pkg, method);
+                    }
                     return true;
                 } else {
                     log::debug!(
@@ -203,6 +208,21 @@ pub mod socket_common {
                 *last_ping_time = Instant::now();
             }
             false
+        }
+    }
+
+    #[doc(hidden)]
+    pub async fn close_socket(
+        pkg: &'static str,
+        method: &'static str,
+        tx: &mut futures_util::stream::SplitSink<warp::ws::WebSocket, WsMessage>,
+    ) {
+        use futures_util::SinkExt;
+
+        if let Err(e) = tx.send(WsMessage::close()).await {
+            log::error!("{}/{}: error closing socket: {}", pkg, method, e);
+        } else {
+            log::debug!("{}/{}: closed client socket", pkg, method);
         }
     }
 
@@ -248,11 +268,7 @@ pub mod socket_common {
                 } else if msg.is_pong() {
                     let msg_bin = Bytes::from(msg.into_bytes());
                     if socket_ping_data != msg_bin.as_ref() {
-                        if let Err(e) = tx.send(WsMessage::close()).await {
-                            log::error!("{}/{}: error closing socket: {}", pkg, method, e);
-                        } else {
-                            log::debug!("{}/{}: closed client socket", pkg, method);
-                        }
+                        close_socket(pkg, method, tx).await;
                         Err(())
                     } else {
                         log::debug!("{}/{}: received pong", pkg, method);

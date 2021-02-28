@@ -5,7 +5,6 @@ use hrpc::{
 use simplelog::Config;
 use std::{
     fmt::{self, Display, Formatter},
-    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -45,7 +44,7 @@ async fn client() {
     let resp = client.mu(Ping { mu: "".to_string() }).await;
     println!("{:#?}", resp);
 
-    let socket = Arc::new(client.mu_mute(()).await.unwrap());
+    let socket = client.mu_mute(()).await.unwrap();
 
     tokio::spawn({
         let socket = socket.clone();
