@@ -11,7 +11,7 @@ keywords = ["hrpc", "harmony", "rpc"]
 
 [features]
 default = ["server", "client"]
-server = ["warp"]
+server = ["warp", "tokio"]
 client = ["reqwest", "async-tungstenite", "tokio", "tokio-rustls"]
 
 [dependencies]
