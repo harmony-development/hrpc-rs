@@ -142,6 +142,14 @@
 <span id="139">139</span>
 <span id="140">140</span>
 <span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">hrpc</span>::{
     <span class="ident">server</span>::{<span class="ident">json_err_bytes</span>, <span class="ident">StatusCode</span>},
@@ -152,6 +160,7 @@
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>},
     <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
 };
+<span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">Mutex</span>;
 
 <span class="ident">hrpc</span>::<span class="macro">include_proto</span><span class="macro">!</span>(<span class="string">&quot;test&quot;</span>);
 
@@ -223,7 +232,7 @@
 
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">server</span>() {
     <span class="ident">mu_server</span>::<span class="ident">MuServer</span>::<span class="ident">new</span>(<span class="ident">Server</span> {
-        <span class="ident">creation_timestamp</span>: <span class="ident">Instant</span>::<span class="ident">now</span>(),
+        <span class="ident">creation_timestamp</span>: <span class="ident">Instant</span>::<span class="ident">now</span>().<span class="ident">into</span>(),
     })
     .<span class="ident">serve</span>(([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">2289</span>))
     .<span class="kw">await</span>
@@ -231,7 +240,7 @@
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">struct</span> <span class="ident">Server</span> {
-    <span class="ident">creation_timestamp</span>: <span class="ident">Instant</span>,
+    <span class="ident">creation_timestamp</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Instant</span><span class="op">&gt;</span>,
 }
 
 <span class="attribute">#[<span class="ident">hrpc</span>::<span class="ident">async_trait</span>]</span>
@@ -254,6 +263,13 @@
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Pong</span><span class="op">&gt;</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">req</span>) <span class="op">=</span> <span class="ident">request</span> {
             <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">Pong</span> { <span class="ident">mu</span>: <span class="ident">req</span>.<span class="ident">mu</span> }));
+        }
+
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">creation_timestamp</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">elapsed</span>().<span class="ident">as_secs</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">10</span> {
+            <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">creation_timestamp</span>.<span class="ident">lock</span>().<span class="kw">await</span> <span class="op">=</span> <span class="ident">Instant</span>::<span class="ident">now</span>();
+            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">Pong</span> {
+                <span class="ident">mu</span>: <span class="string">&quot;been 10 seconds&quot;</span>.<span class="ident">to_string</span>(),
+            }));
         }
 
         <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
