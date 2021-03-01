@@ -7,6 +7,7 @@ use std::{
     fmt::{self, Display, Formatter},
     time::{Duration, Instant},
 };
+use tokio::sync::Mutex;
 
 hrpc::include_proto!("test");
 
@@ -78,7 +79,7 @@ async fn client() {
 
 async fn server() {
     mu_server::MuServer::new(Server {
-        creation_timestamp: Instant::now(),
+        creation_timestamp: Instant::now().into(),
     })
     .serve(([127, 0, 0, 1], 2289))
     .await
@@ -86,7 +87,7 @@ async fn server() {
 
 #[derive(Debug)]
 struct Server {
-    creation_timestamp: Instant,
+    creation_timestamp: Mutex<Instant>,
 }
 
 #[hrpc::async_trait]
@@ -109,6 +110,13 @@ impl mu_server::Mu for Server {
     ) -> Result<Option<Pong>, Self::Error> {
         if let Some(req) = request {
             return Ok(Some(Pong { mu: req.mu }));
+        }
+
+        if self.creation_timestamp.lock().await.elapsed().as_secs() >= 10 {
+            *self.creation_timestamp.lock().await = Instant::now();
+            return Ok(Some(Pong {
+                mu: "been 10 seconds".to_string(),
+            }));
         }
 
         Ok(None)

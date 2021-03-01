@@ -91,7 +91,7 @@ pub mod unary_common {
 
 #[doc(hidden)]
 pub mod socket_common {
-    use std::time::Instant;
+    use std::time::{Duration, Instant};
 
     use crate::HeaderMap;
 
@@ -155,18 +155,22 @@ pub mod socket_common {
                 Ok(None) => None,
                 Err(err) => {
                     log::error!("{}/{}: {}", pkg, method, err);
-                    Some(err.message())
+                    None
                 }
             };
 
             if let Some(resp) = maybe_resp {
                 if let Err(e) = tx.send(WsMessage::binary(resp)).await {
-                    log::error!(
-                        "{}/{}: error responding to client socket: {}",
-                        pkg,
-                        method,
-                        e
-                    );
+                    if "Connection closed normally" == e.to_string() {
+                        log::info!("{}/{}: socket closed normally", pkg, method);
+                    } else {
+                        log::error!(
+                            "{}/{}: error responding to client socket: {}",
+                            pkg,
+                            method,
+                            e
+                        );
+                    }
                 } else {
                     log::debug!("{}/{}: responded to client socket", pkg, method);
                 }
@@ -222,7 +226,7 @@ pub mod socket_common {
         if let Err(e) = tx.send(WsMessage::close()).await {
             log::error!("{}/{}: error closing socket: {}", pkg, method, e);
         } else {
-            log::debug!("{}/{}: closed client socket", pkg, method);
+            log::info!("{}/{}: socket closed normally", pkg, method);
         }
     }
 
@@ -235,15 +239,19 @@ pub mod socket_common {
         socket_ping_data: [u8; 32],
     ) -> impl Future<Output = Result<Option<Req>, ()>> + 'a {
         async move {
-            use futures_util::{SinkExt, StreamExt};
+            use futures_util::StreamExt;
 
-            let msg_maybe = rx.next().await.map(Result::ok).flatten();
+            let msg_maybe = tokio::time::timeout(Duration::from_nanos(1), rx.next())
+                .await
+                .map_or(Ok(None), Ok)?
+                .map(Result::ok)
+                .flatten();
 
             if let Some(msg) = msg_maybe {
                 if msg.is_binary() {
                     let msg_bin = Bytes::from(msg.into_bytes());
                     match Req::decode(msg_bin) {
-                        Ok(req) => Ok(Some(req)),
+                        Ok(req) => return Ok(Some(req)),
                         Err(err) => {
                             log::error!(
                                 "{}/{}: received invalid protobuf message: {}",
@@ -251,37 +259,21 @@ pub mod socket_common {
                                 method,
                                 err
                             );
-                            if let Err(e) = tx.send(WsMessage::binary(Err::decode_error().1)).await
-                            {
-                                log::error!(
-                                    "{}/{}: error responding to client socket: {}",
-                                    pkg,
-                                    method,
-                                    e
-                                );
-                            } else {
-                                log::debug!("{}/{}: responded to client socket", pkg, method);
-                            }
-                            Ok(None)
                         }
                     }
                 } else if msg.is_pong() {
                     let msg_bin = Bytes::from(msg.into_bytes());
                     if socket_ping_data != msg_bin.as_ref() {
                         close_socket(pkg, method, tx).await;
-                        Err(())
+                        return Err(());
                     } else {
                         log::debug!("{}/{}: received pong", pkg, method);
-                        Ok(None)
                     }
                 } else if msg.is_close() {
-                    Err(())
-                } else {
-                    Ok(None)
+                    return Err(());
                 }
-            } else {
-                Ok(None)
             }
+            Ok(None)
         }
     }
 }
