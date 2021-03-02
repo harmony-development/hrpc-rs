@@ -2,7 +2,7 @@ use hrpc::{
     server::{json_err_bytes, StatusCode},
     Request,
 };
-use simplelog::Config;
+
 use std::{
     fmt::{self, Display, Formatter},
     time::{Duration, Instant},
@@ -13,12 +13,7 @@ hrpc::include_proto!("test");
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    simplelog::CombinedLogger::init(vec![simplelog::TermLogger::new(
-        simplelog::LevelFilter::Info,
-        Config::default(),
-        simplelog::TerminalMode::Mixed,
-    )])
-    .unwrap();
+    tracing_subscriber::fmt().pretty().init();
 
     let is_server = std::env::args().nth(1).map_or(false, |t| t == "server");
     if is_server {

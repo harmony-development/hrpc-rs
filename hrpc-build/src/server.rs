@@ -38,9 +38,13 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
                 /// Start serving.
                 pub async fn serve(self, address: impl Into<std::net::SocketAddr>) {
-                    warp::serve(self.filters().recover(hrpc::server::handle_rejection::<T::Error>))
-                        .run(address)
-                        .await
+                    warp::serve(
+                        self.filters()
+                            .with(warp::filters::trace::request())
+                            .recover(hrpc::server::handle_rejection::<T::Error>)
+                    )
+                    .run(address)
+                    .await
                 }
 
                 /// Extract `warp` filters.
@@ -138,10 +142,8 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
         );
         let method_name = method.identifier();
 
-        let (req_message, resp_message) = method.request_response_name(proto_path);
+        let (req_message, _) = method.request_response_name(proto_path);
         let streaming = (method.client_streaming(), method.server_streaming());
-
-        let concatted = format!("{}/{}", package_name, method_name);
 
         let method = match streaming {
             (false, false) => quote! {
@@ -150,10 +152,11 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                     .and_then(move |msg, headers| {
                         let svr = svr.clone();
                         async move {
-                            unary_common::encode(#package_name, #method_name, svr. #name (Request::from_parts((msg, headers))) .await)
+                            let span = info_span!(#method_name);
+                            let _lock = span.enter();
+                            unary_common::encode(svr. #name (Request::from_parts((msg, headers))) .await)
                         }
-                    })
-                    .with(warp::filters::log::log(#concatted));
+                    });
             },
             (false, true) => {
                 quote! {
@@ -164,42 +167,41 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
 
                             ws.on_upgrade(move |ws| async move {
                                 let ((mut tx, mut rx), mut buf, mut lpt) = (ws.split(), BytesMut::new(), Instant::now());
+                                let tx = &mut tx;
+                                let rx = &mut rx;
 
+                                let span = info_span!(#method_name);
+                                let _lock = span.enter();
                                 let req;
                                 loop {
                                     let validate_start = Instant::now();
-                                    if let Ok(Some(request)) = socket_common::process_request::<#req_message, T::Error>
-                                        (#package_name, #method_name, &mut tx, &mut rx, T::SOCKET_PING_DATA).await
+                                    if let Ok(Some(request)) = socket_common::process_request::<_, T::Error>(tx, rx, T::SOCKET_PING_DATA).await
                                     {
                                         req = Request::from_parts((request, headers));
 
-                                        if let Err(err) = socket_common::process_validate::<T::Error>
-                                            (#package_name, #method_name, svr. #name (&req) .await.map(|_| ()))
+                                        if let Err(err) = socket_common::process_validate::<T::Error>(svr. #name (&req) .await.map(|_| ()))
                                         {
-                                            log::error!("{}/{}: failed to validate socket request: {}", #package_name, #method_name, err);
-                                            socket_common::close_socket(#package_name, #method_name, &mut tx).await;
+                                            error!("failed to validate socket request: {}", err);
+                                            socket_common::close_socket(tx).await;
                                             return;
                                         }
                                         break;
                                     } else if validate_start.elapsed().as_secs() >= T::SOCKET_PING_PERIOD {
-                                        log::error!("{}/{}: failed to validate socket request: timeout", #package_name, #method_name);
-                                        socket_common::close_socket(#package_name, #method_name, &mut tx).await;
+                                        error!("failed to validate socket request: timeout");
+                                        socket_common::close_socket(tx).await;
                                         return;
                                     }
                                 }
 
-                                while socket_common::process_request::<#req_message, T::Error>
-                                    (#package_name, #method_name, &mut tx, &mut rx, T::SOCKET_PING_DATA).await.is_ok()
+                                while socket_common::process_request::<_, T::Error>(tx, rx, T::SOCKET_PING_DATA).await.is_ok()
                                 {
-                                    if socket_common::check_ping(#package_name, #method_name, &mut tx, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await {
+                                    if socket_common::check_ping(tx, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await {
                                         break;
                                     }
-                                    socket_common::respond::<#resp_message, T::Error>
-                                        (#package_name, #method_name, svr. #name (&req) .await, &mut tx, &mut buf).await;
+                                    socket_common::respond::<_, T::Error>(svr. #name (&req) .await, tx, &mut buf).await;
                                 }
                             })
-                        })
-                        .with(warp::filters::log::log(#concatted));
+                        });
                 }
             }
             (true, false) => panic!(
@@ -214,8 +216,9 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                             let svr = svr2.clone();
                             let req = Request::from_parts(((), headers));
                             async move {
-                                socket_common::process_validate::<T::Error>
-                                    (#package_name, #method_name, svr. #name (&req, None) .await.map(|_| ()))
+                                let span = info_span!(#method_name);
+                                let _lock = span.enter();
+                                socket_common::process_validate::<T::Error>(svr. #name (&req, None) .await.map(|_| ()))
                                     .map(|_| (req, ws))
                                     .map_err(warp::reject::custom)
                             }
@@ -225,19 +228,21 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
 
                             ws.on_upgrade(move |ws| async move {
                                 let ((mut tx, mut rx), mut buf, mut lpt) = (ws.split(), BytesMut::new(), Instant::now());
+                                let tx = &mut tx;
+                                let rx = &mut rx;
 
-                                while let Ok(maybe_req) = socket_common::process_request::<#req_message, T::Error>
-                                    (#package_name, #method_name, &mut tx, &mut rx, T::SOCKET_PING_DATA).await
+                                let span = info_span!(#method_name);
+                                let _lock = span.enter();
+                                while let Ok(maybe_req) = socket_common::process_request::<_, T::Error>(tx, rx, T::SOCKET_PING_DATA).await
                                 {
-                                    if socket_common::check_ping(#package_name, #method_name, &mut tx, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await {
+                                    if socket_common::check_ping(tx, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await
+                                    {
                                         break;
                                     }
-                                    socket_common::respond::<#resp_message, T::Error>
-                                        (#package_name, #method_name, svr. #name (&req, maybe_req) .await, &mut tx, &mut buf).await;
+                                    socket_common::respond::<_, T::Error>(svr. #name (&req, maybe_req) .await, tx, &mut buf).await;
                                 }
                             })
-                        })
-                        .with(warp::filters::log::log(#concatted));
+                        });
                 }
             }
         };

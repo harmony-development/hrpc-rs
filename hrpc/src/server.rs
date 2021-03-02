@@ -1,3 +1,4 @@
+use prelude::*;
 use std::{
     convert::Infallible,
     fmt::{self, Debug, Display, Formatter},
@@ -11,8 +12,8 @@ pub mod prelude {
     pub use bytes::{Bytes, BytesMut};
     pub use futures_util::{SinkExt, StreamExt};
     pub use http::HeaderMap;
-    pub use log;
     pub use std::time::Instant;
+    pub use tracing::{debug, error, info, info_span, trace, warn};
     pub use warp::{
         self,
         ws::{Message as WsMessage, Ws},
@@ -27,7 +28,7 @@ pub use warp::http::StatusCode;
 pub mod unary_common {
     use crate::HeaderMap;
 
-    use super::{CustomError, ServerError};
+    use super::{error, CustomError, ServerError};
     use bytes::BytesMut;
     use warp::{filters::BoxedFilter, Filter};
 
@@ -45,12 +46,7 @@ pub mod unary_common {
             ))
             .and_then(move |bin| async move {
                 Resp::decode(bin).map_err(|err| {
-                    log::error!(
-                        "{}/{}: received invalid protobuf message: {}",
-                        pkg,
-                        method,
-                        err
-                    );
+                    error!("received invalid protobuf message: {}", pkg);
                     warp::reject::custom(ServerError::<Err>::MessageDecode(err))
                 })
             })
@@ -67,8 +63,6 @@ pub mod unary_common {
 
     #[doc(hidden)]
     pub fn encode<Resp: prost::Message, Err: CustomError + 'static>(
-        pkg: &'static str,
-        method: &'static str,
         resp: Result<Resp, Err>,
     ) -> Result<http::Response<warp::hyper::Body>, warp::Rejection> {
         match resp {
@@ -82,7 +76,7 @@ pub mod unary_common {
                 Ok(resp)
             }
             Err(err) => {
-                log::error!("{}/{}: {}", pkg, method, err);
+                error!("{}", err);
                 Err(warp::reject::custom(ServerError::Custom(err)))
             }
         }
@@ -95,12 +89,13 @@ pub mod socket_common {
 
     use crate::HeaderMap;
 
-    use super::{CustomError, ServerError};
+    use super::{debug, error, info, CustomError, ServerError};
     use bytes::{Bytes, BytesMut};
+    use futures_util::{SinkExt, StreamExt};
     use warp::{
         filters::BoxedFilter,
         ws::{Message as WsMessage, Ws},
-        Filter, Future,
+        Filter,
     };
 
     #[doc(hidden)]
@@ -121,160 +116,123 @@ pub mod socket_common {
 
     #[doc(hidden)]
     pub fn process_validate<Err: CustomError + 'static>(
-        pkg: &'static str,
-        method: &'static str,
         result: Result<(), Err>,
     ) -> Result<(), ServerError<Err>> {
         result.map_err(|err| {
-            log::error!(
-                "{}/{}: socket request validation failed: {}",
-                pkg,
-                method,
-                err
-            );
+            error!("socket request validation failed: {}", err);
             ServerError::Custom(err)
         })
     }
 
     #[doc(hidden)]
-    pub fn respond<'a, Resp: prost::Message + 'a, Err: CustomError + 'static>(
-        pkg: &'static str,
-        method: &'static str,
+    pub async fn respond<'a, Resp: prost::Message + 'a, Err: CustomError + 'static>(
         resp: Result<Option<Resp>, Err>,
         tx: &'a mut futures_util::stream::SplitSink<warp::ws::WebSocket, WsMessage>,
         buf: &'a mut BytesMut,
-    ) -> impl Future<Output = ()> + 'a {
-        async move {
-            use futures_util::SinkExt;
+    ) {
+        let maybe_resp = match resp {
+            Ok(Some(bin)) => {
+                crate::encode_protobuf_message(buf, bin);
+                Some(buf.to_vec())
+            }
+            Ok(None) => None,
+            Err(err) => {
+                error!("{}", err);
+                None
+            }
+        };
 
-            let maybe_resp = match resp {
-                Ok(Some(bin)) => {
-                    crate::encode_protobuf_message(buf, bin);
-                    Some(buf.to_vec())
-                }
-                Ok(None) => None,
-                Err(err) => {
-                    log::error!("{}/{}: {}", pkg, method, err);
-                    None
-                }
-            };
-
-            if let Some(resp) = maybe_resp {
-                if let Err(e) = tx.send(WsMessage::binary(resp)).await {
-                    if "Connection closed normally" == e.to_string() {
-                        log::info!("{}/{}: socket closed normally", pkg, method);
-                    } else {
-                        log::error!(
-                            "{}/{}: error responding to client socket: {}",
-                            pkg,
-                            method,
-                            e
-                        );
-                    }
+        if let Some(resp) = maybe_resp {
+            if let Err(e) = tx.send(WsMessage::binary(resp)).await {
+                if "Connection closed normally" == e.to_string() {
+                    info!("socket closed normally");
                 } else {
-                    log::debug!("{}/{}: responded to client socket", pkg, method);
+                    error!("error responding to client socket: {}", e);
                 }
+            } else {
+                debug!("responded to client socket");
             }
         }
     }
 
     #[doc(hidden)]
-    pub fn check_ping<'a>(
-        pkg: &'static str,
-        method: &'static str,
+    pub async fn check_ping<'a>(
         tx: &'a mut futures_util::stream::SplitSink<warp::ws::WebSocket, WsMessage>,
         last_ping_time: &'a mut Instant,
         socket_ping_data: [u8; 32],
         socket_ping_period: u64,
-    ) -> impl Future<Output = bool> + 'a {
-        async move {
-            use futures_util::SinkExt;
-
-            let ping_lapse = last_ping_time.elapsed();
-            if ping_lapse.as_secs() >= socket_ping_period {
-                if let Err(e) = tx.send(WsMessage::ping(socket_ping_data)).await {
-                    // TODO: replace this with error source downcasting?
-                    if "Connection closed normally" == e.to_string() {
-                        log::info!("{}/{}: socket closed normally", pkg, method);
-                    } else {
-                        log::error!("{}/{}: error pinging client socket: {}", pkg, method, e);
-                        log::error!("{}/{}: can't reach client, closing socket", pkg, method);
-                    }
-                    return true;
+    ) -> bool {
+        let ping_lapse = last_ping_time.elapsed();
+        if ping_lapse.as_secs() >= socket_ping_period {
+            if let Err(e) = tx.send(WsMessage::ping(socket_ping_data)).await {
+                // TODO: replace this with error source downcasting?
+                if "Connection closed normally" == e.to_string() {
+                    info!("socket closed normally");
                 } else {
-                    log::debug!(
-                        "{}/{}: pinged client socket, last ping was {} ago",
-                        pkg,
-                        method,
-                        last_ping_time.elapsed().as_secs()
-                    );
+                    error!("error pinging client socket: {}", e);
+                    error!("can't reach client, closing socket");
                 }
-                *last_ping_time = Instant::now();
+                return true;
+            } else {
+                debug!(
+                    "pinged client socket, last ping was {} ago",
+                    last_ping_time.elapsed().as_secs()
+                );
             }
-            false
+            *last_ping_time = Instant::now();
         }
+        false
     }
 
     #[doc(hidden)]
     pub async fn close_socket(
-        pkg: &'static str,
-        method: &'static str,
         tx: &mut futures_util::stream::SplitSink<warp::ws::WebSocket, WsMessage>,
     ) {
-        use futures_util::SinkExt;
-
         if let Err(e) = tx.send(WsMessage::close()).await {
-            log::error!("{}/{}: error closing socket: {}", pkg, method, e);
+            error!("error closing socket: {}", e);
         } else {
-            log::info!("{}/{}: socket closed normally", pkg, method);
+            info!("socket closed normally");
         }
     }
 
     #[doc(hidden)]
-    pub fn process_request<'a, Req: prost::Message + Default + 'a, Err: CustomError + 'static>(
-        pkg: &'static str,
-        method: &'static str,
+    pub async fn process_request<
+        'a,
+        Req: prost::Message + Default + 'a,
+        Err: CustomError + 'static,
+    >(
         tx: &'a mut futures_util::stream::SplitSink<warp::ws::WebSocket, WsMessage>,
         rx: &'a mut futures_util::stream::SplitStream<warp::ws::WebSocket>,
         socket_ping_data: [u8; 32],
-    ) -> impl Future<Output = Result<Option<Req>, ()>> + 'a {
-        async move {
-            use futures_util::StreamExt;
+    ) -> Result<Option<Req>, ()> {
+        let msg_maybe = tokio::time::timeout(Duration::from_nanos(1), rx.next())
+            .await
+            .map_or(Ok(None), Ok)?
+            .map(Result::ok)
+            .flatten();
 
-            let msg_maybe = tokio::time::timeout(Duration::from_nanos(1), rx.next())
-                .await
-                .map_or(Ok(None), Ok)?
-                .map(Result::ok)
-                .flatten();
-
-            if let Some(msg) = msg_maybe {
-                if msg.is_binary() {
-                    let msg_bin = Bytes::from(msg.into_bytes());
-                    match Req::decode(msg_bin) {
-                        Ok(req) => return Ok(Some(req)),
-                        Err(err) => {
-                            log::error!(
-                                "{}/{}: received invalid protobuf message: {}",
-                                pkg,
-                                method,
-                                err
-                            );
-                        }
+        if let Some(msg) = msg_maybe {
+            if msg.is_binary() {
+                let msg_bin = Bytes::from(msg.into_bytes());
+                match Req::decode(msg_bin) {
+                    Ok(req) => return Ok(Some(req)),
+                    Err(err) => {
+                        error!("received invalid protobuf message: {}", err);
                     }
-                } else if msg.is_pong() {
-                    let msg_bin = Bytes::from(msg.into_bytes());
-                    if socket_ping_data != msg_bin.as_ref() {
-                        close_socket(pkg, method, tx).await;
-                        return Err(());
-                    } else {
-                        log::debug!("{}/{}: received pong", pkg, method);
-                    }
-                } else if msg.is_close() {
-                    return Err(());
                 }
+            } else if msg.is_pong() {
+                let msg_bin = Bytes::from(msg.into_bytes());
+                if socket_ping_data != msg_bin.as_ref() {
+                    close_socket(tx).await;
+                    return Err(());
+                } else {
+                    debug!("received pong");
+                }
+            } else if msg.is_close() {
+                return Err(());
             }
-            Ok(None)
         }
+        Ok(None)
     }
 }
 
@@ -334,7 +292,7 @@ pub async fn handle_rejection<Err: CustomError + 'static>(
             ServerError::Custom(err) => (err.code(), err.message()),
         }
     } else {
-        log::error!("unhandled rejection: {:?}", err);
+        error!("unhandled rejection: {:?}", err);
         Err::internal_server_error()
     };
 
@@ -362,9 +320,13 @@ macro_rules! serve_multiple {
 
             let filter = $first $( .or($filter) )+ ;
 
-            $crate::warp::serve(filter.recover($crate::server::handle_rejection::<$err>))
-                .run($address)
-                .await
+            $crate::warp::serve(
+                filter
+                    .with($crate::warp::filters::trace::request())
+                    .recover($crate::server::handle_rejection::<$err>)
+            )
+            .run($address)
+            .await
         }
     };
 }
