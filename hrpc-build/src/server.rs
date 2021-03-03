@@ -142,7 +142,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
         );
         let method_name = method.identifier();
 
-        let (req_message, _) = method.request_response_name(proto_path);
+        let (req_message, resp_message) = method.request_response_name(proto_path);
         let streaming = (method.client_streaming(), method.server_streaming());
 
         let method = match streaming {
@@ -175,7 +175,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                 let req;
                                 loop {
                                     let validate_start = Instant::now();
-                                    if let Ok(Some(request)) = socket_common::process_request::<_, T::Error>(tx, rx, T::SOCKET_PING_DATA).await
+                                    if let Ok(Some(request)) = socket_common::process_request::<#req_message, T::Error>(tx, rx, T::SOCKET_PING_DATA).await
                                     {
                                         req = Request::from_parts((request, headers));
 
@@ -193,12 +193,12 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                                     }
                                 }
 
-                                while socket_common::process_request::<_, T::Error>(tx, rx, T::SOCKET_PING_DATA).await.is_ok()
+                                while socket_common::process_request::<#req_message, T::Error>(tx, rx, T::SOCKET_PING_DATA).await.is_ok()
                                 {
                                     if socket_common::check_ping(tx, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await {
                                         break;
                                     }
-                                    socket_common::respond::<_, T::Error>(svr. #name (&req) .await, tx, &mut buf).await;
+                                    socket_common::respond::<#resp_message, T::Error>(svr. #name (&req) .await, tx, &mut buf).await;
                                 }
                             })
                         });
@@ -233,13 +233,13 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
 
                                 let span = info_span!(#method_name);
                                 let _lock = span.enter();
-                                while let Ok(maybe_req) = socket_common::process_request::<_, T::Error>(tx, rx, T::SOCKET_PING_DATA).await
+                                while let Ok(maybe_req) = socket_common::process_request::<#req_message, T::Error>(tx, rx, T::SOCKET_PING_DATA).await
                                 {
                                     if socket_common::check_ping(tx, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await
                                     {
                                         break;
                                     }
-                                    socket_common::respond::<_, T::Error>(svr. #name (&req, maybe_req) .await, tx, &mut buf).await;
+                                    socket_common::respond::<#resp_message, T::Error>(svr. #name (&req, maybe_req) .await, tx, &mut buf).await;
                                 }
                             })
                         });
