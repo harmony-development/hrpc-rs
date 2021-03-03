@@ -425,7 +425,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "async-trait",
  "async-tungstenite",
@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-build"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "proc-macro2",
  "prost",
