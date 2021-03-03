@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-build"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "proc-macro2",
  "prost",
