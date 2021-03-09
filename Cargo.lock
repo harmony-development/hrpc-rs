@@ -374,7 +374,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "async-trait",
  "async-tungstenite",
