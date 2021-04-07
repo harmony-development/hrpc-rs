@@ -1,6 +1,7 @@
 use prelude::*;
 use std::{
     convert::Infallible,
+    error::Error as StdError,
     fmt::{self, Debug, Display, Formatter},
 };
 use warp::{Rejection, Reply};
@@ -274,6 +275,15 @@ impl<Err: CustomError> Display for ServerError<Err> {
         match self {
             ServerError::MessageDecode(err) => write!(f, "invalid protobuf message: {}", err),
             ServerError::Custom(err) => write!(f, "error occured: {}", err),
+        }
+    }
+}
+
+impl<Err: CustomError + StdError + 'static> StdError for ServerError<Err> {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            ServerError::MessageDecode(err) => Some(err),
+            ServerError::Custom(err) => Some(err),
         }
     }
 }

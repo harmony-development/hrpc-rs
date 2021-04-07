@@ -310,7 +310,10 @@ pub mod socket {
 
 mod error {
     use bytes::Bytes;
-    use std::fmt::{self, Display, Formatter};
+    use std::{
+        error::Error as StdError,
+        fmt::{self, Display, Formatter},
+    };
 
     /// Convenience type for `Client` operation result.
     pub type ClientResult<T> = Result<T, ClientError>;
@@ -385,6 +388,18 @@ mod error {
         }
     }
 
+    impl StdError for ClientError {
+        fn source(&self) -> Option<&(dyn StdError + 'static)> {
+            match self {
+                ClientError::InvalidUrl(err) => Some(err),
+                ClientError::MessageDecode(err) => Some(err),
+                ClientError::Reqwest(err) => Some(err),
+                ClientError::SocketError(err) => Some(err),
+                _ => None,
+            }
+        }
+    }
+
     #[derive(Debug)]
     /// Errors that can occur while parsing the URL given to `Client::new()`.
     pub enum InvalidUrlKind {
@@ -401,4 +416,6 @@ mod error {
             }
         }
     }
+
+    impl StdError for InvalidUrlKind {}
 }
