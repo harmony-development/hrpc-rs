@@ -15,3 +15,7 @@ tracing-subscriber = "0.2"
 
 [build-dependencies]
 hrpc-build = { path = "../hrpc-build" }
+
+[package.metadata.nix]
+build = true
+app = true

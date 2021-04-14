@@ -1,2 +1,8 @@
 [workspace]
 members = ["hrpc", "hrpc-build", "interop"]
+
+[workspace.metadata.nix]
+toolchain = "stable"
+buildInputs = ["protobuf"]
+nativeBuildInputs = ["binutils"]
+env.PROTOC = "protoc"

@@ -24,3 +24,7 @@ client = []
 
 [package.metadata.docs.rs]
 all-features = true
+
+[package.metadata.nix]
+build = true
+library = true

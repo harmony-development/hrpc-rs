@@ -29,3 +29,7 @@ async-tungstenite = { version = "0.13", features = ["tokio-rustls"], optional = 
 tokio = { version = "1.5", optional = true }
 tokio-rustls = { version = "0.22", optional = true }
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots"], optional = true }
+
+[package.metadata.nix]
+build = true
+library = true
