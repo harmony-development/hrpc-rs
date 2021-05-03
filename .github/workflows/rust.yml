@@ -31,7 +31,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update -yy
-        sudo apt install -yy --no-install-recommends protobuf-compiler protobuf-compiler-grpc
+        sudo apt install -yy --no-install-recommends protobuf-compiler
     - name: Install rust
       run: rustup default stable && rustup update && rustup component add rustfmt clippy
 
