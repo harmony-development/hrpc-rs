@@ -7,5 +7,8 @@
     };
   };
 
-  outputs = inputs: inputs.nixCargoIntegration.lib.makeOutputs { root = ./.; };
+  outputs = inputs: inputs.nixCargoIntegration.lib.makeOutputs {
+    root = ./.;
+    buildPlatform = "crate2nix";
+  };
 }

@@ -2,6 +2,4 @@
 members = ["hrpc", "hrpc-build", "interop"]
 
 [workspace.metadata.nix]
-buildInputs = ["protobuf"]
-nativeBuildInputs = ["binutils"]
-env.PROTOC = "protoc"
+systems = ["x86_64-linux"]
