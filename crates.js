@@ -1,0 +1,1 @@
+window.ALL_CRATES = ["hrpc","hrpc_build","interop"];
