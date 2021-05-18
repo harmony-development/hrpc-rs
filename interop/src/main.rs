@@ -1,5 +1,6 @@
 use hrpc::{
     server::{json_err_bytes, StatusCode},
+    warp::reply::Response,
     Request,
 };
 
@@ -96,6 +97,10 @@ impl mu_server::Mu for Server {
         Ok(Pong {
             mu: request.into_parts().0.mu,
         })
+    }
+
+    fn mu_mute_on_upgrade(&self, response: Response) -> Response {
+        response
     }
 
     async fn mu_mute(
