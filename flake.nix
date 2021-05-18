@@ -10,5 +10,15 @@
   outputs = inputs: inputs.nixCargoIntegration.lib.makeOutputs {
     root = ./.;
     buildPlatform = "crate2nix";
+    overrides = {
+      crateOverrides = common: prev: {
+        interop = prevv:
+          let env = { PROTOC = "protoc"; }; in
+          {
+            buildInputs = (prevv.buildInputs or [ ]) ++ [ common.pkgs.protobuf ];
+            propagatedEnv = env;
+          } // env;
+      };
+    };
   };
 }

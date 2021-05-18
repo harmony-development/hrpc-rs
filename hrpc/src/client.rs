@@ -113,7 +113,9 @@ impl Client {
         })
         .expect("failed to form websocket URL, something must be terribly wrong");
 
-        let mut request = SocketRequest::get(url.into_string()).body(()).unwrap();
+        let mut request = SocketRequest::get(Into::<String>::into(url))
+            .body(())
+            .unwrap();
         for (key, value) in req.header_map {
             request.headers_mut().entry(key).or_insert(value);
         }
