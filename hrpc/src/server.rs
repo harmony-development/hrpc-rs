@@ -13,10 +13,11 @@ pub mod prelude {
     pub use bytes::{Bytes, BytesMut};
     pub use futures_util::{SinkExt, StreamExt};
     pub use http::HeaderMap;
-    pub use std::time::Instant;
+    pub use std::{collections::HashMap, time::Instant};
     pub use tracing::{debug, error, info, info_span, trace, warn};
     pub use warp::{
         self,
+        filters::BoxedFilter,
         reply::Response,
         ws::{Message as WsMessage, Ws},
         Filter, Reply,

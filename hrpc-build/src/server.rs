@@ -14,7 +14,8 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let server_mod = quote::format_ident!("{}_server", naive_snake_case(&service.name()));
     let generated_trait = generate_trait(service, proto_path, server_trait.clone());
     let service_doc = generate_doc_comments(service.comment());
-    let (serve_filters, serve_combined_filters) = generate_filters(service, proto_path);
+    let (serve_filters, serve_combined_filters, apis_push_filters) =
+        generate_filters(service, proto_path);
 
     quote! {
         /// Generated server implementations.
@@ -51,11 +52,23 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 ///
                 /// This can be used to compose multiple services. See `serve_multiple` macro in `hrpc`.
                 #[allow(clippy::redundant_clone)]
-                pub fn filters(self) -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
+                pub fn filters(self) -> BoxedFilter<(impl warp::Reply,)> {
                     let server = self.inner;
 
                     #serve_filters
                     #serve_combined_filters.boxed()
+                }
+
+                /// Extract `warp` filters, mapped to their URL API path.
+                #[allow(clippy::redundant_clone)]
+                pub fn filters_uncombined(self) -> HashMap<&'static str, BoxedFilter<(impl warp::Reply,)>> {
+                    let server = self.inner;
+
+                    #serve_filters
+
+                    let mut apis = HashMap::new();
+                    #apis_push_filters
+                    apis
                 }
             }
         }
@@ -132,9 +145,13 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
     stream
 }
 
-fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, TokenStream) {
+fn generate_filters<T: Service>(
+    service: &T,
+    proto_path: &str,
+) -> (TokenStream, TokenStream, TokenStream) {
     let mut stream = TokenStream::new();
     let mut comb_stream = TokenStream::new();
+    let mut push_stream = TokenStream::new();
 
     for (index, method) in service.methods().iter().enumerate() {
         let name = quote::format_ident!("{}", method.name());
@@ -151,6 +168,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
             service.identifier(),
         );
         let method_name = method.identifier();
+        let api_path = format!("{}/{}", package_name, method_name);
 
         let (req_message, resp_message) = method.request_response_name(proto_path);
         let streaming = (method.client_streaming(), method.server_streaming());
@@ -282,9 +300,12 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                 #name
             }
         });
+        push_stream.extend(quote! {
+            apis.insert(#api_path, #name.boxed());
+        });
 
         stream.extend(method);
     }
 
-    (stream, comb_stream)
+    (stream, comb_stream, push_stream)
 }
