@@ -11,22 +11,23 @@ keywords = ["hrpc", "harmony", "rpc"]
 
 [features]
 default = ["server", "client"]
-server = ["warp", "tokio"]
-client = ["reqwest", "async-tungstenite", "tokio", "tokio-rustls"]
+server = ["warp", "tokio", "parking_lot"]
+client = ["reqwest", "async-tungstenite", "tokio", "tokio-rustls", "futures-util/bilock", "futures-util/unstable"]
 
 [dependencies]
 async-trait = "0.1"
 prost = "0.7"
 bytes = "1.0"
 url = "2.2"
-futures-util = { version = "0.3", features = ["bilock", "unstable"] }
+futures-util = "0.3"
 tracing = "0.1"
 http = "0.2"
 
+parking_lot = { version = "0.11", optional = true }
 warp = { version = "0.3", features = ["tls"], optional = true }
 
 async-tungstenite = { version = "0.13", features = ["tokio-rustls"], optional = true }
-tokio = { version = "1.6", optional = true }
+tokio = { version = "1.6", features = ["parking_lot"], optional = true }
 tokio-rustls = { version = "0.22", optional = true }
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots"], optional = true }
 

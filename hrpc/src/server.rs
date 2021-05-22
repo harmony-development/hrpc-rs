@@ -6,6 +6,89 @@ use std::{
 };
 use warp::{Rejection, Reply};
 
+/// Useful filters.
+pub mod filters {
+    use super::*;
+
+    pub use rate::rate_limit;
+
+    pub mod rate {
+        use super::*;
+
+        use std::{sync::Arc, time::Duration};
+
+        use parking_lot::Mutex;
+        use warp::Filter;
+
+        /// A rate of requests per time period.
+        #[derive(Debug, Copy, Clone)]
+        pub struct Rate {
+            num: u64,
+            per: Duration,
+        }
+
+        impl Rate {
+            /// Create a new rate.
+            ///
+            /// # Panics
+            ///
+            /// This function panics if `num` or `per` is 0.
+            pub fn new(num: u64, per: Duration) -> Self {
+                assert!(num > 0);
+                assert!(per > Duration::from_millis(0));
+
+                Rate { num, per }
+            }
+        }
+
+        #[derive(Debug, Clone, Copy)]
+        pub struct State {
+            until: Instant,
+            rem: u64,
+        }
+
+        impl State {
+            pub fn new(rate: Rate) -> Self {
+                Self {
+                    until: Instant::now() + rate.per,
+                    rem: rate.num,
+                }
+            }
+        }
+
+        /// Creates a filter that will return an `Err(error)` with `error`
+        /// generated with the provided error function if rate limited.
+        pub fn rate_limit<Err: CustomError + 'static>(
+            rate: Rate,
+            error: fn(Duration) -> Err,
+        ) -> BoxedFilter<(Result<(), Err>,)> {
+            let state = Arc::new(Mutex::new(State::new(rate)));
+
+            warp::any()
+                .map(move || {
+                    let now = Instant::now();
+
+                    let mut lock = state.lock();
+                    if now >= lock.until {
+                        lock.until = now + rate.per;
+                        lock.rem = rate.num;
+                    }
+
+                    let res = if lock.rem >= 1 {
+                        lock.rem -= 1;
+                        Ok(())
+                    } else {
+                        Err(lock.until - now)
+                    };
+                    drop(lock);
+
+                    res.map_err(error)
+                })
+                .boxed()
+        }
+    }
+}
+
 #[doc(hidden)]
 pub mod prelude {
     pub use super::{socket_common, unary_common, CustomError, ServerError};
@@ -18,6 +101,7 @@ pub mod prelude {
     pub use warp::{
         self,
         filters::BoxedFilter,
+        reject::Reject,
         reply::Response,
         ws::{Message as WsMessage, Ws},
         Filter, Reply,
@@ -36,19 +120,28 @@ pub mod unary_common {
     use warp::{filters::BoxedFilter, Filter};
 
     #[doc(hidden)]
-    pub fn base_filter<Resp: prost::Message + Default, Err: CustomError + 'static>(
+    pub fn base_filter<Resp, Err>(
         pkg: &'static str,
         method: &'static str,
-    ) -> BoxedFilter<(Resp, HeaderMap)> {
+        pre: BoxedFilter<(Result<(), Err>,)>,
+    ) -> BoxedFilter<(Resp, HeaderMap)>
+    where
+        Resp: prost::Message + Default,
+        Err: CustomError + 'static,
+    {
         warp::path(pkg)
             .and(warp::path(method))
             .and(warp::path::end())
+            .and(pre)
+            .and_then(|res: Result<(), Err>| async move {
+                res.map_err(|err| warp::reject::custom(ServerError::<Err>::Custom(err)))
+            })
             .and(warp::body::bytes())
             .and(warp::header::exact_ignore_case(
                 "content-type",
                 "application/hrpc",
             ))
-            .and_then(move |bin| async move {
+            .and_then(move |_, bin| async move {
                 Resp::decode(bin).map_err(|err| {
                     error!("received invalid protobuf message: {}", pkg);
                     warp::reject::custom(ServerError::<Err>::MessageDecode(err))
@@ -103,10 +196,18 @@ pub mod socket_common {
     };
 
     #[doc(hidden)]
-    pub fn base_filter(pkg: &'static str, method: &'static str) -> BoxedFilter<(HeaderMap, Ws)> {
+    pub fn base_filter<Err: CustomError + 'static>(
+        pkg: &'static str,
+        method: &'static str,
+        pre: BoxedFilter<(Result<(), Err>,)>,
+    ) -> BoxedFilter<((), HeaderMap, Ws)> {
         warp::path(pkg)
             .and(warp::path(method))
             .and(warp::path::end())
+            .and(pre)
+            .and_then(|res: Result<(), Err>| async move {
+                res.map_err(|err| warp::reject::custom(ServerError::<Err>::Custom(err)))
+            })
             .and(
                 warp::header::headers_cloned().map(|headers: http::HeaderMap| {
                     headers
@@ -267,6 +368,16 @@ pub trait CustomError: Debug + Display + Send + Sync {
     }
 }
 
+impl CustomError for std::convert::Infallible {
+    fn code(&self) -> StatusCode {
+        unreachable!()
+    }
+
+    fn message(&self) -> Vec<u8> {
+        unreachable!()
+    }
+}
+
 #[doc(hidden)]
 #[derive(Debug)]
 pub enum ServerError<Err: CustomError> {
@@ -332,13 +443,38 @@ macro_rules! serve_multiple {
         async move {
             use $crate::warp::Filter;
 
-            let filter = $first $( .or($filter) )+ ;
-
             $crate::warp::serve(
-                filter
+                $first $( .or($filter) )+
                     .with($crate::warp::filters::trace::request())
                     .recover($crate::server::handle_rejection::<$err>)
             )
+            .run($address)
+            .await
+        }
+    };
+}
+
+/// Serves multiple services' filters on the same address. Supports TLS.
+#[macro_export]
+macro_rules! serve_multiple_tls {
+    {
+        addr: $address:expr,
+        err: $err:ty,
+        key_file: $key_file:expr,
+        cert_file: $cert_file:expr,
+        filters: $first:expr, $( $filter:expr, )+
+    } => {
+        async move {
+            use $crate::warp::Filter;
+
+            $crate::warp::serve(
+                $first $( .or($filter) )+
+                    .with($crate::warp::filters::trace::request())
+                    .recover($crate::server::handle_rejection::<$err>)
+            )
+            .tls()
+            .key_path($key_file)
+            .cert_path($cert_file)
             .run($address)
             .await
         }

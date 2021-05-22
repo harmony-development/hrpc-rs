@@ -34,29 +34,29 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             impl<T: #server_trait> #server_service<T> {
                 /// Create a new service server.
                 pub fn new(inner: T) -> Self {
-                    Self { inner: Arc::new(inner) }
+                    Self {
+                        inner: Arc::new(inner),
+                    }
                 }
 
                 /// Start serving.
-                pub async fn serve(self, address: impl Into<std::net::SocketAddr>) {
-                    warp::serve(
-                        self.filters()
-                            .with(warp::filters::trace::request())
-                            .recover(hrpc::server::handle_rejection::<T::Error>)
-                    )
-                    .run(address)
-                    .await
+                pub async fn serve<Err: CustomError + 'static, A: Into<std::net::SocketAddr>>(self, address: A) {
+                    let filters = self.filters()
+                        .with(warp::filters::trace::request())
+                        .recover(hrpc::server::handle_rejection::<Err>);
+
+                    warp::serve(filters).run(address).await
                 }
 
-                /// Extract `warp` filters.
+                /// Convert this service to `warp` `Filter`s.
                 ///
                 /// This can be used to compose multiple services. See `serve_multiple` macro in `hrpc`.
                 #[allow(clippy::redundant_clone)]
-                pub fn filters(self) -> BoxedFilter<(impl warp::Reply,)> {
+                pub fn filters(self) -> BoxedFilter<(impl Reply,)> {
                     let server = self.inner;
 
                     #serve_filters
-                    #serve_combined_filters.boxed()
+                    #serve_combined_filters .boxed()
                 }
 
                 /// Extract `warp` filters, mapped to their URL API path.
@@ -104,6 +104,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
         let name = quote::format_ident!("{}", method.name());
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
+        let pre_name = quote::format_ident!("{}_pre", name);
 
         let (req_message, res_message) = method.request_response_name(proto_path);
 
@@ -114,14 +115,22 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 response
             }
         };
+        let middleware_methods = quote! {
+            // Filter to be run before all API operations but after API path is matched.
+            fn #pre_name(&self) -> BoxedFilter<(Result<(), Self::Error>,)> {
+                warp::any().map(|| Ok(())).boxed()
+            }
+        };
 
         let method = match streaming {
             (false, false) => quote! {
+                #middleware_methods
                 #method_doc
                 async fn #name(&self, request: Request<#req_message>) -> Result<#res_message, Self::Error>;
             },
             (false, true) => {
                 quote! {
+                    #middleware_methods
                     #on_upgrade_method
                     #method_doc
                     async fn #name(&self, validation_request: &Request<#req_message>)
@@ -131,6 +140,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
             (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
             (true, true) => {
                 quote! {
+                    #middleware_methods
                     #on_upgrade_method
                     #method_doc
                     async fn #name(&self, validation_request: &Request<()>, request: Option<#req_message>)
@@ -156,6 +166,7 @@ fn generate_filters<T: Service>(
     for (index, method) in service.methods().iter().enumerate() {
         let name = quote::format_ident!("{}", method.name());
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
+        let pre_name = quote::format_ident!("{}_pre", name);
 
         let package_name = format!(
             "{}{}{}",
@@ -231,11 +242,11 @@ fn generate_filters<T: Service>(
         });
         let server_streaming = quote! {
             let svr = server.clone();
-            let #name = socket_common::base_filter(#package_name, #method_name)
-                .map(move |headers, ws: Ws| {
+            socket_common::base_filter::<T::Error>(#package_name, #method_name, svr.#pre_name())
+                .map(move |_, headers, ws: Ws| {
                     let svr = svr.clone();
                     #server_upgrade
-                });
+                })
         };
 
         let both_handling =
@@ -251,8 +262,8 @@ fn generate_filters<T: Service>(
         });
         let both_streaming = quote! {
             let (svr, svr2) = (server.clone(), server.clone());
-            let #name = socket_common::base_filter(#package_name, #method_name)
-                .and_then(move |headers, ws: Ws| {
+            socket_common::base_filter::<T::Error>(#package_name, #method_name, svr.#pre_name())
+                .and_then(move |_, headers, ws: Ws| {
                     let svr = svr2.clone();
                     let req = Request::from_parts(((), headers));
                     async move {
@@ -266,11 +277,11 @@ fn generate_filters<T: Service>(
                 .map(move |(req, ws): (Request<()>, Ws)| {
                     let svr = svr.clone();
                     #both_upgrade
-                });
+                })
         };
         let unary = quote! {
             let svr = server.clone();
-            let #name = unary_common::base_filter::<#req_message, T::Error>(#package_name, #method_name)
+            unary_common::base_filter::<#req_message, T::Error>(#package_name, #method_name, svr.#pre_name())
                 .and_then(move |msg, headers| {
                     let svr = svr.clone();
                     async move {
@@ -278,7 +289,7 @@ fn generate_filters<T: Service>(
                         let _lock = span.enter();
                         unary_common::encode(svr. #name (Request::from_parts((msg, headers))) .await)
                     }
-                });
+                })
         };
 
         let method = match streaming {
@@ -289,6 +300,12 @@ fn generate_filters<T: Service>(
                 package_name, method_name
             ),
             (true, true) => both_streaming,
+        };
+
+        let apply_middleware = quote! {
+            let #name = {
+                #method
+            };
         };
 
         comb_stream.extend(if index > 0 {
@@ -304,7 +321,7 @@ fn generate_filters<T: Service>(
             apis.insert(#api_path, #name.boxed());
         });
 
-        stream.extend(method);
+        stream.extend(apply_middleware);
     }
 
     (stream, comb_stream, push_stream)

@@ -1,8 +1,12 @@
 use hrpc::{
-    server::{json_err_bytes, StatusCode},
+    server::{
+        filters::rate::{rate_limit, Rate},
+        json_err_bytes, StatusCode,
+    },
     warp::reply::Response,
     Request,
 };
+use warp::{filters::BoxedFilter, Filter};
 
 use std::{
     fmt::{self, Display, Formatter},
@@ -62,8 +66,16 @@ async fn client() {
 
     for i in 0..100 {
         let ins = Instant::now();
-        if let Err(err) = socket.send_message(Ping { mu: i.to_string() }).await {
+        /*if let Err(err) = socket.send_message(Ping { mu: i.to_string() }).await {
             eprintln!("failed to send message: {}", err);
+        }*/
+        match client.mu(Ping { mu: i.to_string() }).await {
+            Err(err) => {
+                eprintln!("failed to send message: {}", err);
+            }
+            Ok(pong) => {
+                println!("got {:#?}", pong);
+            }
         }
         println!("sent in {}", ins.elapsed().as_secs_f64());
 
@@ -77,7 +89,7 @@ async fn server() {
     mu_server::MuServer::new(Server {
         creation_timestamp: Instant::now().into(),
     })
-    .serve(([127, 0, 0, 1], 2289))
+    .serve::<ServerError, _>(([127, 0, 0, 1], 2289))
     .await
 }
 
@@ -103,6 +115,15 @@ impl mu_server::Mu for Server {
         response
     }
 
+    fn mu_pre(&self) -> BoxedFilter<(Result<(), ServerError>,)> {
+        warp::any()
+            .and(rate_limit(
+                Rate::new(1, Duration::from_secs(5)),
+                ServerError::TooFast,
+            ))
+            .boxed()
+    }
+
     async fn mu_mute(
         &self,
         _validation_request: &Request<()>,
@@ -126,12 +147,16 @@ impl mu_server::Mu for Server {
 #[derive(Debug)]
 enum ServerError {
     PingEmpty,
+    TooFast(Duration),
 }
 
 impl Display for ServerError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ServerError::PingEmpty => write!(f, "sent empty ping"),
+            ServerError::TooFast(try_again) => {
+                write!(f, "too fast, try again in {}", try_again.as_secs_f64())
+            }
         }
     }
 }
@@ -140,6 +165,7 @@ impl hrpc::server::CustomError for ServerError {
     fn code(&self) -> StatusCode {
         match self {
             ServerError::PingEmpty => StatusCode::BAD_REQUEST,
+            ServerError::TooFast(_) => StatusCode::TOO_MANY_REQUESTS,
         }
     }
 
