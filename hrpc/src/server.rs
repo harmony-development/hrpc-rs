@@ -42,6 +42,7 @@ pub mod unary_common {
     ) -> BoxedFilter<(Resp, HeaderMap)> {
         warp::path(pkg)
             .and(warp::path(method))
+            .and(warp::path::end())
             .and(warp::body::bytes())
             .and(warp::header::exact_ignore_case(
                 "content-type",
@@ -105,6 +106,7 @@ pub mod socket_common {
     pub fn base_filter(pkg: &'static str, method: &'static str) -> BoxedFilter<(HeaderMap, Ws)> {
         warp::path(pkg)
             .and(warp::path(method))
+            .and(warp::path::end())
             .and(
                 warp::header::headers_cloned().map(|headers: http::HeaderMap| {
                     headers
