@@ -18,6 +18,7 @@ pub mod filters {
         use std::{net::SocketAddr, sync::Arc, time::Duration};
 
         use parking_lot::Mutex;
+        use rustc_hash::FxHashMap;
         use warp::Filter;
 
         /// A rate of requests per time period.
@@ -62,8 +63,8 @@ pub mod filters {
             rate: Rate,
             error: fn(Duration) -> Err,
         ) -> BoxedFilter<(Result<(), Err>,)> {
-            let state: Arc<Mutex<HashMap<Option<SocketAddr>, State>>> =
-                Arc::new(Mutex::new(HashMap::new()));
+            let state: Arc<Mutex<FxHashMap<Option<SocketAddr>, State>>> =
+                Arc::new(Mutex::new(FxHashMap::default()));
 
             warp::any()
                 .and(warp::addr::remote())
