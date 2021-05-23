@@ -15,7 +15,7 @@ pub mod filters {
     pub mod rate {
         use super::*;
 
-        use std::{sync::Arc, time::Duration};
+        use std::{net::SocketAddr, sync::Arc, time::Duration};
 
         use parking_lot::Mutex;
         use warp::Filter;
@@ -62,23 +62,26 @@ pub mod filters {
             rate: Rate,
             error: fn(Duration) -> Err,
         ) -> BoxedFilter<(Result<(), Err>,)> {
-            let state = Arc::new(Mutex::new(State::new(rate)));
+            let state: Arc<Mutex<HashMap<Option<SocketAddr>, State>>> =
+                Arc::new(Mutex::new(HashMap::new()));
 
             warp::any()
-                .map(move || {
+                .and(warp::addr::remote())
+                .map(move |addr: Option<SocketAddr>| {
                     let now = Instant::now();
 
                     let mut lock = state.lock();
-                    if now >= lock.until {
-                        lock.until = now + rate.per;
-                        lock.rem = rate.num;
+                    let state = lock.entry(addr).or_insert_with(|| State::new(rate));
+                    if now >= state.until {
+                        state.until = now + rate.per;
+                        state.rem = rate.num;
                     }
 
-                    let res = if lock.rem >= 1 {
-                        lock.rem -= 1;
+                    let res = if state.rem >= 1 {
+                        state.rem -= 1;
                         Ok(())
                     } else {
-                        Err(lock.until - now)
+                        Err(state.until - now)
                     };
                     drop(lock);
 
