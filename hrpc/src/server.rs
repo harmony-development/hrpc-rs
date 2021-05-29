@@ -436,10 +436,16 @@ macro_rules! return_closed {
 macro_rules! return_print {
     ($result:expr) => {{
         let res = $crate::return_closed!($result);
-        if let Err(err) = &res {
+        if let Err(err) = res {
             $crate::tracing::error!("error occured: {}", err);
         }
-        res
+    }};
+    ($result:expr, |$val:ident| $log:expr) => {{
+        let res = $crate::return_closed!($result);
+        match res {
+            Err(err) => $crate::tracing::error!("error occured: {}", err),
+            Ok($val) => $log,
+        }
     }};
 }
 

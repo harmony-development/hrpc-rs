@@ -137,10 +137,12 @@ impl mu_server::Mu for Server {
         mut socket: Socket<Ping, Pong>,
     ) {
         let mut creation_timestamp = Instant::now();
-        while let Ok(request) = socket.receive_message().await {
-            if let Some(req) = request {
-                return_print!(socket.send_message(Pong { mu: req.mu }).await).unwrap();
-            }
+        loop {
+            return_print!(socket.receive_message().await, |maybe_req| {
+                if let Some(req) = maybe_req {
+                    return_print!(socket.send_message(Pong { mu: req.mu }).await);
+                }
+            });
 
             if creation_timestamp.elapsed().as_secs() >= 10 {
                 creation_timestamp = Instant::now();
@@ -150,8 +152,7 @@ impl mu_server::Mu for Server {
                             mu: "been 10 seconds".to_string(),
                         })
                         .await
-                )
-                .unwrap();
+                );
             }
         }
     }
