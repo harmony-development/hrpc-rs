@@ -189,6 +189,7 @@
 <span id="186">186</span>
 <span id="187">187</span>
 <span id="188">188</span>
+<span id="189">189</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">hrpc</span>::{
     <span class="ident">return_print</span>,
@@ -329,10 +330,12 @@
         <span class="kw-2">mut</span> <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Ping</span>, <span class="ident">Pong</span><span class="op">&gt;</span>,
     ) {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">creation_timestamp</span> <span class="op">=</span> <span class="ident">Instant</span>::<span class="ident">now</span>();
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">request</span>) <span class="op">=</span> <span class="ident">socket</span>.<span class="ident">receive_message</span>().<span class="kw">await</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">req</span>) <span class="op">=</span> <span class="ident">request</span> {
-                <span class="macro">return_print</span><span class="macro">!</span>(<span class="ident">socket</span>.<span class="ident">send_message</span>(<span class="ident">Pong</span> { <span class="ident">mu</span>: <span class="ident">req</span>.<span class="ident">mu</span> }).<span class="kw">await</span>).<span class="ident">unwrap</span>();
-            }
+        <span class="kw">loop</span> {
+            <span class="macro">return_print</span><span class="macro">!</span>(<span class="ident">socket</span>.<span class="ident">receive_message</span>().<span class="kw">await</span>, <span class="op">|</span><span class="ident">maybe_req</span><span class="op">|</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">req</span>) <span class="op">=</span> <span class="ident">maybe_req</span> {
+                    <span class="macro">return_print</span><span class="macro">!</span>(<span class="ident">socket</span>.<span class="ident">send_message</span>(<span class="ident">Pong</span> { <span class="ident">mu</span>: <span class="ident">req</span>.<span class="ident">mu</span> }).<span class="kw">await</span>);
+                }
+            });
 
             <span class="kw">if</span> <span class="ident">creation_timestamp</span>.<span class="ident">elapsed</span>().<span class="ident">as_secs</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">10</span> {
                 <span class="ident">creation_timestamp</span> <span class="op">=</span> <span class="ident">Instant</span>::<span class="ident">now</span>();
@@ -342,8 +345,7 @@
                             <span class="ident">mu</span>: <span class="string">&quot;been 10 seconds&quot;</span>.<span class="ident">to_string</span>(),
                         })
                         .<span class="kw">await</span>
-                )
-                .<span class="ident">unwrap</span>();
+                );
             }
         }
     }
