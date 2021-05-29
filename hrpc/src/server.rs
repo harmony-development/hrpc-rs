@@ -103,7 +103,7 @@ pub mod prelude {
     pub use http::HeaderMap;
     pub use parking_lot::Mutex as PMutex;
     pub use std::{collections::HashMap, time::Instant};
-    pub use tokio::{sync::Mutex, try_join};
+    pub use tokio::{self, sync::Mutex, try_join};
     pub use tracing::{debug, error, info, info_span, trace, warn};
     pub use warp::{
         self,
