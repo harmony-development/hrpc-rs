@@ -1,10 +1,15 @@
+use futures_util::stream::{SplitSink, SplitStream};
 use prelude::*;
 use std::{
     convert::Infallible,
     error::Error as StdError,
     fmt::{self, Debug, Display, Formatter},
+    marker::PhantomData,
+    sync::Arc,
+    time::Duration,
 };
-use warp::{Rejection, Reply};
+use tokio::sync::Mutex;
+use warp::{ws::WebSocket, Rejection, Reply};
 
 /// Useful filters.
 pub mod filters {
@@ -91,12 +96,14 @@ pub mod filters {
 
 #[doc(hidden)]
 pub mod prelude {
-    pub use super::{socket_common, unary_common, CustomError, ServerError};
+    pub use super::{socket_common, unary_common, CustomError, ServerError, Socket};
     pub use crate::{IntoRequest, Request};
     pub use bytes::{Bytes, BytesMut};
     pub use futures_util::{SinkExt, StreamExt};
     pub use http::HeaderMap;
+    pub use parking_lot::Mutex as PMutex;
     pub use std::{collections::HashMap, time::Instant};
+    pub use tokio::{sync::Mutex, try_join};
     pub use tracing::{debug, error, info, info_span, trace, warn};
     pub use warp::{
         self,
@@ -182,13 +189,12 @@ pub mod unary_common {
 
 #[doc(hidden)]
 pub mod socket_common {
-    use std::time::{Duration, Instant};
+    use std::time::Instant;
 
     use crate::HeaderMap;
 
     use super::{debug, error, info, CustomError, ServerError};
-    use bytes::{Bytes, BytesMut};
-    use futures_util::{SinkExt, StreamExt};
+    use futures_util::SinkExt;
     use warp::{
         filters::BoxedFilter,
         ws::{Message as WsMessage, Ws},
@@ -231,37 +237,6 @@ pub mod socket_common {
     }
 
     #[doc(hidden)]
-    pub async fn respond<'a, Resp: prost::Message + 'a, Err: CustomError + 'static>(
-        resp: Result<Option<Resp>, Err>,
-        tx: &'a mut futures_util::stream::SplitSink<warp::ws::WebSocket, WsMessage>,
-        buf: &'a mut BytesMut,
-    ) {
-        let maybe_resp = match resp {
-            Ok(Some(bin)) => {
-                crate::encode_protobuf_message(buf, bin);
-                Some(buf.to_vec())
-            }
-            Ok(None) => None,
-            Err(err) => {
-                error!("{}", err);
-                None
-            }
-        };
-
-        if let Some(resp) = maybe_resp {
-            if let Err(e) = tx.send(WsMessage::binary(resp)).await {
-                if "Connection closed normally" == e.to_string() {
-                    info!("socket closed normally");
-                } else {
-                    error!("error responding to client socket: {}", e);
-                }
-            } else {
-                debug!("responded to client socket");
-            }
-        }
-    }
-
-    #[doc(hidden)]
     pub async fn check_ping<'a>(
         tx: &'a mut futures_util::stream::SplitSink<warp::ws::WebSocket, WsMessage>,
         last_ping_time: &'a mut Instant,
@@ -300,45 +275,84 @@ pub mod socket_common {
             info!("socket closed normally");
         }
     }
+}
 
+#[derive(Debug)]
+pub struct Socket<Req: prost::Message + Default, Resp: prost::Message> {
+    tx: Arc<Mutex<SplitSink<WebSocket, WsMessage>>>,
+    rx: SplitStream<WebSocket>,
+    buf: BytesMut,
+    socket_ping_data: [u8; 32],
+    _resp: PhantomData<Resp>,
+    _req: PhantomData<Req>,
+}
+
+impl<Req: prost::Message + Default, Resp: prost::Message> Socket<Req, Resp> {
     #[doc(hidden)]
-    pub async fn process_request<
-        'a,
-        Req: prost::Message + Default + 'a,
-        Err: CustomError + 'static,
-    >(
-        tx: &'a mut futures_util::stream::SplitSink<warp::ws::WebSocket, WsMessage>,
-        rx: &'a mut futures_util::stream::SplitStream<warp::ws::WebSocket>,
+    pub fn new(
+        tx: Arc<Mutex<SplitSink<WebSocket, WsMessage>>>,
+        rx: SplitStream<WebSocket>,
         socket_ping_data: [u8; 32],
-    ) -> Result<Option<Req>, ()> {
-        let msg_maybe = tokio::time::timeout(Duration::from_nanos(1), rx.next())
+    ) -> Self {
+        Self {
+            tx,
+            rx,
+            buf: BytesMut::new(),
+            socket_ping_data,
+            _req: PhantomData::default(),
+            _resp: PhantomData::default(),
+        }
+    }
+
+    /// Receive a message from the socket.
+    ///
+    /// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.
+    pub async fn receive_message(&mut self) -> Result<Option<Req>, SocketError> {
+        let msg_maybe = tokio::time::timeout(Duration::from_nanos(1), self.rx.next())
             .await
             .map_or(Ok(None), Ok)?
-            .map(Result::ok)
-            .flatten();
+            .transpose()
+            .map_err(SocketError::Other)?;
 
         if let Some(msg) = msg_maybe {
             if msg.is_binary() {
                 let msg_bin = Bytes::from(msg.into_bytes());
-                match Req::decode(msg_bin) {
-                    Ok(req) => return Ok(Some(req)),
-                    Err(err) => {
-                        error!("received invalid protobuf message: {}", err);
-                    }
-                }
+                return Req::decode(msg_bin)
+                    .map(Some)
+                    .map_err(SocketError::MessageDecode);
             } else if msg.is_pong() {
                 let msg_bin = Bytes::from(msg.into_bytes());
-                if socket_ping_data != msg_bin.as_ref() {
-                    close_socket(tx).await;
-                    return Err(());
+                if self.socket_ping_data != msg_bin.as_ref() {
+                    socket_common::close_socket(&mut *self.tx.lock().await).await;
+                    return Err(SocketError::ClosedNormally);
                 } else {
                     debug!("received pong");
                 }
             } else if msg.is_close() {
-                return Err(());
+                return Err(SocketError::ClosedNormally);
             }
         }
         Ok(None)
+    }
+
+    /// Send a message over the socket.
+    pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
+        let resp = {
+            crate::encode_protobuf_message(&mut self.buf, resp);
+            self.buf.to_vec()
+        };
+
+        if let Err(e) = self.tx.lock().await.send(WsMessage::binary(resp)).await {
+            return Err(if "Connection closed normally" == e.to_string() {
+                SocketError::ClosedNormally
+            } else {
+                SocketError::Other(e)
+            });
+        } else {
+            debug!("responded to client socket");
+        }
+
+        Ok(())
     }
 }
 
@@ -375,6 +389,61 @@ impl CustomError for std::convert::Infallible {
 
     fn message(&self) -> Vec<u8> {
         unreachable!()
+    }
+}
+
+/// Return if the socket is closed normally, otherwise return the result.
+#[macro_export]
+macro_rules! return_closed {
+    ($result:expr) => {{
+        let res = $result;
+        if matches!(res, Err($crate::server::SocketError::ClosedNormally)) {
+            return;
+        } else {
+            res
+        }
+    }};
+}
+
+/// Return if the socket is closed normally, otherwise print the error if there is one and return the result.
+#[macro_export]
+macro_rules! return_print {
+    ($result:expr) => {{
+        let res = $crate::return_closed!($result);
+        if let Err(err) = &res {
+            $crate::tracing::error!("error occured: {}", err);
+        }
+        res
+    }};
+}
+
+#[derive(Debug)]
+pub enum SocketError {
+    /// The socket is closed normally. This is NOT an error.
+    ClosedNormally,
+    /// Error occured while decoding protobuf data.
+    MessageDecode(prost::DecodeError),
+    /// Some error occured in socket.
+    Other(warp::Error),
+}
+
+impl Display for SocketError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            SocketError::ClosedNormally => write!(f, "socket closed normally"),
+            SocketError::Other(err) => write!(f, "error occured in socket: {}", err),
+            SocketError::MessageDecode(err) => write!(f, "invalid protobuf message: {}", err),
+        }
+    }
+}
+
+impl StdError for SocketError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            SocketError::ClosedNormally => None,
+            SocketError::Other(err) => Some(err),
+            SocketError::MessageDecode(err) => Some(err),
+        }
     }
 }
 

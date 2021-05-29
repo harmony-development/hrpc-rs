@@ -9,6 +9,8 @@ pub use bytes;
 #[doc(hidden)]
 pub use futures_util;
 #[doc(hidden)]
+pub use tracing;
+#[doc(hidden)]
 pub use url;
 
 #[doc(hidden)]

@@ -137,7 +137,7 @@ impl Client {
         Resp: prost::Message + Default,
     {
         let (message, headers) = request.into_parts();
-        let socket = self
+        let mut socket = self
             .connect_socket(path, Request::from_parts(((), headers)))
             .await?;
         socket.send_message(message).await?;
@@ -156,7 +156,6 @@ pub mod socket {
         sync::Arc,
         time::Duration,
     };
-    use tokio::sync::Mutex;
 
     /// A websocket, wrapped for ease of use with protobuf messages.
     pub struct Socket<Msg, Resp>
@@ -165,6 +164,7 @@ pub mod socket {
         Resp: prost::Message + Default,
     {
         data: Arc<SocketData>,
+        buf: BytesMut,
         _msg: PhantomData<Msg>,
         _resp: PhantomData<Resp>,
     }
@@ -172,7 +172,6 @@ pub mod socket {
     struct SocketData {
         tx: futures_util::lock::BiLock<WebSocketStream>,
         rx: futures_util::lock::BiLock<WebSocketStream>,
-        buf: Mutex<BytesMut>,
     }
 
     impl<Msg, Resp> Debug for Socket<Msg, Resp>
@@ -181,9 +180,7 @@ pub mod socket {
         Resp: prost::Message + Default,
     {
         fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-            f.debug_struct("Socket")
-                .field("buf", &self.data.buf)
-                .finish()
+            f.debug_struct("Socket").field("buf", &self.buf).finish()
         }
     }
 
@@ -195,22 +192,19 @@ pub mod socket {
         pub(super) fn new(inner: WebSocketStream) -> Self {
             let (tx, rx) = futures_util::lock::BiLock::new(inner);
             Self {
-                data: Arc::new(SocketData {
-                    tx,
-                    rx,
-                    buf: Mutex::new(BytesMut::new()),
-                }),
+                data: Arc::new(SocketData { tx, rx }),
+                buf: BytesMut::new(),
                 _msg: Default::default(),
                 _resp: Default::default(),
             }
         }
 
         /// Send a protobuf message over the websocket.
-        pub async fn send_message(&self, msg: Msg) -> ClientResult<()> {
+        pub async fn send_message(&mut self, msg: Msg) -> ClientResult<()> {
             use futures_util::SinkExt;
 
-            encode_protobuf_message(&mut *self.data.buf.lock().await, msg);
-            let msg = tungstenite::Message::Binary(self.data.buf.lock().await.to_vec());
+            encode_protobuf_message(&mut self.buf, msg);
+            let msg = tungstenite::Message::Binary(self.buf.to_vec());
 
             Ok(self.data.tx.lock().await.send(msg).await?)
         }
@@ -221,11 +215,9 @@ pub mod socket {
         pub async fn get_message(&self) -> Option<ClientResult<Resp>> {
             use futures_util::StreamExt;
 
-            // Without this timeout and the sleep after the timeout expires it blocks and will result in a deadlock
-            let raw = tokio::time::timeout(Duration::from_nanos(1), async {
-                self.data.rx.lock().await.next().await
-            })
-            .await;
+            let raw =
+                tokio::time::timeout(Duration::from_nanos(1), self.data.rx.lock().await.next())
+                    .await;
 
             let raw = match raw {
                 Ok(raw) => raw?,
@@ -280,6 +272,7 @@ pub mod socket {
         fn clone(&self) -> Self {
             Self {
                 data: self.data.clone(),
+                buf: BytesMut::with_capacity(self.buf.capacity()),
                 _msg: PhantomData::default(),
                 _resp: PhantomData::default(),
             }

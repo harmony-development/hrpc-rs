@@ -11,8 +11,15 @@ keywords = ["hrpc", "harmony", "rpc"]
 
 [features]
 default = ["server", "client"]
-server = ["warp", "tokio", "ahash", "dashmap"]
-client = ["reqwest", "async-tungstenite", "tokio", "tokio-rustls", "futures-util/bilock", "futures-util/unstable"]
+server = ["warp", "tokio", "ahash", "dashmap", "parking_lot", "tokio/macros"]
+client = [
+    "reqwest",
+    "async-tungstenite",
+    "tokio",
+    "tokio-rustls",
+    "futures-util/bilock",
+    "futures-util/unstable",
+]
 
 [dependencies]
 async-trait = "0.1"
@@ -31,6 +38,7 @@ async-tungstenite = { version = "0.13", features = ["tokio-rustls"], optional = 
 tokio = { version = "1.6", features = ["parking_lot"], optional = true }
 tokio-rustls = { version = "0.22", optional = true }
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots"], optional = true }
+parking_lot = { version = "0.11", optional = true }
 
 [package.metadata.nix]
 build = true

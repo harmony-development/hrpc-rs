@@ -121,6 +121,14 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 warp::any().map(|| Ok(())).boxed()
             }
         };
+        let stream_handler = {
+            quote! {
+                #middleware_methods
+                #on_upgrade_method
+                #method_doc
+                async fn #name(&self, validation_request: Request<()>, socket: Socket<#req_message, #res_message>);
+            }
+        };
 
         let method = match streaming {
             (false, false) => quote! {
@@ -128,25 +136,9 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 #method_doc
                 async fn #name(&self, request: Request<#req_message>) -> Result<#res_message, Self::Error>;
             },
-            (false, true) => {
-                quote! {
-                    #middleware_methods
-                    #on_upgrade_method
-                    #method_doc
-                    async fn #name(&self, validation_request: &Request<#req_message>)
-                        -> Result<Option<#res_message>, Self::Error>;
-                }
-            }
+            (false, true) => stream_handler,
             (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
-            (true, true) => {
-                quote! {
-                    #middleware_methods
-                    #on_upgrade_method
-                    #method_doc
-                    async fn #name(&self, validation_request: &Request<()>, request: Option<#req_message>)
-                        -> Result<Option<#res_message>, Self::Error>;
-                }
-            }
+            (true, true) => stream_handler,
         };
 
         stream.extend(method);
@@ -184,109 +176,38 @@ fn generate_filters<T: Service>(
         let (req_message, resp_message) = method.request_response_name(proto_path);
         let streaming = (method.client_streaming(), method.server_streaming());
 
-        let socket_common_var = quote! {
-            let ((mut tx, mut rx), mut buf, mut lpt) = (ws.split(), BytesMut::new(), Instant::now());
-            let tx = &mut tx;
-            let rx = &mut rx;
-
-            let span = info_span!(#method_name);
-            let _lock = span.enter();
-        };
-        let wrap_reply_with_protocol = |code| {
-            quote! {
-                let svr3 = svr.clone();
-                let reply = #code .into_response();
-                svr3. #on_upgrade_response_name (reply)
-            }
-        };
-        let wrap_with_common_handling = |code| {
-            quote! {
-                if socket_common::check_ping(tx, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await
-                {
-                    break;
-                }
-                socket_common::respond::<#resp_message, T::Error>(#code, tx, &mut buf).await;
-            }
-        };
-
-        let server_handling = wrap_with_common_handling(quote! { svr. #name (&req) .await });
-        let server_upgrade = wrap_reply_with_protocol(quote! {
-            ws.on_upgrade(move |ws| async move {
-                #socket_common_var
-                let req;
-                loop {
-                    let validate_start = Instant::now();
-                    if let Ok(Some(request)) = socket_common::process_request::<#req_message, T::Error>(tx, rx, T::SOCKET_PING_DATA).await
-                    {
-                        req = Request::from_parts((request, headers));
-
-                        if let Err(err) = socket_common::process_validate::<T::Error>(svr. #name (&req) .await.map(|_| ()))
-                        {
-                            error!("failed to validate socket request: {}", err);
-                            socket_common::close_socket(tx).await;
-                            return;
-                        }
-                        break;
-                    } else if validate_start.elapsed().as_secs() >= T::SOCKET_PING_PERIOD {
-                        error!("failed to validate socket request: timeout");
-                        socket_common::close_socket(tx).await;
-                        return;
-                    }
-                }
-
-                while socket_common::process_request::<#req_message, T::Error>(tx, rx, T::SOCKET_PING_DATA).await.is_ok()
-                {
-                    #server_handling
-                }
-            })
-        });
-        let server_streaming = quote! {
+        let stream_handler = quote! {
             let svr = server.clone();
             socket_common::base_filter::<T::Error>(#package_name, #method_name, svr.#pre_name())
                 .map(move |_, headers, ws: Ws| {
                     let svr = svr.clone();
-                    #server_upgrade
+                    let req = Request::from_parts(((), headers));
+                    let svr3 = svr.clone();
+                    let reply =
+                        ws.on_upgrade(move |ws| async move {
+                            let ((tx, rx), mut lpt) = (ws.split(), Instant::now());
+                            let tx = Arc::new(Mutex::new(tx));
+
+                            let socket = Socket::<#req_message, #resp_message>::new(tx.clone(), rx, T::SOCKET_PING_DATA);
+                            let task = tokio::spawn(async move {
+                                svr. #name (req, socket).await
+                            });
+                            let ping_task = tokio::spawn(async move {
+                                while !socket_common::check_ping(&mut *tx.lock().await, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await { }
+                            });
+
+                            try_join!(task, ping_task).expect("failed to join handle in web socket handler");
+                        }).into_response();
+                    svr3. #on_upgrade_response_name (reply)
                 })
         };
 
-        let both_handling =
-            wrap_with_common_handling(quote! { svr. #name (&req, maybe_req) .await });
-        let both_upgrade = wrap_reply_with_protocol(quote! {
-            ws.on_upgrade(move |ws| async move {
-                #socket_common_var
-                while let Ok(maybe_req) = socket_common::process_request::<#req_message, T::Error>(tx, rx, T::SOCKET_PING_DATA).await
-                {
-                    #both_handling
-                }
-            })
-        });
-        let both_streaming = quote! {
-            let (svr, svr2) = (server.clone(), server.clone());
-            socket_common::base_filter::<T::Error>(#package_name, #method_name, svr.#pre_name())
-                .and_then(move |_, headers, ws: Ws| {
-                    let svr = svr2.clone();
-                    let req = Request::from_parts(((), headers));
-                    async move {
-                        let span = info_span!(#method_name);
-                        let _lock = span.enter();
-                        socket_common::process_validate::<T::Error>(svr. #name (&req, None) .await.map(|_| ()))
-                            .map(|_| (req, ws))
-                            .map_err(warp::reject::custom)
-                    }
-                })
-                .map(move |(req, ws): (Request<()>, Ws)| {
-                    let svr = svr.clone();
-                    #both_upgrade
-                })
-        };
         let unary = quote! {
             let svr = server.clone();
             unary_common::base_filter::<#req_message, T::Error>(#package_name, #method_name, svr.#pre_name())
                 .and_then(move |msg, headers| {
                     let svr = svr.clone();
                     async move {
-                        let span = info_span!(#method_name);
-                        let _lock = span.enter();
                         unary_common::encode(svr. #name (Request::from_parts((msg, headers))) .await)
                     }
                 })
@@ -294,12 +215,12 @@ fn generate_filters<T: Service>(
 
         let method = match streaming {
             (false, false) => unary,
-            (false, true) => server_streaming,
+            (false, true) => stream_handler,
             (true, false) => panic!(
                 "{}.{}: Client streaming server unary method is invalid.",
                 package_name, method_name
             ),
-            (true, true) => both_streaming,
+            (true, true) => stream_handler,
         };
 
         let apply_middleware = quote! {

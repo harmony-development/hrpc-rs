@@ -1,7 +1,8 @@
 use hrpc::{
+    return_print,
     server::{
         filters::rate::{rate_limit, Rate},
-        json_err_bytes, StatusCode,
+        json_err_bytes, Socket, StatusCode,
     },
     warp::reply::Response,
     Request,
@@ -12,7 +13,6 @@ use std::{
     fmt::{self, Display, Formatter},
     time::{Duration, Instant},
 };
-use tokio::sync::Mutex;
 
 hrpc::include_proto!("test");
 
@@ -45,7 +45,7 @@ async fn client() {
     let resp = client.mu(Ping { mu: "".to_string() }).await;
     println!("{:#?}", resp);
 
-    let socket = client.mu_mute(()).await.unwrap();
+    let mut socket = client.mu_mute(()).await.unwrap();
 
     tokio::spawn({
         let socket = socket.clone();
@@ -66,9 +66,11 @@ async fn client() {
 
     for i in 0..100 {
         let ins = Instant::now();
-        /*if let Err(err) = socket.send_message(Ping { mu: i.to_string() }).await {
+        if let Err(err) = socket.send_message(Ping { mu: i.to_string() }).await {
             eprintln!("failed to send message: {}", err);
-        }*/
+        }
+        println!("sent in {}", ins.elapsed().as_secs_f64());
+        let ins = Instant::now();
         match client.mu(Ping { mu: i.to_string() }).await {
             Err(err) => {
                 eprintln!("failed to send message: {}", err);
@@ -86,21 +88,26 @@ async fn client() {
 }
 
 async fn server() {
-    mu_server::MuServer::new(Server {
-        creation_timestamp: Instant::now().into(),
-    })
-    .serve::<ServerError, _>(([127, 0, 0, 1], 2289))
-    .await
+    mu_server::MuServer::new(Server)
+        .serve::<ServerError, _>(([127, 0, 0, 1], 2289))
+        .await
 }
 
 #[derive(Debug)]
-struct Server {
-    creation_timestamp: Mutex<Instant>,
-}
+struct Server;
 
 #[hrpc::async_trait]
 impl mu_server::Mu for Server {
     type Error = ServerError;
+
+    fn mu_pre(&self) -> BoxedFilter<(Result<(), ServerError>,)> {
+        warp::any()
+            .and(rate_limit(
+                Rate::new(1, Duration::from_secs(5)),
+                ServerError::TooFast,
+            ))
+            .boxed()
+    }
 
     async fn mu(&self, request: Request<Ping>) -> Result<Pong, Self::Error> {
         if request.get_message().mu.is_empty() {
@@ -115,32 +122,25 @@ impl mu_server::Mu for Server {
         response
     }
 
-    fn mu_pre(&self) -> BoxedFilter<(Result<(), ServerError>,)> {
-        warp::any()
-            .and(rate_limit(
-                Rate::new(1, Duration::from_secs(5)),
-                ServerError::TooFast,
-            ))
-            .boxed()
-    }
+    async fn mu_mute(&self, _validation_request: Request<()>, mut socket: Socket<Ping, Pong>) {
+        let mut creation_timestamp = Instant::now();
+        while let Ok(request) = socket.receive_message().await {
+            if let Some(req) = request {
+                return_print!(socket.send_message(Pong { mu: req.mu }).await).unwrap();
+            }
 
-    async fn mu_mute(
-        &self,
-        _validation_request: &Request<()>,
-        request: Option<Ping>,
-    ) -> Result<Option<Pong>, Self::Error> {
-        if let Some(req) = request {
-            return Ok(Some(Pong { mu: req.mu }));
+            if creation_timestamp.elapsed().as_secs() >= 10 {
+                creation_timestamp = Instant::now();
+                return_print!(
+                    socket
+                        .send_message(Pong {
+                            mu: "been 10 seconds".to_string(),
+                        })
+                        .await
+                )
+                .unwrap();
+            }
         }
-
-        if self.creation_timestamp.lock().await.elapsed().as_secs() >= 10 {
-            *self.creation_timestamp.lock().await = Instant::now();
-            return Ok(Some(Pong {
-                mu: "been 10 seconds".to_string(),
-            }));
-        }
-
-        Ok(None)
     }
 }
 
