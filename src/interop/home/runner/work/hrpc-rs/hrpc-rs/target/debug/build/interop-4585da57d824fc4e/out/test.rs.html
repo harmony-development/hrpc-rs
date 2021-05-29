@@ -232,6 +232,14 @@
 <span id="229">229</span>
 <span id="230">230</span>
 <span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, ::<span class="ident">prost</span>::<span class="ident">Message</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Ping</span> {
@@ -304,10 +312,16 @@
         <span class="kw">fn</span> <span class="ident">mu_mute_on_upgrade</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">response</span>: <span class="ident">Response</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Response</span> {
             <span class="ident">response</span>
         }
-        <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu_mute_validation</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_request</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
-            <span class="prelude-val">Ok</span>(())
-        }
-        <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu_mute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span><span class="kw">super</span>::<span class="ident">Ping</span>, <span class="kw">super</span>::<span class="ident">Pong</span><span class="op">&gt;</span>);
+        <span class="kw">type</span> <span class="ident">MuMuteValidationType</span>: <span class="ident">Send</span>;
+        <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu_mute_validation</span>(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
+        ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">MuMuteValidationType</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
+        <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu_mute</span>(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            <span class="ident">validation_value</span>: <span class="self">Self</span>::<span class="ident">MuMuteValidationType</span>,
+            <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span><span class="kw">super</span>::<span class="ident">Ping</span>, <span class="kw">super</span>::<span class="ident">Pong</span><span class="op">&gt;</span>,
+        );
     }
     <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
     <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MuServer</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Mu</span><span class="op">&gt;</span> {
@@ -360,11 +374,11 @@
                             <span class="ident">svr</span>.<span class="ident">mu_mute_validation</span>(<span class="ident">req</span>.<span class="ident">clone</span>())
                                 .<span class="kw">await</span>
                                 .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">warp</span>::<span class="ident">reject</span>::<span class="ident">custom</span>(<span class="ident">ServerError</span>::<span class="ident">Custom</span>(<span class="ident">err</span>)))
-                                .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> (<span class="ident">req</span>, <span class="ident">ws</span>))
+                                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> (<span class="ident">val</span>, <span class="ident">req</span>, <span class="ident">ws</span>))
                         }
                     })
                     .<span class="ident">untuple_one</span>()
-                    .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {
+                    .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">val</span>, <span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {
                         <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">svr</span>.<span class="ident">clone</span>();
                         <span class="kw">let</span> <span class="ident">svr3</span> <span class="op">=</span> <span class="ident">svr</span>.<span class="ident">clone</span>();
                         <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">ws</span>
@@ -376,7 +390,8 @@
                                     <span class="ident">rx</span>,
                                     <span class="ident">T</span>::<span class="ident">SOCKET_PING_DATA</span>,
                                 );
-                                <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>.<span class="ident">mu_mute</span>(<span class="ident">socket</span>).<span class="kw">await</span> });
+                                <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span>
+                                    <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>.<span class="ident">mu_mute</span>(<span class="ident">val</span>, <span class="ident">socket</span>).<span class="kw">await</span> });
                                 <span class="kw">let</span> <span class="ident">ping_task</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
                                     <span class="kw">while</span> <span class="op">!</span><span class="ident">socket_common</span>::<span class="ident">check_ping</span>(
                                         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="ident">tx</span>.<span class="ident">lock</span>().<span class="kw">await</span>,
@@ -423,11 +438,11 @@
                             <span class="ident">svr</span>.<span class="ident">mu_mute_validation</span>(<span class="ident">req</span>.<span class="ident">clone</span>())
                                 .<span class="kw">await</span>
                                 .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">warp</span>::<span class="ident">reject</span>::<span class="ident">custom</span>(<span class="ident">ServerError</span>::<span class="ident">Custom</span>(<span class="ident">err</span>)))
-                                .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> (<span class="ident">req</span>, <span class="ident">ws</span>))
+                                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> (<span class="ident">val</span>, <span class="ident">req</span>, <span class="ident">ws</span>))
                         }
                     })
                     .<span class="ident">untuple_one</span>()
-                    .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {
+                    .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">val</span>, <span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {
                         <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">svr</span>.<span class="ident">clone</span>();
                         <span class="kw">let</span> <span class="ident">svr3</span> <span class="op">=</span> <span class="ident">svr</span>.<span class="ident">clone</span>();
                         <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">ws</span>
@@ -439,7 +454,8 @@
                                     <span class="ident">rx</span>,
                                     <span class="ident">T</span>::<span class="ident">SOCKET_PING_DATA</span>,
                                 );
-                                <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>.<span class="ident">mu_mute</span>(<span class="ident">socket</span>).<span class="kw">await</span> });
+                                <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span>
+                                    <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>.<span class="ident">mu_mute</span>(<span class="ident">val</span>, <span class="ident">socket</span>).<span class="kw">await</span> });
                                 <span class="kw">let</span> <span class="ident">ping_task</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
                                     <span class="kw">while</span> <span class="op">!</span><span class="ident">socket_common</span>::<span class="ident">check_ping</span>(
                                         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="ident">tx</span>.<span class="ident">lock</span>().<span class="kw">await</span>,
