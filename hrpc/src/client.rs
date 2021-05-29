@@ -304,6 +304,11 @@ pub mod socket {
         pub async fn get_message(&self) -> Option<ClientResult<Resp>> {
             self.inner.get_message().await
         }
+
+        /// Close this websocket.
+        pub async fn close(&self) -> ClientResult<()> {
+            self.inner.close().await.map_err(Into::into)
+        }
     }
 }
 
