@@ -250,13 +250,17 @@ fn generate_filters<T: Service>(
             (false, true) => wrap_stream_handler(
                 quote! {
                     let ins = Instant::now();
+                    let val;
                     loop {
                         match hrpc::return_closed!(socket.receive_message().await) {
                             Ok(message) => {
                                 if let Some(message) = message {
                                     let req = Request::from_parts((Some(message), req.into_parts().1));
                                     match svr. #validation_name (req).await {
-                                        Ok(_) => break,
+                                        Ok(vall) => {
+                                            val = vall;
+                                            break;
+                                        },
                                         Err(err) => {
                                             error!("socked validation error: {}", err);
                                             return;
