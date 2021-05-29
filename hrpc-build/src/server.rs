@@ -106,6 +106,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
         let pre_name = quote::format_ident!("{}_pre", name);
         let validation_name = quote::format_ident!("{}_validation", name);
+        let validation_value = quote::format_ident!("{}ValidationType", method.identifier());
 
         let (req_message, res_message) = method.request_response_name(proto_path);
 
@@ -132,21 +133,23 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
             (false, true) => quote! {
                 #middleware_methods
                 #on_upgrade_method
+
+                type #validation_value: Send;
+                async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, Self::Error>;
+
                 #method_doc
-                async fn #validation_name(&self, _request: Request<Option<#req_message>>) -> Result<(), Self::Error> {
-                    Ok(())
-                }
-                async fn #name(&self, socket: WriteSocket<#res_message>);
+                async fn #name(&self, validation_value: Self::#validation_value, socket: WriteSocket<#res_message>);
             },
             (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
             (true, true) => quote! {
                 #middleware_methods
                 #on_upgrade_method
+
+                type #validation_value: Send;
+                async fn #validation_name(&self, request: Request<()>) -> Result<Self::#validation_value, Self::Error>;
+
                 #method_doc
-                async fn #validation_name(&self, _request: Request<()>) -> Result<(), Self::Error> {
-                    Ok(())
-                }
-                async fn #name(&self, socket: Socket<#req_message, #res_message>);
+                async fn #name(&self, validation_value: Self::#validation_value, socket: Socket<#req_message, #res_message>);
             },
         };
 
@@ -195,7 +198,7 @@ fn generate_filters<T: Service>(
                         #validation
                     })
                     .untuple_one()
-                    .map(move |req: Request<#req_msg>, ws: Ws| {
+                    .map(move |val, req: Request<#req_msg>, ws: Ws| {
                         let svr = svr.clone();
                         let svr3 = svr.clone();
                         let reply =
@@ -206,7 +209,7 @@ fn generate_filters<T: Service>(
                                 let mut socket = Socket::<#req_message, #resp_message>::new(tx.clone(), rx, T::SOCKET_PING_DATA);
                                 #code
                                 let task = tokio::spawn(async move {
-                                    svr. #name (socket).await
+                                    svr. #name (val, socket).await
                                 });
                                 let ping_task = tokio::spawn(async move {
                                     while !socket_common::check_ping(&mut *tx.lock().await, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await { }
@@ -226,7 +229,7 @@ fn generate_filters<T: Service>(
                     svr. #validation_name (req.clone())
                         .await
                         .map_err(|err| warp::reject::custom(ServerError::Custom(err)))
-                        .map(|_| (req, ws))
+                        .map(|val| (val, req, ws))
                 }
             }
         };
