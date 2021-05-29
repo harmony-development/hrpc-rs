@@ -122,7 +122,7 @@ impl mu_server::Mu for Server {
         response
     }
 
-    async fn mu_mute(&self, _validation_request: Request<()>, mut socket: Socket<Ping, Pong>) {
+    async fn mu_mute(&self, mut socket: Socket<Ping, Pong>) {
         let mut creation_timestamp = Instant::now();
         while let Ok(request) = socket.receive_message().await {
             if let Some(req) = request {

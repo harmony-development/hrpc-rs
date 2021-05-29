@@ -56,7 +56,9 @@ impl Client {
             );
             *request.body_mut() = Some(self.buf.to_vec().into());
             for (key, value) in req.header_map {
-                request.headers_mut().entry(key).or_insert(value);
+                if let Some(key) = key {
+                    request.headers_mut().entry(key).or_insert(value);
+                }
             }
             request
         };
@@ -117,7 +119,9 @@ impl Client {
             .body(())
             .unwrap();
         for (key, value) in req.header_map {
-            request.headers_mut().entry(key).or_insert(value);
+            if let Some(key) = key {
+                request.headers_mut().entry(key).or_insert(value);
+            }
         }
 
         let inner = async_tungstenite::tokio::connect_async(request).await?.0;

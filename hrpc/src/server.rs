@@ -96,7 +96,7 @@ pub mod filters {
 
 #[doc(hidden)]
 pub mod prelude {
-    pub use super::{socket_common, unary_common, CustomError, ServerError, Socket};
+    pub use super::{socket_common, unary_common, CustomError, ServerError, Socket, WriteSocket};
     pub use crate::{IntoRequest, Request};
     pub use bytes::{Bytes, BytesMut};
     pub use futures_util::{SinkExt, StreamExt};
@@ -143,12 +143,13 @@ pub mod unary_common {
             .and_then(|res: Result<(), Err>| async move {
                 res.map_err(|err| warp::reject::custom(ServerError::<Err>::Custom(err)))
             })
+            .untuple_one()
             .and(warp::body::bytes())
             .and(warp::header::exact_ignore_case(
                 "content-type",
                 "application/hrpc",
             ))
-            .and_then(move |_, bin| async move {
+            .and_then(move |bin| async move {
                 Resp::decode(bin).map_err(|err| {
                     error!("received invalid protobuf message: {}", pkg);
                     warp::reject::custom(ServerError::<Err>::MessageDecode(err))
@@ -206,7 +207,7 @@ pub mod socket_common {
         pkg: &'static str,
         method: &'static str,
         pre: BoxedFilter<(Result<(), Err>,)>,
-    ) -> BoxedFilter<((), HeaderMap, Ws)> {
+    ) -> BoxedFilter<(HeaderMap, Ws)> {
         warp::path(pkg)
             .and(warp::path(method))
             .and(warp::path::end())
@@ -214,6 +215,7 @@ pub mod socket_common {
             .and_then(|res: Result<(), Err>| async move {
                 res.map_err(|err| warp::reject::custom(ServerError::<Err>::Custom(err)))
             })
+            .untuple_one()
             .and(
                 warp::header::headers_cloned().map(|headers: http::HeaderMap| {
                     headers
@@ -353,6 +355,30 @@ impl<Req: prost::Message + Default, Resp: prost::Message> Socket<Req, Resp> {
         }
 
         Ok(())
+    }
+
+    /// Downgrades this socket to a write only socket.
+    pub fn downgrade_to_write(self) -> WriteSocket<Resp> {
+        let inner = Socket::new(self.tx, self.rx, self.socket_ping_data);
+        WriteSocket::new(inner)
+    }
+}
+
+/// A write only socket.
+#[derive(Debug)]
+pub struct WriteSocket<Resp: prost::Message> {
+    inner: Socket<(), Resp>,
+}
+
+impl<Resp: prost::Message> WriteSocket<Resp> {
+    #[doc(hidden)]
+    pub fn new(inner: Socket<(), Resp>) -> Self {
+        Self { inner }
+    }
+
+    /// Send a message over the socket.
+    pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
+        self.inner.send_message(resp).await
     }
 }
 

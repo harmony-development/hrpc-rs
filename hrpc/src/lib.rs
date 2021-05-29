@@ -1,6 +1,5 @@
 //! Common code used in hRPC code generation.
 use http::{header::HeaderName, HeaderValue};
-use std::collections::HashMap;
 
 #[doc(inline)]
 pub use async_trait::async_trait;
@@ -34,8 +33,9 @@ pub mod client;
 #[cfg(feature = "server")]
 pub mod server;
 
-type HeaderMap = HashMap<HeaderName, HeaderValue>;
+use http::HeaderMap;
 
+#[derive(Debug, Clone)]
 /// A hRPC request.
 pub struct Request<T> {
     message: T,
@@ -52,10 +52,7 @@ impl<T> Request<T> {
             header_map: {
                 #[allow(clippy::mutable_key_type)]
                 let mut map: HeaderMap = HeaderMap::with_capacity(1);
-                map.insert(
-                    "content-type".parse().unwrap(),
-                    "application/hrpc".parse().unwrap(),
-                );
+                map.insert("content-type", "application/hrpc".parse().unwrap());
                 map
             },
         }

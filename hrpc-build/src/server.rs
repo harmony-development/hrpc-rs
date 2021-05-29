@@ -105,6 +105,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
         let name = quote::format_ident!("{}", method.name());
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
         let pre_name = quote::format_ident!("{}_pre", name);
+        let validation_name = quote::format_ident!("{}_validation", name);
 
         let (req_message, res_message) = method.request_response_name(proto_path);
 
@@ -121,14 +122,6 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 warp::any().map(|| Ok(())).boxed()
             }
         };
-        let stream_handler = {
-            quote! {
-                #middleware_methods
-                #on_upgrade_method
-                #method_doc
-                async fn #name(&self, validation_request: Request<()>, socket: Socket<#req_message, #res_message>);
-            }
-        };
 
         let method = match streaming {
             (false, false) => quote! {
@@ -136,9 +129,25 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 #method_doc
                 async fn #name(&self, request: Request<#req_message>) -> Result<#res_message, Self::Error>;
             },
-            (false, true) => stream_handler,
+            (false, true) => quote! {
+                #middleware_methods
+                #on_upgrade_method
+                #method_doc
+                async fn #validation_name(&self, _request: Request<Option<#req_message>>) -> Result<(), Self::Error> {
+                    Ok(())
+                }
+                async fn #name(&self, socket: WriteSocket<#res_message>);
+            },
             (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
-            (true, true) => stream_handler,
+            (true, true) => quote! {
+                #middleware_methods
+                #on_upgrade_method
+                #method_doc
+                async fn #validation_name(&self, _request: Request<()>) -> Result<(), Self::Error> {
+                    Ok(())
+                }
+                async fn #name(&self, socket: Socket<#req_message, #res_message>);
+            },
         };
 
         stream.extend(method);
@@ -159,6 +168,7 @@ fn generate_filters<T: Service>(
         let name = quote::format_ident!("{}", method.name());
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
         let pre_name = quote::format_ident!("{}_pre", name);
+        let validation_name = quote::format_ident!("{}_validation", name);
 
         let package_name = format!(
             "{}{}{}",
@@ -176,30 +186,49 @@ fn generate_filters<T: Service>(
         let (req_message, resp_message) = method.request_response_name(proto_path);
         let streaming = (method.client_streaming(), method.server_streaming());
 
-        let stream_handler = quote! {
-            let svr = server.clone();
-            socket_common::base_filter::<T::Error>(#package_name, #method_name, svr.#pre_name())
-                .map(move |_, headers, ws: Ws| {
-                    let svr = svr.clone();
-                    let req = Request::from_parts(((), headers));
-                    let svr3 = svr.clone();
-                    let reply =
-                        ws.on_upgrade(move |ws| async move {
-                            let ((tx, rx), mut lpt) = (ws.split(), Instant::now());
-                            let tx = Arc::new(Mutex::new(tx));
+        let wrap_stream_handler = |code, validation, req_msg| {
+            quote! {
+                let svr = server.clone();
+                let svr2 = server.clone();
+                socket_common::base_filter::<T::Error>(#package_name, #method_name, svr.#pre_name())
+                    .and_then(move |headers: HeaderMap, ws: Ws| {
+                        #validation
+                    })
+                    .untuple_one()
+                    .map(move |req: Request<#req_msg>, ws: Ws| {
+                        let svr = svr.clone();
+                        let svr3 = svr.clone();
+                        let reply =
+                            ws.on_upgrade(move |ws| async move {
+                                let ((tx, rx), mut lpt) = (ws.split(), Instant::now());
+                                let tx = Arc::new(Mutex::new(tx));
 
-                            let socket = Socket::<#req_message, #resp_message>::new(tx.clone(), rx, T::SOCKET_PING_DATA);
-                            let task = tokio::spawn(async move {
-                                svr. #name (req, socket).await
-                            });
-                            let ping_task = tokio::spawn(async move {
-                                while !socket_common::check_ping(&mut *tx.lock().await, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await { }
-                            });
+                                let mut socket = Socket::<#req_message, #resp_message>::new(tx.clone(), rx, T::SOCKET_PING_DATA);
+                                #code
+                                let task = tokio::spawn(async move {
+                                    svr. #name (socket).await
+                                });
+                                let ping_task = tokio::spawn(async move {
+                                    while !socket_common::check_ping(&mut *tx.lock().await, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await { }
+                                });
 
-                            try_join!(task, ping_task).expect("failed to join handle in web socket handler");
-                        }).into_response();
-                    svr3. #on_upgrade_response_name (reply)
-                })
+                                try_join!(task, ping_task).expect("failed to join handle in web socket handler");
+                            }).into_response();
+                        svr3. #on_upgrade_response_name (reply)
+                    })
+            }
+        };
+        let validater = |t| {
+            quote! {
+                let req = Request::from_parts((#t, headers));
+                let svr = svr2.clone();
+                async move {
+                    svr. #validation_name (req.clone())
+                        .await
+                        .map_err(|err| warp::reject::custom(ServerError::Custom(err)))
+                        .map(|_| (req, ws))
+                }
+            }
         };
 
         let unary = quote! {
@@ -215,15 +244,47 @@ fn generate_filters<T: Service>(
 
         let method = match streaming {
             (false, false) => unary,
-            (false, true) => stream_handler,
+            (false, true) => wrap_stream_handler(
+                quote! {
+                    let ins = Instant::now();
+                    loop {
+                        match hrpc::return_closed!(socket.receive_message().await) {
+                            Ok(message) => {
+                                if let Some(message) = message {
+                                    let req = Request::from_parts((Some(message), req.into_parts().1));
+                                    match svr. #validation_name (req).await {
+                                        Ok(_) => break,
+                                        Err(err) => {
+                                            error!("socked validation error: {}", err);
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                error!("socket validation request error: {}", err);
+                                return;
+                            }
+                        }
+                        if ins.elapsed().as_secs() >= T::SOCKET_PING_PERIOD {
+                            error!("socket validation request error: timeout");
+                            return;
+                        }
+                    }
+                    let socket = socket.downgrade_to_write();
+                },
+                validater(quote! { None }),
+                quote! { Option<#req_message> },
+            ),
             (true, false) => panic!(
                 "{}.{}: Client streaming server unary method is invalid.",
                 package_name, method_name
             ),
-            (true, true) => stream_handler,
+            (true, true) => wrap_stream_handler(quote! {}, validater(quote! { () }), quote! { () }),
         };
 
         let apply_middleware = quote! {
+            #[allow(unused_variables, unused_mut)]
             let #name = {
                 #method
             };
