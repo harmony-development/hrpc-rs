@@ -393,7 +393,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "ahash",
  "async-trait",
@@ -414,7 +414,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-build"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "proc-macro2",
  "prost",
