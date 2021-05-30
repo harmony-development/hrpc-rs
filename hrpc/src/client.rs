@@ -1,19 +1,16 @@
+use std::sync::Arc;
+
 use super::*;
 
 use bytes::BytesMut;
+use tokio_rustls::webpki::DNSNameRef;
 use url::Url;
 
 #[doc(inline)]
 pub use error::*;
 
-type WebSocketStream = async_tungstenite::WebSocketStream<
-    async_tungstenite::stream::Stream<
-        async_tungstenite::tokio::TokioAdapter<tokio::net::TcpStream>,
-        async_tungstenite::tokio::TokioAdapter<
-            tokio_rustls::client::TlsStream<tokio::net::TcpStream>,
-        >,
-    >,
->;
+type WebSocketStream =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 type SocketRequest = tungstenite::handshake::client::Request;
 type UnaryRequest = reqwest::Request;
@@ -124,7 +121,44 @@ impl Client {
             }
         }
 
-        let inner = async_tungstenite::tokio::connect_async(request).await?.0;
+        use tungstenite::{client::IntoClientRequest, stream::Mode};
+        let request = request.into_client_request()?;
+
+        let domain = request
+            .uri()
+            .host()
+            .map(str::to_string)
+            .expect("must have host");
+        let port = request
+            .uri()
+            .port_u16()
+            .unwrap_or_else(|| match request.uri().scheme_str() {
+                Some("wss") => 443,
+                Some("ws") => 80,
+                _ => unreachable!("scheme cant be anything other than ws or wss"),
+            });
+
+        let addr = format!("{}:{}", domain, port);
+        let socket = tokio::net::TcpStream::connect(addr).await?;
+
+        let mode = tungstenite::client::uri_mode(request.uri())?;
+        let stream = match mode {
+            Mode::Plain => tokio_tungstenite::MaybeTlsStream::Plain(socket),
+            Mode::Tls => {
+                let mut config = tokio_rustls::rustls::ClientConfig::new();
+                config.root_store =
+                    rustls_native_certs::load_native_certs().map_err(|(_, err)| err)?;
+                let domain = DNSNameRef::try_from_ascii_str(&domain).map_err(|err| {
+                    tungstenite::Error::Tls(tungstenite::error::TlsError::Dns(err))
+                })?;
+                let stream = tokio_rustls::TlsConnector::from(Arc::new(config));
+                let connected = stream.connect(domain, socket).await?;
+                tokio_tungstenite::MaybeTlsStream::Rustls(connected)
+            }
+        };
+
+        let inner = tokio_tungstenite::client_async(request, stream).await?.0;
+
         Ok(socket::Socket::new(inner))
     }
 
@@ -154,12 +188,17 @@ impl Client {
 pub mod socket {
     use super::{encode_protobuf_message, tungstenite, ClientResult, WebSocketStream};
     use bytes::{Bytes, BytesMut};
+    use futures_util::{
+        stream::{SplitSink, SplitStream},
+        StreamExt,
+    };
     use std::{
         fmt::{self, Debug, Formatter},
         marker::PhantomData,
         sync::Arc,
         time::Duration,
     };
+    use tokio::sync::Mutex;
 
     /// A websocket, wrapped for ease of use with protobuf messages.
     pub struct Socket<Msg, Resp>
@@ -174,8 +213,8 @@ pub mod socket {
     }
 
     struct SocketData {
-        tx: futures_util::lock::BiLock<WebSocketStream>,
-        rx: futures_util::lock::BiLock<WebSocketStream>,
+        tx: Mutex<SplitSink<WebSocketStream, tungstenite::Message>>,
+        rx: Mutex<SplitStream<WebSocketStream>>,
     }
 
     impl<Msg, Resp> Debug for Socket<Msg, Resp>
@@ -194,9 +233,12 @@ pub mod socket {
         Resp: prost::Message + Default,
     {
         pub(super) fn new(inner: WebSocketStream) -> Self {
-            let (tx, rx) = futures_util::lock::BiLock::new(inner);
+            let (tx, rx) = inner.split();
             Self {
-                data: Arc::new(SocketData { tx, rx }),
+                data: Arc::new(SocketData {
+                    tx: Mutex::new(tx),
+                    rx: Mutex::new(rx),
+                }),
                 buf: BytesMut::new(),
                 _msg: Default::default(),
                 _resp: Default::default(),
@@ -217,8 +259,6 @@ pub mod socket {
         ///
         /// This should be polled always in order to handle incoming ping messages.
         pub async fn get_message(&self) -> Option<ClientResult<Resp>> {
-            use futures_util::StreamExt;
-
             let raw =
                 tokio::time::timeout(Duration::from_nanos(1), self.data.rx.lock().await.next())
                     .await;
@@ -259,7 +299,15 @@ pub mod socket {
         /// Close this websocket.
         /// All subsequent message sending operations will return an "connection closed" error.
         pub async fn close(&self) -> ClientResult<()> {
-            Ok(self.data.tx.lock().await.close(None).await?)
+            use futures_util::SinkExt;
+
+            Ok(self
+                .data
+                .tx
+                .lock()
+                .await
+                .send(tungstenite::Message::Close(None))
+                .await?)
         }
 
         /// Converts this socket to a read-only socket.
@@ -318,6 +366,7 @@ mod error {
         error::Error as StdError,
         fmt::{self, Display, Formatter},
     };
+    use tokio_tungstenite::tungstenite;
 
     /// Convenience type for `Client` operation result.
     pub type ClientResult<T> = Result<T, ClientError>;
@@ -334,13 +383,15 @@ mod error {
             endpoint: String,
         },
         /// Occurs if a websocket returns an error.
-        SocketError(async_tungstenite::tungstenite::Error),
+        SocketError(tungstenite::Error),
         /// Occurs if the data server responded with can't be decoded as a protobuf response.
         MessageDecode(prost::DecodeError),
         /// Occurs if the data server responded with isn't a protobuf response.
         NonProtobuf(Bytes),
         /// Occurs if the given URL is invalid.
         InvalidUrl(InvalidUrlKind),
+        /// Occurs if an IO error is returned.
+        Io(std::io::Error),
     }
 
     impl Display for ClientError {
@@ -370,6 +421,7 @@ mod error {
                     err
                 ),
                 ClientError::InvalidUrl(err) => write!(f, "invalid base URL: {}", err),
+                ClientError::Io(err) => write!(f, "io error: {}", err),
             }
         }
     }
@@ -386,9 +438,15 @@ mod error {
         }
     }
 
-    impl From<async_tungstenite::tungstenite::Error> for ClientError {
-        fn from(err: async_tungstenite::tungstenite::Error) -> Self {
+    impl From<tungstenite::Error> for ClientError {
+        fn from(err: tungstenite::Error) -> Self {
             ClientError::SocketError(err)
+        }
+    }
+
+    impl From<std::io::Error> for ClientError {
+        fn from(err: std::io::Error) -> Self {
+            ClientError::Io(err)
         }
     }
 
@@ -399,6 +457,7 @@ mod error {
                 ClientError::MessageDecode(err) => Some(err),
                 ClientError::Reqwest(err) => Some(err),
                 ClientError::SocketError(err) => Some(err),
+                ClientError::Io(err) => Some(err),
                 _ => None,
             }
         }

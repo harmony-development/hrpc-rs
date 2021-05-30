@@ -134,27 +134,35 @@ impl mu_server::Mu for Server {
     async fn mu_mute(
         &self,
         _validation_value: Self::MuMuteValidationType,
-        mut socket: Socket<Ping, Pong>,
+        sock: Socket<Ping, Pong>,
     ) {
-        let mut creation_timestamp = Instant::now();
-        loop {
-            return_print!(socket.receive_message().await, |maybe_req| {
-                if let Some(req) = maybe_req {
-                    return_print!(socket.send_message(Pong { mu: req.mu }).await);
-                }
-            });
-
-            if creation_timestamp.elapsed().as_secs() >= 10 {
-                creation_timestamp = Instant::now();
-                return_print!(
-                    socket
-                        .send_message(Pong {
+        let (mut rs, ws) = sock.split();
+        let mut ws = ws.clonable();
+        let periodic_task = {
+            let mut ws = ws.clone();
+            async move {
+                let mut int = tokio::time::interval(Duration::from_secs(10));
+                loop {
+                    int.tick().await;
+                    return_print!(
+                        ws.send_message(Pong {
                             mu: "been 10 seconds".to_string(),
                         })
                         .await
-                );
+                    );
+                }
             }
-        }
+        };
+        let recv_task = async move {
+            loop {
+                return_print!(rs.receive_message().await, |maybe_req| {
+                    if let Some(req) = maybe_req {
+                        return_print!(ws.send_message(Pong { mu: req.mu }).await);
+                    }
+                });
+            }
+        };
+        tokio::join!(periodic_task, recv_task);
     }
 }
 

@@ -86,9 +86,6 @@ fn generate_trait<T: Service>(service: &T, proto_path: &str, server_trait: Ident
         #trait_doc
         #[hrpc::async_trait]
         pub trait #server_trait : Send + Sync + 'static {
-            const SOCKET_PING_PERIOD: u64 = 15;
-            const SOCKET_PING_DATA: [u8; 32] = [1; 32];
-
             type Error: CustomError + Send + Sync + 'static;
 
             #methods
@@ -203,19 +200,8 @@ fn generate_filters<T: Service>(
                         let svr3 = svr.clone();
                         let reply =
                             ws.on_upgrade(move |ws| async move {
-                                let ((tx, rx), mut lpt) = (ws.split(), Instant::now());
-                                let tx = Arc::new(Mutex::new(tx));
-
-                                let mut socket = Socket::<#req_message, #resp_message>::new(tx.clone(), rx, T::SOCKET_PING_DATA);
+                                let mut sock = Socket::<#req_message, #resp_message>::new(ws);
                                 #code
-                                let task = tokio::spawn(async move {
-                                    svr. #name (val, socket).await
-                                });
-                                let ping_task = tokio::spawn(async move {
-                                    while !socket_common::check_ping(&mut *tx.lock().await, &mut lpt, T::SOCKET_PING_DATA, T::SOCKET_PING_PERIOD).await { }
-                                });
-
-                                try_join!(task, ping_task).expect("failed to join handle in web socket handler");
                             }).into_response();
                         svr3. #on_upgrade_response_name (reply)
                     })
@@ -252,7 +238,7 @@ fn generate_filters<T: Service>(
                     let ins = Instant::now();
                     let val;
                     loop {
-                        match hrpc::return_closed!(socket.receive_message().await) {
+                        match hrpc::return_closed!(sock.receive_message().await) {
                             Ok(message) => {
                                 if let Some(message) = message {
                                     let req = Request::from_parts((Some(message), req.into_parts().1));
@@ -273,12 +259,12 @@ fn generate_filters<T: Service>(
                                 return;
                             }
                         }
-                        if ins.elapsed().as_secs() >= T::SOCKET_PING_PERIOD {
+                        if ins.elapsed().as_secs() >= 10 {
                             error!("socket validation request error: timeout");
                             return;
                         }
                     }
-                    let socket = socket.downgrade_to_write();
+                    svr. #name (val, sock.split().1).await
                 },
                 validater(quote! { None }),
                 quote! { Option<#req_message> },
@@ -287,7 +273,13 @@ fn generate_filters<T: Service>(
                 "{}.{}: Client streaming server unary method is invalid.",
                 package_name, method_name
             ),
-            (true, true) => wrap_stream_handler(quote! {}, validater(quote! { () }), quote! { () }),
+            (true, true) => wrap_stream_handler(
+                quote! {
+                    svr. #name (val, sock).await
+                },
+                validater(quote! { () }),
+                quote! { () },
+            ),
         };
 
         let apply_middleware = quote! {

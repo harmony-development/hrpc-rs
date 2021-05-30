@@ -14,10 +14,13 @@ pub use url;
 
 #[doc(hidden)]
 #[cfg(feature = "client")]
-pub use async_tungstenite::{self, tungstenite};
+pub use reqwest;
 #[doc(hidden)]
 #[cfg(feature = "client")]
-pub use reqwest;
+pub use rustls_native_certs;
+#[doc(hidden)]
+#[cfg(feature = "client")]
+pub use tokio_tungstenite::{self, tungstenite};
 
 #[doc(hidden)]
 #[cfg(feature = "server")]
