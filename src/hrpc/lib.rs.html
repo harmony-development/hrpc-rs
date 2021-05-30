@@ -175,6 +175,9 @@
 <span id="172">172</span>
 <span id="173">173</span>
 <span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Common code used in hRPC code generation.</span>
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>::<span class="ident">HeaderName</span>, <span class="ident">HeaderValue</span>};
@@ -192,10 +195,13 @@
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">async_tungstenite</span>::{<span class="self">self</span>, <span class="ident">tungstenite</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">reqwest</span>;
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">reqwest</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">rustls_native_certs</span>;
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tokio_tungstenite</span>::{<span class="self">self</span>, <span class="ident">tungstenite</span>};
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>

@@ -584,6 +584,79 @@
 <span id="581">581</span>
 <span id="582">582</span>
 <span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">futures_util</span>::<span class="ident">stream</span>::{<span class="ident">SplitSink</span>, <span class="ident">SplitStream</span>};
 <span class="kw">use</span> <span class="ident">prelude</span>::<span class="kw-2">*</span>;
@@ -595,7 +668,6 @@
     <span class="ident">sync</span>::<span class="ident">Arc</span>,
     <span class="ident">time</span>::<span class="ident">Duration</span>,
 };
-<span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">Mutex</span>;
 <span class="kw">use</span> <span class="ident">warp</span>::{<span class="ident">ws</span>::<span class="ident">WebSocket</span>, <span class="ident">Rejection</span>, <span class="ident">Reply</span>};
 
 <span class="doccomment">/// Useful filters.</span>
@@ -683,13 +755,17 @@
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">prelude</span> {
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">socket_common</span>, <span class="ident">unary_common</span>, <span class="ident">CustomError</span>, <span class="ident">ServerError</span>, <span class="ident">Socket</span>, <span class="ident">WriteSocket</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{
+        <span class="ident">socket_common</span>, <span class="ident">unary_common</span>, <span class="ident">CustomError</span>, <span class="ident">ReadSocket</span>, <span class="ident">ServerError</span>, <span class="ident">Socket</span>, <span class="ident">WriteSocket</span>,
+    };
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">IntoRequest</span>, <span class="ident">Request</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">SinkExt</span>, <span class="ident">StreamExt</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http</span>::<span class="ident">HeaderMap</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">parking_lot</span>::<span class="ident">Mutex</span> <span class="kw">as</span> <span class="ident">PMutex</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">time</span>::<span class="ident">Instant</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">std</span>::{
+        <span class="ident">collections</span>::<span class="ident">HashMap</span>,
+        <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
+    };
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tokio</span>::{<span class="self">self</span>, <span class="ident">sync</span>::<span class="ident">Mutex</span>, <span class="ident">try_join</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">trace</span>, <span class="ident">warn</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">warp</span>::{
@@ -777,17 +853,10 @@
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">socket_common</span> {
-    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">time</span>::<span class="ident">Instant</span>;
-
     <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">HeaderMap</span>;
 
-    <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">CustomError</span>, <span class="ident">ServerError</span>};
-    <span class="kw">use</span> <span class="ident">futures_util</span>::<span class="ident">SinkExt</span>;
-    <span class="kw">use</span> <span class="ident">warp</span>::{
-        <span class="ident">filters</span>::<span class="ident">BoxedFilter</span>,
-        <span class="ident">ws</span>::{<span class="ident">Message</span> <span class="kw">as</span> <span class="ident">WsMessage</span>, <span class="ident">Ws</span>},
-        <span class="ident">Filter</span>,
-    };
+    <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">CustomError</span>, <span class="ident">ServerError</span>};
+    <span class="kw">use</span> <span class="ident">warp</span>::{<span class="ident">filters</span>::<span class="ident">BoxedFilter</span>, <span class="ident">ws</span>::<span class="ident">Ws</span>, <span class="ident">Filter</span>};
 
     <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">base_filter</span><span class="op">&lt;</span><span class="prelude-val">Err</span>: <span class="ident">CustomError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(
@@ -814,82 +883,120 @@
             .<span class="ident">and</span>(<span class="ident">warp</span>::<span class="ident">ws</span>())
             .<span class="ident">boxed</span>()
     }
+}
 
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">process_validate</span><span class="op">&lt;</span><span class="prelude-val">Err</span>: <span class="ident">CustomError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(
-        <span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="prelude-val">Err</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ServerError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">result</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
-            <span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;socket request validation failed: {}&quot;</span>, <span class="ident">err</span>);
-            <span class="ident">ServerError</span>::<span class="ident">Custom</span>(<span class="ident">err</span>)
-        })
+<span class="doccomment">/// A cloneable web socket.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SocketArc</span><span class="op">&lt;</span><span class="ident">Req</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span>, <span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span><span class="op">&gt;</span> {
+    <span class="ident">read</span>: <span class="ident">ReadSocketArc</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
+    <span class="ident">write</span>: <span class="ident">WriteSocketArc</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Req</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span>, <span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span><span class="op">&gt;</span> <span class="ident">SocketArc</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Combine read and write sockets into one.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">combine</span>(<span class="ident">read</span>: <span class="ident">ReadSocketArc</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>, <span class="ident">write</span>: <span class="ident">WriteSocketArc</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">read</span>, <span class="ident">write</span> }
     }
 
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">check_ping</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="ident">tx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">futures_util</span>::<span class="ident">stream</span>::<span class="ident">SplitSink</span><span class="op">&lt;</span><span class="ident">warp</span>::<span class="ident">ws</span>::<span class="ident">WebSocket</span>, <span class="ident">WsMessage</span><span class="op">&gt;</span>,
-        <span class="ident">last_ping_time</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">Instant</span>,
-        <span class="ident">socket_ping_data</span>: [<span class="ident">u8</span>; <span class="number">32</span>],
-        <span class="ident">socket_ping_period</span>: <span class="ident">u64</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="kw">let</span> <span class="ident">ping_lapse</span> <span class="op">=</span> <span class="ident">last_ping_time</span>.<span class="ident">elapsed</span>();
-        <span class="kw">if</span> <span class="ident">ping_lapse</span>.<span class="ident">as_secs</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">socket_ping_period</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">tx</span>.<span class="ident">send</span>(<span class="ident">WsMessage</span>::<span class="ident">ping</span>(<span class="ident">socket_ping_data</span>)).<span class="kw">await</span> {
-                <span class="comment">// TODO: replace this with error source downcasting?</span>
-                <span class="kw">if</span> <span class="string">&quot;Connection closed normally&quot;</span> <span class="op">=</span><span class="op">=</span> <span class="ident">e</span>.<span class="ident">to_string</span>() {
-                    <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;socket closed normally&quot;</span>);
-                } <span class="kw">else</span> {
-                    <span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;error pinging client socket: {}&quot;</span>, <span class="ident">e</span>);
-                    <span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;can&#39;t reach client, closing socket&quot;</span>);
-                }
-                <span class="kw">return</span> <span class="bool-val">true</span>;
-            } <span class="kw">else</span> {
-                <span class="macro">debug</span><span class="macro">!</span>(
-                    <span class="string">&quot;pinged client socket, last ping was {} ago&quot;</span>,
-                    <span class="ident">last_ping_time</span>.<span class="ident">elapsed</span>().<span class="ident">as_secs</span>()
-                );
-            }
-            <span class="kw-2">*</span><span class="ident">last_ping_time</span> <span class="op">=</span> <span class="ident">Instant</span>::<span class="ident">now</span>();
-        }
-        <span class="bool-val">false</span>
+    <span class="doccomment">/// Split this socket into read and write counterparts.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">split</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">ReadSocketArc</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>, <span class="ident">WriteSocketArc</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>) {
+        (<span class="self">self</span>.<span class="ident">read</span>, <span class="self">self</span>.<span class="ident">write</span>)
     }
 
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">close_socket</span>(
-        <span class="ident">tx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">futures_util</span>::<span class="ident">stream</span>::<span class="ident">SplitSink</span><span class="op">&lt;</span><span class="ident">warp</span>::<span class="ident">ws</span>::<span class="ident">WebSocket</span>, <span class="ident">WsMessage</span><span class="op">&gt;</span>,
-    ) {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">tx</span>.<span class="ident">send</span>(<span class="ident">WsMessage</span>::<span class="ident">close</span>()).<span class="kw">await</span> {
-            <span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;error closing socket: {}&quot;</span>, <span class="ident">e</span>);
-        } <span class="kw">else</span> {
-            <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;socket closed normally&quot;</span>);
-        }
+    <span class="doccomment">/// Receive a message from the socket.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>, <span class="ident">SocketError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">read</span>.<span class="ident">receive_message</span>().<span class="kw">await</span>
+    }
+
+    <span class="doccomment">/// Send a message over the socket.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">resp</span>: <span class="ident">Resp</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">write</span>.<span class="ident">send_message</span>(<span class="ident">resp</span>).<span class="kw">await</span>
     }
 }
 
+<span class="doccomment">/// A web socket.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span>, <span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span><span class="op">&gt;</span> {
-    <span class="ident">tx</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">SplitSink</span><span class="op">&lt;</span><span class="ident">WebSocket</span>, <span class="ident">WsMessage</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">rx</span>: <span class="ident">SplitStream</span><span class="op">&lt;</span><span class="ident">WebSocket</span><span class="op">&gt;</span>,
-    <span class="ident">buf</span>: <span class="ident">BytesMut</span>,
-    <span class="ident">socket_ping_data</span>: [<span class="ident">u8</span>; <span class="number">32</span>],
-    <span class="ident">_resp</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>,
-    <span class="ident">_req</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
+    <span class="ident">read</span>: <span class="ident">ReadSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
+    <span class="ident">write</span>: <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Req</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span>, <span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span><span class="op">&gt;</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">tx</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">SplitSink</span><span class="op">&lt;</span><span class="ident">WebSocket</span>, <span class="ident">WsMessage</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">rx</span>: <span class="ident">SplitStream</span><span class="op">&lt;</span><span class="ident">WebSocket</span><span class="op">&gt;</span>,
-        <span class="ident">socket_ping_data</span>: [<span class="ident">u8</span>; <span class="number">32</span>],
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">ws</span>: <span class="ident">warp</span>::<span class="ident">ws</span>::<span class="ident">WebSocket</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">split</span>();
         <span class="self">Self</span> {
-            <span class="ident">tx</span>,
+            <span class="ident">read</span>: <span class="ident">ReadSocket</span>::<span class="ident">new</span>(<span class="ident">rx</span>),
+            <span class="ident">write</span>: <span class="ident">WriteSocket</span>::<span class="ident">new</span>(<span class="ident">tx</span>),
+        }
+    }
+
+    <span class="doccomment">/// Combine read and write sockets into one.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">combine</span>(<span class="ident">read</span>: <span class="ident">ReadSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>, <span class="ident">write</span>: <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">read</span>, <span class="ident">write</span> }
+    }
+
+    <span class="doccomment">/// Split this socket into read and write counterparts.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">split</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">ReadSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>, <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>) {
+        (<span class="self">self</span>.<span class="ident">read</span>, <span class="self">self</span>.<span class="ident">write</span>)
+    }
+
+    <span class="doccomment">/// Make a cloneable and shared version of this socket.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clonable</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SocketArc</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span> {
+        <span class="ident">SocketArc</span> {
+            <span class="ident">read</span>: <span class="self">self</span>.<span class="ident">read</span>.<span class="ident">clonable</span>(),
+            <span class="ident">write</span>: <span class="self">self</span>.<span class="ident">write</span>.<span class="ident">clonable</span>(),
+        }
+    }
+
+    <span class="doccomment">/// Receive a message from the socket.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>, <span class="ident">SocketError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">read</span>.<span class="ident">receive_message</span>().<span class="kw">await</span>
+    }
+
+    <span class="doccomment">/// Send a message over the socket.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">resp</span>: <span class="ident">Resp</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">write</span>.<span class="ident">send_message</span>(<span class="ident">resp</span>).<span class="kw">await</span>
+    }
+}
+
+<span class="doccomment">/// A clonable read only socket.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ReadSocketArc</span><span class="op">&lt;</span><span class="ident">Req</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span> {
+    <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">ReadSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Req</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span> <span class="ident">ReadSocketArc</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Receive a message from the socket.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>, <span class="ident">SocketError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">receive_message</span>().<span class="kw">await</span>
+    }
+}
+
+<span class="doccomment">/// A read only socket.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ReadSocket</span><span class="op">&lt;</span><span class="ident">Req</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span> {
+    <span class="ident">rx</span>: <span class="ident">SplitStream</span><span class="op">&lt;</span><span class="ident">WebSocket</span><span class="op">&gt;</span>,
+    <span class="ident">_req</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Req</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span> <span class="ident">ReadSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">rx</span>: <span class="ident">SplitStream</span><span class="op">&lt;</span><span class="ident">WebSocket</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
             <span class="ident">rx</span>,
-            <span class="ident">buf</span>: <span class="ident">BytesMut</span>::<span class="ident">new</span>(),
-            <span class="ident">socket_ping_data</span>,
-            <span class="ident">_req</span>: <span class="ident">PhantomData</span>::<span class="ident">default</span>(),
-            <span class="ident">_resp</span>: <span class="ident">PhantomData</span>::<span class="ident">default</span>(),
+            <span class="ident">_req</span>: <span class="ident">PhantomData</span>,
+        }
+    }
+
+    <span class="doccomment">/// Create a clonable and shared version of ReadSocket.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clonable</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ReadSocketArc</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span> {
+        <span class="ident">ReadSocketArc</span> {
+            <span class="ident">inner</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="self">self</span>)),
         }
     }
 
@@ -909,21 +1016,23 @@
                 <span class="kw">return</span> <span class="ident">Req</span>::<span class="ident">decode</span>(<span class="ident">msg_bin</span>)
                     .<span class="ident">map</span>(<span class="prelude-val">Some</span>)
                     .<span class="ident">map_err</span>(<span class="ident">SocketError</span>::<span class="ident">MessageDecode</span>);
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">is_pong</span>() {
-                <span class="kw">let</span> <span class="ident">msg_bin</span> <span class="op">=</span> <span class="ident">Bytes</span>::<span class="ident">from</span>(<span class="ident">msg</span>.<span class="ident">into_bytes</span>());
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">socket_ping_data</span> <span class="op">!</span><span class="op">=</span> <span class="ident">msg_bin</span>.<span class="ident">as_ref</span>() {
-                    <span class="ident">socket_common</span>::<span class="ident">close_socket</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">lock</span>().<span class="kw">await</span>).<span class="kw">await</span>;
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError</span>::<span class="ident">ClosedNormally</span>);
-                } <span class="kw">else</span> {
-                    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;received pong&quot;</span>);
-                }
             } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">is_close</span>() {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError</span>::<span class="ident">ClosedNormally</span>);
             }
         }
         <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
     }
+}
 
+<span class="doccomment">/// A clonable write only socket.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WriteSocketArc</span><span class="op">&lt;</span><span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span><span class="op">&gt;</span> {
+    <span class="ident">tx</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">SplitSink</span><span class="op">&lt;</span><span class="ident">WebSocket</span>, <span class="ident">WsMessage</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">buf</span>: <span class="ident">BytesMut</span>,
+    <span class="ident">_resp</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span><span class="op">&gt;</span> <span class="ident">WriteSocketArc</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Send a message over the socket.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">resp</span>: <span class="ident">Resp</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> {
@@ -932,7 +1041,7 @@
         };
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">send</span>(<span class="ident">WsMessage</span>::<span class="ident">binary</span>(<span class="ident">resp</span>)).<span class="kw">await</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="kw">if</span> <span class="string">&quot;Connection closed normally&quot;</span> <span class="op">=</span><span class="op">=</span> <span class="ident">e</span>.<span class="ident">to_string</span>() {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="kw">if</span> <span class="ident">e</span>.<span class="ident">to_string</span>().<span class="ident">contains</span>(<span class="string">&quot;closed normally&quot;</span>) {
                 <span class="ident">SocketError</span>::<span class="ident">ClosedNormally</span>
             } <span class="kw">else</span> {
                 <span class="ident">SocketError</span>::<span class="ident">Other</span>(<span class="ident">e</span>)
@@ -943,29 +1052,62 @@
 
         <span class="prelude-val">Ok</span>(())
     }
+}
 
-    <span class="doccomment">/// Downgrades this socket to a write only socket.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">downgrade_to_write</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">Socket</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">tx</span>, <span class="self">self</span>.<span class="ident">rx</span>, <span class="self">self</span>.<span class="ident">socket_ping_data</span>);
-        <span class="ident">WriteSocket</span>::<span class="ident">new</span>(<span class="ident">inner</span>)
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">WriteSocketArc</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">tx</span>: <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">clone</span>(),
+            <span class="ident">buf</span>: <span class="ident">BytesMut</span>::<span class="ident">with_capacity</span>(<span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">capacity</span>()),
+            <span class="ident">_resp</span>: <span class="ident">PhantomData</span>,
+        }
     }
 }
 
 <span class="doccomment">/// A write only socket.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span><span class="op">&gt;</span> {
-    <span class="ident">inner</span>: <span class="ident">Socket</span><span class="op">&lt;</span>(), <span class="ident">Resp</span><span class="op">&gt;</span>,
+    <span class="ident">tx</span>: <span class="ident">SplitSink</span><span class="op">&lt;</span><span class="ident">WebSocket</span>, <span class="ident">WsMessage</span><span class="op">&gt;</span>,
+    <span class="ident">buf</span>: <span class="ident">BytesMut</span>,
+    <span class="ident">_resp</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span><span class="op">&gt;</span> <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">inner</span>: <span class="ident">Socket</span><span class="op">&lt;</span>(), <span class="ident">Resp</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">inner</span> }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">tx</span>: <span class="ident">SplitSink</span><span class="op">&lt;</span><span class="ident">WebSocket</span>, <span class="ident">WsMessage</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">tx</span>,
+            <span class="ident">buf</span>: <span class="ident">BytesMut</span>::<span class="ident">new</span>(),
+            <span class="ident">_resp</span>: <span class="ident">PhantomData</span>,
+        }
+    }
+
+    <span class="doccomment">/// Create a clonable and shared version of WriteSocket.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clonable</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WriteSocketArc</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span> {
+        <span class="ident">WriteSocketArc</span> {
+            <span class="ident">tx</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">tx</span>)),
+            <span class="ident">buf</span>: <span class="self">self</span>.<span class="ident">buf</span>,
+            <span class="ident">_resp</span>: <span class="self">self</span>.<span class="ident">_resp</span>,
+        }
     }
 
     <span class="doccomment">/// Send a message over the socket.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">resp</span>: <span class="ident">Resp</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">send_message</span>(<span class="ident">resp</span>).<span class="kw">await</span>
+        <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> {
+            <span class="kw">crate</span>::<span class="ident">encode_protobuf_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">buf</span>, <span class="ident">resp</span>);
+            <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">to_vec</span>()
+        };
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">send</span>(<span class="ident">WsMessage</span>::<span class="ident">binary</span>(<span class="ident">resp</span>)).<span class="kw">await</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="kw">if</span> <span class="ident">e</span>.<span class="ident">to_string</span>().<span class="ident">contains</span>(<span class="string">&quot;closed normally&quot;</span>) {
+                <span class="ident">SocketError</span>::<span class="ident">ClosedNormally</span>
+            } <span class="kw">else</span> {
+                <span class="ident">SocketError</span>::<span class="ident">Other</span>(<span class="ident">e</span>)
+            });
+        } <span class="kw">else</span> {
+            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;responded to client socket&quot;</span>);
+        }
+
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -1018,19 +1160,23 @@
     }};
 }
 
-<span class="doccomment">/// Return if the socket is closed normally, otherwise print the error if there is one and return the result.</span>
+<span class="doccomment">/// Return if the socket is closed normally, otherwise print the error if there is one and return.</span>
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">return_print</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">result</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {{
         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="kw">crate</span>::<span class="macro">return_closed</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">result</span>);
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">res</span> {
             <span class="macro-nonterminal">$</span><span class="kw">crate</span>::<span class="macro-nonterminal">tracing</span>::<span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;error occured: {}&quot;</span>, <span class="ident">err</span>);
+            <span class="kw">return</span>;
         }
     }};
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">result</span>:<span class="ident">expr</span>, <span class="op">|</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">val</span>:<span class="ident">ident</span><span class="op">|</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">log</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {{
         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="kw">crate</span>::<span class="macro">return_closed</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">result</span>);
         <span class="kw">match</span> <span class="ident">res</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="kw">crate</span>::<span class="macro-nonterminal">tracing</span>::<span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;error occured: {}&quot;</span>, <span class="ident">err</span>),
+            <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro-nonterminal">$</span><span class="kw">crate</span>::<span class="macro-nonterminal">tracing</span>::<span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;error occured: {}&quot;</span>, <span class="ident">err</span>);
+                <span class="kw">return</span>;
+            }
             <span class="prelude-val">Ok</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">val</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">log</span>,
         }
     }};

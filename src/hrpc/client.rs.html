@@ -426,23 +426,79 @@
 <span id="423">423</span>
 <span id="424">424</span>
 <span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
+
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use</span> <span class="ident">bytes</span>::<span class="ident">BytesMut</span>;
+<span class="kw">use</span> <span class="ident">tokio_rustls</span>::<span class="ident">webpki</span>::<span class="ident">DNSNameRef</span>;
 <span class="kw">use</span> <span class="ident">url</span>::<span class="ident">Url</span>;
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">error</span>::<span class="kw-2">*</span>;
 
-<span class="kw">type</span> <span class="ident">WebSocketStream</span> <span class="op">=</span> <span class="ident">async_tungstenite</span>::<span class="ident">WebSocketStream</span><span class="op">&lt;</span>
-    <span class="ident">async_tungstenite</span>::<span class="ident">stream</span>::<span class="ident">Stream</span><span class="op">&lt;</span>
-        <span class="ident">async_tungstenite</span>::<span class="ident">tokio</span>::<span class="ident">TokioAdapter</span><span class="op">&lt;</span><span class="ident">tokio</span>::<span class="ident">net</span>::<span class="ident">TcpStream</span><span class="op">&gt;</span>,
-        <span class="ident">async_tungstenite</span>::<span class="ident">tokio</span>::<span class="ident">TokioAdapter</span><span class="op">&lt;</span>
-            <span class="ident">tokio_rustls</span>::<span class="ident">client</span>::<span class="ident">TlsStream</span><span class="op">&lt;</span><span class="ident">tokio</span>::<span class="ident">net</span>::<span class="ident">TcpStream</span><span class="op">&gt;</span>,
-        <span class="op">&gt;</span>,
-    <span class="op">&gt;</span>,
-<span class="op">&gt;</span>;
+<span class="kw">type</span> <span class="ident">WebSocketStream</span> <span class="op">=</span>
+    <span class="ident">tokio_tungstenite</span>::<span class="ident">WebSocketStream</span><span class="op">&lt;</span><span class="ident">tokio_tungstenite</span>::<span class="ident">MaybeTlsStream</span><span class="op">&lt;</span><span class="ident">tokio</span>::<span class="ident">net</span>::<span class="ident">TcpStream</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
 <span class="kw">type</span> <span class="ident">SocketRequest</span> <span class="op">=</span> <span class="ident">tungstenite</span>::<span class="ident">handshake</span>::<span class="ident">client</span>::<span class="ident">Request</span>;
 <span class="kw">type</span> <span class="ident">UnaryRequest</span> <span class="op">=</span> <span class="ident">reqwest</span>::<span class="ident">Request</span>;
@@ -553,7 +609,44 @@
             }
         }
 
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">async_tungstenite</span>::<span class="ident">tokio</span>::<span class="ident">connect_async</span>(<span class="ident">request</span>).<span class="kw">await</span><span class="question-mark">?</span>.<span class="number">0</span>;
+        <span class="kw">use</span> <span class="ident">tungstenite</span>::{<span class="ident">client</span>::<span class="ident">IntoClientRequest</span>, <span class="ident">stream</span>::<span class="ident">Mode</span>};
+        <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">into_client_request</span>()<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="ident">domain</span> <span class="op">=</span> <span class="ident">request</span>
+            .<span class="ident">uri</span>()
+            .<span class="ident">host</span>()
+            .<span class="ident">map</span>(<span class="ident">str</span>::<span class="ident">to_string</span>)
+            .<span class="ident">expect</span>(<span class="string">&quot;must have host&quot;</span>);
+        <span class="kw">let</span> <span class="ident">port</span> <span class="op">=</span> <span class="ident">request</span>
+            .<span class="ident">uri</span>()
+            .<span class="ident">port_u16</span>()
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">request</span>.<span class="ident">uri</span>().<span class="ident">scheme_str</span>() {
+                <span class="prelude-val">Some</span>(<span class="string">&quot;wss&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="number">443</span>,
+                <span class="prelude-val">Some</span>(<span class="string">&quot;ws&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="number">80</span>,
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(<span class="string">&quot;scheme cant be anything other than ws or wss&quot;</span>),
+            });
+
+        <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}:{}&quot;</span>, <span class="ident">domain</span>, <span class="ident">port</span>);
+        <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">net</span>::<span class="ident">TcpStream</span>::<span class="ident">connect</span>(<span class="ident">addr</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="ident">mode</span> <span class="op">=</span> <span class="ident">tungstenite</span>::<span class="ident">client</span>::<span class="ident">uri_mode</span>(<span class="ident">request</span>.<span class="ident">uri</span>())<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">stream</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">mode</span> {
+            <span class="ident">Mode</span>::<span class="ident">Plain</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tokio_tungstenite</span>::<span class="ident">MaybeTlsStream</span>::<span class="ident">Plain</span>(<span class="ident">socket</span>),
+            <span class="ident">Mode</span>::<span class="ident">Tls</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">tokio_rustls</span>::<span class="ident">rustls</span>::<span class="ident">ClientConfig</span>::<span class="ident">new</span>();
+                <span class="ident">config</span>.<span class="ident">root_store</span> <span class="op">=</span>
+                    <span class="ident">rustls_native_certs</span>::<span class="ident">load_native_certs</span>().<span class="ident">map_err</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">err</span>)<span class="op">|</span> <span class="ident">err</span>)<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">domain</span> <span class="op">=</span> <span class="ident">DNSNameRef</span>::<span class="ident">try_from_ascii_str</span>(<span class="kw-2">&amp;</span><span class="ident">domain</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
+                    <span class="ident">tungstenite</span>::<span class="ident">Error</span>::<span class="ident">Tls</span>(<span class="ident">tungstenite</span>::<span class="ident">error</span>::<span class="ident">TlsError</span>::<span class="ident">Dns</span>(<span class="ident">err</span>))
+                })<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">tokio_rustls</span>::<span class="ident">TlsConnector</span>::<span class="ident">from</span>(<span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">config</span>));
+                <span class="kw">let</span> <span class="ident">connected</span> <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">connect</span>(<span class="ident">domain</span>, <span class="ident">socket</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="ident">tokio_tungstenite</span>::<span class="ident">MaybeTlsStream</span>::<span class="ident">Rustls</span>(<span class="ident">connected</span>)
+            }
+        };
+
+        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">tokio_tungstenite</span>::<span class="ident">client_async</span>(<span class="ident">request</span>, <span class="ident">stream</span>).<span class="kw">await</span><span class="question-mark">?</span>.<span class="number">0</span>;
+
         <span class="prelude-val">Ok</span>(<span class="ident">socket</span>::<span class="ident">Socket</span>::<span class="ident">new</span>(<span class="ident">inner</span>))
     }
 
@@ -583,12 +676,17 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">socket</span> {
     <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">encode_protobuf_message</span>, <span class="ident">tungstenite</span>, <span class="ident">ClientResult</span>, <span class="ident">WebSocketStream</span>};
     <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
+    <span class="kw">use</span> <span class="ident">futures_util</span>::{
+        <span class="ident">stream</span>::{<span class="ident">SplitSink</span>, <span class="ident">SplitStream</span>},
+        <span class="ident">StreamExt</span>,
+    };
     <span class="kw">use</span> <span class="ident">std</span>::{
         <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Formatter</span>},
         <span class="ident">marker</span>::<span class="ident">PhantomData</span>,
         <span class="ident">sync</span>::<span class="ident">Arc</span>,
         <span class="ident">time</span>::<span class="ident">Duration</span>,
     };
+    <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">Mutex</span>;
 
     <span class="doccomment">/// A websocket, wrapped for ease of use with protobuf messages.</span>
     <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Msg</span>, <span class="ident">Resp</span><span class="op">&gt;</span>
@@ -603,8 +701,8 @@
     }
 
     <span class="kw">struct</span> <span class="ident">SocketData</span> {
-        <span class="ident">tx</span>: <span class="ident">futures_util</span>::<span class="ident">lock</span>::<span class="ident">BiLock</span><span class="op">&lt;</span><span class="ident">WebSocketStream</span><span class="op">&gt;</span>,
-        <span class="ident">rx</span>: <span class="ident">futures_util</span>::<span class="ident">lock</span>::<span class="ident">BiLock</span><span class="op">&lt;</span><span class="ident">WebSocketStream</span><span class="op">&gt;</span>,
+        <span class="ident">tx</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">SplitSink</span><span class="op">&lt;</span><span class="ident">WebSocketStream</span>, <span class="ident">tungstenite</span>::<span class="ident">Message</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">rx</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">SplitStream</span><span class="op">&lt;</span><span class="ident">WebSocketStream</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     }
 
     <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Msg</span>, <span class="ident">Resp</span><span class="op">&gt;</span> <span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Msg</span>, <span class="ident">Resp</span><span class="op">&gt;</span>
@@ -623,9 +721,12 @@
         <span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span>,
     {
         <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">inner</span>: <span class="ident">WebSocketStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-            <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">futures_util</span>::<span class="ident">lock</span>::<span class="ident">BiLock</span>::<span class="ident">new</span>(<span class="ident">inner</span>);
+            <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">inner</span>.<span class="ident">split</span>();
             <span class="self">Self</span> {
-                <span class="ident">data</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">SocketData</span> { <span class="ident">tx</span>, <span class="ident">rx</span> }),
+                <span class="ident">data</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">SocketData</span> {
+                    <span class="ident">tx</span>: <span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="ident">tx</span>),
+                    <span class="ident">rx</span>: <span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="ident">rx</span>),
+                }),
                 <span class="ident">buf</span>: <span class="ident">BytesMut</span>::<span class="ident">new</span>(),
                 <span class="ident">_msg</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
                 <span class="ident">_resp</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
@@ -646,8 +747,6 @@
         <span class="doccomment">///</span>
         <span class="doccomment">/// This should be polled always in order to handle incoming ping messages.</span>
         <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-            <span class="kw">use</span> <span class="ident">futures_util</span>::<span class="ident">StreamExt</span>;
-
             <span class="kw">let</span> <span class="ident">raw</span> <span class="op">=</span>
                 <span class="ident">tokio</span>::<span class="ident">time</span>::<span class="ident">timeout</span>(<span class="ident">Duration</span>::<span class="ident">from_nanos</span>(<span class="number">1</span>), <span class="self">self</span>.<span class="ident">data</span>.<span class="ident">rx</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">next</span>())
                     .<span class="kw">await</span>;
@@ -688,7 +787,15 @@
         <span class="doccomment">/// Close this websocket.</span>
         <span class="doccomment">/// All subsequent message sending operations will return an &quot;connection closed&quot; error.</span>
         <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">close</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-            <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">data</span>.<span class="ident">tx</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>)
+            <span class="kw">use</span> <span class="ident">futures_util</span>::<span class="ident">SinkExt</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="self">self</span>
+                .<span class="ident">data</span>
+                .<span class="ident">tx</span>
+                .<span class="ident">lock</span>()
+                .<span class="kw">await</span>
+                .<span class="ident">send</span>(<span class="ident">tungstenite</span>::<span class="ident">Message</span>::<span class="ident">Close</span>(<span class="prelude-val">None</span>))
+                .<span class="kw">await</span><span class="question-mark">?</span>)
         }
 
         <span class="doccomment">/// Converts this socket to a read-only socket.</span>
@@ -747,6 +854,7 @@
         <span class="ident">error</span>::<span class="ident">Error</span> <span class="kw">as</span> <span class="ident">StdError</span>,
         <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>},
     };
+    <span class="kw">use</span> <span class="ident">tokio_tungstenite</span>::<span class="ident">tungstenite</span>;
 
     <span class="doccomment">/// Convenience type for `Client` operation result.</span>
     <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">ClientError</span><span class="op">&gt;</span>;
@@ -763,13 +871,15 @@
             <span class="ident">endpoint</span>: <span class="ident">String</span>,
         },
         <span class="doccomment">/// Occurs if a websocket returns an error.</span>
-        <span class="ident">SocketError</span>(<span class="ident">async_tungstenite</span>::<span class="ident">tungstenite</span>::<span class="ident">Error</span>),
+        <span class="ident">SocketError</span>(<span class="ident">tungstenite</span>::<span class="ident">Error</span>),
         <span class="doccomment">/// Occurs if the data server responded with can&#39;t be decoded as a protobuf response.</span>
         <span class="ident">MessageDecode</span>(<span class="ident">prost</span>::<span class="ident">DecodeError</span>),
         <span class="doccomment">/// Occurs if the data server responded with isn&#39;t a protobuf response.</span>
         <span class="ident">NonProtobuf</span>(<span class="ident">Bytes</span>),
         <span class="doccomment">/// Occurs if the given URL is invalid.</span>
         <span class="ident">InvalidUrl</span>(<span class="ident">InvalidUrlKind</span>),
+        <span class="doccomment">/// Occurs if an IO error is returned.</span>
+        <span class="ident">Io</span>(<span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Error</span>),
     }
 
     <span class="kw">impl</span> <span class="ident">Display</span> <span class="kw">for</span> <span class="ident">ClientError</span> {
@@ -799,6 +909,7 @@
                     <span class="ident">err</span>
                 ),
                 <span class="ident">ClientError</span>::<span class="ident">InvalidUrl</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;invalid base URL: {}&quot;</span>, <span class="ident">err</span>),
+                <span class="ident">ClientError</span>::<span class="ident">Io</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;io error: {}&quot;</span>, <span class="ident">err</span>),
             }
         }
     }
@@ -815,9 +926,15 @@
         }
     }
 
-    <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">async_tungstenite</span>::<span class="ident">tungstenite</span>::<span class="ident">Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ClientError</span> {
-        <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">async_tungstenite</span>::<span class="ident">tungstenite</span>::<span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">tungstenite</span>::<span class="ident">Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ClientError</span> {
+        <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">tungstenite</span>::<span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
             <span class="ident">ClientError</span>::<span class="ident">SocketError</span>(<span class="ident">err</span>)
+        }
+    }
+
+    <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ClientError</span> {
+        <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="ident">ClientError</span>::<span class="ident">Io</span>(<span class="ident">err</span>)
         }
     }
 
@@ -828,6 +945,7 @@
                 <span class="ident">ClientError</span>::<span class="ident">MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
                 <span class="ident">ClientError</span>::<span class="ident">Reqwest</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
                 <span class="ident">ClientError</span>::<span class="ident">SocketError</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
+                <span class="ident">ClientError</span>::<span class="ident">Io</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
                 <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
             }
         }
