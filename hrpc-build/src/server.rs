@@ -14,8 +14,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let server_mod = quote::format_ident!("{}_server", naive_snake_case(&service.name()));
     let generated_trait = generate_trait(service, proto_path, server_trait.clone());
     let service_doc = generate_doc_comments(service.comment());
-    let (serve_filters, serve_combined_filters, apis_push_filters) =
-        generate_filters(service, proto_path);
+    let (serve_filters, serve_combined_filters) = generate_filters(service, proto_path);
 
     quote! {
         /// Generated server implementations.
@@ -51,24 +50,11 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 /// Convert this service to `warp` `Filter`s.
                 ///
                 /// This can be used to compose multiple services. See `serve_multiple` macro in `hrpc`.
-                #[allow(clippy::redundant_clone)]
-                pub fn filters(self) -> BoxedFilter<(impl Reply,)> {
+                pub fn filters(self) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
                     let server = self.inner;
 
                     #serve_filters
-                    #serve_combined_filters .boxed()
-                }
-
-                /// Extract `warp` filters, mapped to their URL API path.
-                #[allow(clippy::redundant_clone)]
-                pub fn filters_uncombined(self) -> HashMap<&'static str, BoxedFilter<(impl warp::Reply,)>> {
-                    let server = self.inner;
-
-                    #serve_filters
-
-                    let mut apis = HashMap::new();
-                    #apis_push_filters
-                    apis
+                    #serve_combined_filters
                 }
             }
         }
@@ -156,19 +142,16 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
     stream
 }
 
-fn generate_filters<T: Service>(
-    service: &T,
-    proto_path: &str,
-) -> (TokenStream, TokenStream, TokenStream) {
+fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, TokenStream) {
     let mut stream = TokenStream::new();
     let mut comb_stream = TokenStream::new();
-    let mut push_stream = TokenStream::new();
 
     for (index, method) in service.methods().iter().enumerate() {
         let name = quote::format_ident!("{}", method.name());
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
         let pre_name = quote::format_ident!("{}_pre", name);
         let validation_name = quote::format_ident!("{}_validation", name);
+        let validation_value = quote::format_ident!("{}ValidationType", method.identifier());
 
         let package_name = format!(
             "{}{}{}",
@@ -181,7 +164,6 @@ fn generate_filters<T: Service>(
             service.identifier(),
         );
         let method_name = method.identifier();
-        let api_path = format!("{}/{}", package_name, method_name);
 
         let (req_message, resp_message) = method.request_response_name(proto_path);
         let streaming = (method.client_streaming(), method.server_streaming());
@@ -190,16 +172,17 @@ fn generate_filters<T: Service>(
             quote! {
                 let svr = server.clone();
                 let svr2 = server.clone();
-                socket_common::base_filter::<T::Error>(#package_name, #method_name, svr.#pre_name())
+                socket_common::base_filter::<T::Error, _>(#package_name, #method_name, svr.#pre_name())
                     .and_then(move |headers: HeaderMap, ws: Ws| {
                         #validation
                     })
                     .untuple_one()
-                    .map(move |val, req: Request<#req_msg>, ws: Ws| {
+                    .map(move |val, _req: Request<#req_msg>, ws: Ws| {
                         let svr = svr.clone();
                         let svr3 = svr.clone();
                         let reply =
                             ws.on_upgrade(move |ws| async move {
+                                #[allow(unused_mut)]
                                 let mut sock = Socket::<#req_message, #resp_message>::new(ws);
                                 #code
                             }).into_response();
@@ -222,11 +205,12 @@ fn generate_filters<T: Service>(
 
         let unary = quote! {
             let svr = server.clone();
-            unary_common::base_filter::<#req_message, T::Error>(#package_name, #method_name, svr.#pre_name())
+            let pre = svr.#pre_name();
+            unary_common::base_filter::<#req_message, #resp_message, T::Error, _>(#package_name, #method_name, pre)
                 .and_then(move |msg, headers| {
                     let svr = svr.clone();
                     async move {
-                        unary_common::encode(svr. #name (Request::from_parts((msg, headers))) .await)
+                        unary_common::encode(svr. #name (Request::from_parts((msg, headers))).await)
                     }
                 })
         };
@@ -235,36 +219,11 @@ fn generate_filters<T: Service>(
             (false, false) => unary,
             (false, true) => wrap_stream_handler(
                 quote! {
-                    let ins = Instant::now();
-                    let val;
-                    loop {
-                        match hrpc::return_closed!(sock.receive_message().await) {
-                            Ok(message) => {
-                                if let Some(message) = message {
-                                    let req = Request::from_parts((Some(message), req.into_parts().1));
-                                    match svr. #validation_name (req).await {
-                                        Ok(vall) => {
-                                            val = vall;
-                                            break;
-                                        },
-                                        Err(err) => {
-                                            error!("socked validation error: {}", err);
-                                            return;
-                                        }
-                                    }
-                                }
-                            }
-                            Err(err) => {
-                                error!("socket validation request error: {}", err);
-                                return;
-                            }
-                        }
-                        if ins.elapsed().as_secs() >= 10 {
-                            error!("socket validation request error: timeout");
-                            return;
-                        }
-                    }
-                    svr. #name (val, sock.split().1).await
+                    hrpc::return_print!(
+                        socket_common::validator::<#req_message, #resp_message, T::Error, T::#validation_value, _, _>(_req, &mut sock, |req| svr. #validation_name (req))
+                            .await,
+                        |val| svr. #name (val, sock.split().1).await
+                    );
                 },
                 validater(quote! { None }),
                 quote! { Option<#req_message> },
@@ -283,7 +242,6 @@ fn generate_filters<T: Service>(
         };
 
         let apply_middleware = quote! {
-            #[allow(unused_variables, unused_mut)]
             let #name = {
                 #method
             };
@@ -298,12 +256,9 @@ fn generate_filters<T: Service>(
                 #name
             }
         });
-        push_stream.extend(quote! {
-            apis.insert(#api_path, #name.boxed());
-        });
 
         stream.extend(apply_middleware);
     }
 
-    (stream, comb_stream, push_stream)
+    (stream, comb_stream)
 }

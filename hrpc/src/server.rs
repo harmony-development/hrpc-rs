@@ -100,7 +100,7 @@ pub mod prelude {
     };
     pub use crate::{IntoRequest, Request};
     pub use bytes::{Bytes, BytesMut};
-    pub use futures_util::{SinkExt, StreamExt};
+    pub use futures_util::{FutureExt, SinkExt, StreamExt};
     pub use http::HeaderMap;
     pub use std::{
         collections::HashMap,
@@ -123,20 +123,21 @@ pub use warp::http::StatusCode;
 
 #[doc(hidden)]
 pub mod unary_common {
-    use crate::HeaderMap;
-
     use super::{error, CustomError, ServerError};
     use bytes::BytesMut;
-    use warp::{filters::BoxedFilter, Filter};
+    use http::HeaderMap;
+    use warp::Filter;
 
     #[doc(hidden)]
-    pub fn base_filter<Resp, Err>(
+    pub fn base_filter<Req, Resp, Err, PreFunc>(
         pkg: &'static str,
         method: &'static str,
-        pre: BoxedFilter<(Result<(), Err>,)>,
-    ) -> BoxedFilter<(Resp, HeaderMap)>
+        pre: PreFunc,
+    ) -> impl Filter<Extract = (Req, HeaderMap), Error = warp::Rejection> + Clone
     where
-        Resp: prost::Message + Default,
+        Req: prost::Message + Default,
+        Resp: prost::Message,
+        PreFunc: Filter<Extract = (Result<(), Err>,), Error = warp::Rejection> + Send + Clone,
         Err: CustomError + 'static,
     {
         warp::path(pkg)
@@ -152,27 +153,24 @@ pub mod unary_common {
                 "content-type",
                 "application/hrpc",
             ))
-            .and_then(move |bin| async move {
-                Resp::decode(bin).map_err(|err| {
+            .map(Req::decode)
+            .and_then(move |res: Result<Req, prost::DecodeError>| async move {
+                res.map_err(|err| {
                     error!("received invalid protobuf message: {}", pkg);
                     warp::reject::custom(ServerError::<Err>::MessageDecode(err))
                 })
             })
-            .and(
-                warp::header::headers_cloned().map(|headers: http::HeaderMap| {
-                    headers
-                        .into_iter()
-                        .filter_map(|(k, v)| Some((k?, v)))
-                        .collect()
-                }),
-            )
-            .boxed()
+            .and(warp::header::headers_cloned())
     }
 
     #[doc(hidden)]
-    pub fn encode<Resp: prost::Message, Err: CustomError + 'static>(
+    pub fn encode<Resp, Err>(
         resp: Result<Resp, Err>,
-    ) -> Result<http::Response<warp::hyper::Body>, warp::Rejection> {
+    ) -> Result<warp::reply::Response, warp::Rejection>
+    where
+        Resp: prost::Message,
+        Err: CustomError + 'static,
+    {
         match resp {
             Ok(resp) => {
                 let mut buf = BytesMut::with_capacity(resp.encoded_len());
@@ -193,17 +191,23 @@ pub mod unary_common {
 
 #[doc(hidden)]
 pub mod socket_common {
-    use crate::HeaderMap;
+    use crate::{HeaderMap, Request};
 
-    use super::{CustomError, ServerError};
-    use warp::{filters::BoxedFilter, ws::Ws, Filter};
+    use super::{CustomError, ServerError, Socket, SocketError};
+    use std::{future::Future, time::Instant};
+    use tracing::error;
+    use warp::{ws::Ws, Filter};
 
     #[doc(hidden)]
-    pub fn base_filter<Err: CustomError + 'static>(
+    pub fn base_filter<Err, PreFunc>(
         pkg: &'static str,
         method: &'static str,
-        pre: BoxedFilter<(Result<(), Err>,)>,
-    ) -> BoxedFilter<(HeaderMap, Ws)> {
+        pre: PreFunc,
+    ) -> impl Filter<Extract = (HeaderMap, Ws), Error = warp::Rejection> + Clone
+    where
+        PreFunc: Filter<Extract = (Result<(), Err>,), Error = warp::Rejection> + Send + Clone,
+        Err: CustomError + 'static,
+    {
         warp::path(pkg)
             .and(warp::path(method))
             .and(warp::path::end())
@@ -212,16 +216,45 @@ pub mod socket_common {
                 res.map_err(|err| warp::reject::custom(ServerError::<Err>::Custom(err)))
             })
             .untuple_one()
-            .and(
-                warp::header::headers_cloned().map(|headers: http::HeaderMap| {
-                    headers
-                        .into_iter()
-                        .filter_map(|(k, v)| Some((k?, v)))
-                        .collect()
-                }),
-            )
+            .and(warp::header::headers_cloned())
             .and(warp::ws())
-            .boxed()
+    }
+
+    #[doc(hidden)]
+    pub async fn validator<Req, Resp, Err, Val, Fut, Func>(
+        req: Request<Option<Req>>,
+        sock: &mut Socket<Req, Resp>,
+        validator_func: Func,
+    ) -> Result<Val, SocketError>
+    where
+        Req: prost::Message + Default,
+        Resp: prost::Message,
+        Fut: Future<Output = Result<Val, Err>>,
+        Func: FnOnce(Request<Option<Req>>) -> Fut,
+        Err: CustomError + 'static,
+    {
+        let ins = Instant::now();
+        let val;
+        loop {
+            if let Some(message) = sock.receive_message().await? {
+                let req = Request::from_parts((Some(message), req.into_parts().1));
+                match validator_func(req).await {
+                    Ok(vall) => {
+                        val = vall;
+                        break;
+                    }
+                    Err(err) => {
+                        error!("socked validation error: {}", err);
+                        return Err(SocketError::ClosedNormally);
+                    }
+                }
+            }
+            if ins.elapsed().as_secs() >= 10 {
+                error!("socket validation request error: timeout");
+                return Err(SocketError::ClosedNormally);
+            }
+        }
+        Ok(val)
     }
 }
 

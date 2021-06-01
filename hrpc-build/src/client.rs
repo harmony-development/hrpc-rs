@@ -36,10 +36,18 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             }
 
             impl #service_ident {
+                pub fn new_inner(inner: Client) -> Self {
+                    Self { inner }
+                }
+
                 pub fn new(inner: ReqwestClient, host_url: Url) -> ClientResult<Self> {
                     Ok(Self {
                         inner: Client::new(inner, host_url)?,
                     })
+                }
+
+                pub fn inner(&self) -> &Client {
+                    &self.inner
                 }
 
                 #methods
