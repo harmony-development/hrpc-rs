@@ -684,12 +684,6 @@
 <span id="681">681</span>
 <span id="682">682</span>
 <span id="683">683</span>
-<span id="684">684</span>
-<span id="685">685</span>
-<span id="686">686</span>
-<span id="687">687</span>
-<span id="688">688</span>
-<span id="689">689</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">futures_util</span>::<span class="ident">stream</span>::{<span class="ident">SplitSink</span>, <span class="ident">SplitStream</span>};
 <span class="kw">use</span> <span class="ident">prelude</span>::<span class="kw-2">*</span>;
@@ -757,12 +751,11 @@
         <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">rate_limit</span><span class="op">&lt;</span><span class="prelude-val">Err</span>: <span class="ident">CustomError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(
             <span class="ident">rate</span>: <span class="ident">Rate</span>,
             <span class="ident">error</span>: <span class="kw">fn</span>(<span class="ident">Duration</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>,
-        ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxedFilter</span><span class="op">&lt;</span>(<span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="prelude-val">Err</span><span class="op">&gt;</span>,)<span class="op">&gt;</span> {
+        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Filter</span><span class="op">&lt;</span><span class="ident">Extract</span> <span class="op">=</span> (), <span class="ident">Error</span> <span class="op">=</span> <span class="ident">warp</span>::<span class="ident">Rejection</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Clone</span> {
             <span class="kw">let</span> <span class="ident">states</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">dashmap</span>::<span class="ident">DashMap</span>::<span class="ident">with_hasher</span>(<span class="ident">ahash</span>::<span class="ident">RandomState</span>::<span class="ident">new</span>()));
 
-            <span class="ident">warp</span>::<span class="ident">any</span>()
-                .<span class="ident">and</span>(<span class="ident">warp</span>::<span class="ident">addr</span>::<span class="ident">remote</span>())
-                .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">addr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span><span class="op">|</span> {
+            <span class="ident">warp</span>::<span class="ident">addr</span>::<span class="ident">remote</span>()
+                .<span class="ident">and_then</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">addr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span><span class="op">|</span> {
                     <span class="kw">let</span> <span class="ident">now</span> <span class="op">=</span> <span class="ident">Instant</span>::<span class="ident">now</span>();
 
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">states</span>.<span class="ident">entry</span>(<span class="ident">addr</span>).<span class="ident">or_insert_with</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">State</span>::<span class="ident">new</span>(<span class="ident">rate</span>));
@@ -779,9 +772,12 @@
                     };
                     <span class="ident">drop</span>(<span class="ident">state</span>);
 
-                    <span class="ident">res</span>.<span class="ident">map_err</span>(<span class="ident">error</span>)
+                    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span>
+                        <span class="ident">res</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">dur</span><span class="op">|</span> <span class="ident">warp</span>::<span class="ident">reject</span>::<span class="ident">custom</span>(<span class="ident">ServerError</span>::<span class="ident">Custom</span>(<span class="ident">error</span>(<span class="ident">dur</span>))));
+
+                    <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">res</span> }
                 })
-                .<span class="ident">boxed</span>()
+                .<span class="ident">untuple_one</span>()
         }
     }
 }
@@ -830,17 +826,13 @@
     <span class="kw">where</span>
         <span class="ident">Req</span>: <span class="ident">prost</span>::<span class="ident">Message</span> <span class="op">+</span> <span class="ident">Default</span>,
         <span class="ident">Resp</span>: <span class="ident">prost</span>::<span class="ident">Message</span>,
-        <span class="ident">PreFunc</span>: <span class="ident">Filter</span><span class="op">&lt;</span><span class="ident">Extract</span> <span class="op">=</span> (<span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="prelude-val">Err</span><span class="op">&gt;</span>,), <span class="ident">Error</span> <span class="op">=</span> <span class="ident">warp</span>::<span class="ident">Rejection</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Clone</span>,
+        <span class="ident">PreFunc</span>: <span class="ident">Filter</span><span class="op">&lt;</span><span class="ident">Extract</span> <span class="op">=</span> (), <span class="ident">Error</span> <span class="op">=</span> <span class="ident">warp</span>::<span class="ident">Rejection</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Clone</span>,
         <span class="prelude-val">Err</span>: <span class="ident">CustomError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     {
         <span class="ident">warp</span>::<span class="ident">path</span>(<span class="ident">pkg</span>)
             .<span class="ident">and</span>(<span class="ident">warp</span>::<span class="ident">path</span>(<span class="ident">method</span>))
             .<span class="ident">and</span>(<span class="ident">warp</span>::<span class="ident">path</span>::<span class="ident">end</span>())
             .<span class="ident">and</span>(<span class="ident">pre</span>)
-            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="prelude-val">Err</span><span class="op">&gt;</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> {
-                <span class="ident">res</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">warp</span>::<span class="ident">reject</span>::<span class="ident">custom</span>(<span class="ident">ServerError</span>::<span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>::<span class="ident">Custom</span>(<span class="ident">err</span>)))
-            })
-            .<span class="ident">untuple_one</span>()
             .<span class="ident">and</span>(<span class="ident">warp</span>::<span class="ident">body</span>::<span class="ident">bytes</span>())
             .<span class="ident">and</span>(<span class="ident">warp</span>::<span class="ident">header</span>::<span class="ident">exact_ignore_case</span>(
                 <span class="string">&quot;content-type&quot;</span>,
@@ -886,7 +878,7 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">socket_common</span> {
     <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">HeaderMap</span>, <span class="ident">Request</span>};
 
-    <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">CustomError</span>, <span class="ident">ServerError</span>, <span class="ident">Socket</span>, <span class="ident">SocketError</span>};
+    <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">CustomError</span>, <span class="ident">Socket</span>, <span class="ident">SocketError</span>};
     <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">future</span>::<span class="ident">Future</span>, <span class="ident">time</span>::<span class="ident">Instant</span>};
     <span class="kw">use</span> <span class="ident">tracing</span>::<span class="ident">error</span>;
     <span class="kw">use</span> <span class="ident">warp</span>::{<span class="ident">ws</span>::<span class="ident">Ws</span>, <span class="ident">Filter</span>};
@@ -898,17 +890,13 @@
         <span class="ident">pre</span>: <span class="ident">PreFunc</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Filter</span><span class="op">&lt;</span><span class="ident">Extract</span> <span class="op">=</span> (<span class="ident">HeaderMap</span>, <span class="ident">Ws</span>), <span class="ident">Error</span> <span class="op">=</span> <span class="ident">warp</span>::<span class="ident">Rejection</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span>
     <span class="kw">where</span>
-        <span class="ident">PreFunc</span>: <span class="ident">Filter</span><span class="op">&lt;</span><span class="ident">Extract</span> <span class="op">=</span> (<span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="prelude-val">Err</span><span class="op">&gt;</span>,), <span class="ident">Error</span> <span class="op">=</span> <span class="ident">warp</span>::<span class="ident">Rejection</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Clone</span>,
+        <span class="ident">PreFunc</span>: <span class="ident">Filter</span><span class="op">&lt;</span><span class="ident">Extract</span> <span class="op">=</span> (), <span class="ident">Error</span> <span class="op">=</span> <span class="ident">warp</span>::<span class="ident">Rejection</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Clone</span>,
         <span class="prelude-val">Err</span>: <span class="ident">CustomError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     {
         <span class="ident">warp</span>::<span class="ident">path</span>(<span class="ident">pkg</span>)
             .<span class="ident">and</span>(<span class="ident">warp</span>::<span class="ident">path</span>(<span class="ident">method</span>))
             .<span class="ident">and</span>(<span class="ident">warp</span>::<span class="ident">path</span>::<span class="ident">end</span>())
             .<span class="ident">and</span>(<span class="ident">pre</span>)
-            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="prelude-val">Err</span><span class="op">&gt;</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> {
-                <span class="ident">res</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">warp</span>::<span class="ident">reject</span>::<span class="ident">custom</span>(<span class="ident">ServerError</span>::<span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>::<span class="ident">Custom</span>(<span class="ident">err</span>)))
-            })
-            .<span class="ident">untuple_one</span>()
             .<span class="ident">and</span>(<span class="ident">warp</span>::<span class="ident">header</span>::<span class="ident">headers_cloned</span>())
             .<span class="ident">and</span>(<span class="ident">warp</span>::<span class="ident">ws</span>())
     }
