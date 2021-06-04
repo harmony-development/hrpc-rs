@@ -64,12 +64,11 @@ pub mod filters {
         pub fn rate_limit<Err: CustomError + 'static>(
             rate: Rate,
             error: fn(Duration) -> Err,
-        ) -> BoxedFilter<(Result<(), Err>,)> {
+        ) -> impl Filter<Extract = (), Error = warp::Rejection> + Sync + Send + Clone {
             let states = Arc::new(dashmap::DashMap::with_hasher(ahash::RandomState::new()));
 
-            warp::any()
-                .and(warp::addr::remote())
-                .map(move |addr: Option<SocketAddr>| {
+            warp::addr::remote()
+                .and_then(move |addr: Option<SocketAddr>| {
                     let now = Instant::now();
 
                     let mut state = states.entry(addr).or_insert_with(|| State::new(rate));
@@ -86,9 +85,12 @@ pub mod filters {
                     };
                     drop(state);
 
-                    res.map_err(error)
+                    let res =
+                        res.map_err(|dur| warp::reject::custom(ServerError::Custom(error(dur))));
+
+                    async move { res }
                 })
-                .boxed()
+                .untuple_one()
         }
     }
 }
@@ -137,17 +139,13 @@ pub mod unary_common {
     where
         Req: prost::Message + Default,
         Resp: prost::Message,
-        PreFunc: Filter<Extract = (Result<(), Err>,), Error = warp::Rejection> + Send + Clone,
+        PreFunc: Filter<Extract = (), Error = warp::Rejection> + Send + Clone,
         Err: CustomError + 'static,
     {
         warp::path(pkg)
             .and(warp::path(method))
             .and(warp::path::end())
             .and(pre)
-            .and_then(|res: Result<(), Err>| async move {
-                res.map_err(|err| warp::reject::custom(ServerError::<Err>::Custom(err)))
-            })
-            .untuple_one()
             .and(warp::body::bytes())
             .and(warp::header::exact_ignore_case(
                 "content-type",
@@ -193,7 +191,7 @@ pub mod unary_common {
 pub mod socket_common {
     use crate::{HeaderMap, Request};
 
-    use super::{CustomError, ServerError, Socket, SocketError};
+    use super::{CustomError, Socket, SocketError};
     use std::{future::Future, time::Instant};
     use tracing::error;
     use warp::{ws::Ws, Filter};
@@ -205,17 +203,13 @@ pub mod socket_common {
         pre: PreFunc,
     ) -> impl Filter<Extract = (HeaderMap, Ws), Error = warp::Rejection> + Clone
     where
-        PreFunc: Filter<Extract = (Result<(), Err>,), Error = warp::Rejection> + Send + Clone,
+        PreFunc: Filter<Extract = (), Error = warp::Rejection> + Send + Clone,
         Err: CustomError + 'static,
     {
         warp::path(pkg)
             .and(warp::path(method))
             .and(warp::path::end())
             .and(pre)
-            .and_then(|res: Result<(), Err>| async move {
-                res.map_err(|err| warp::reject::custom(ServerError::<Err>::Custom(err)))
-            })
-            .untuple_one()
             .and(warp::header::headers_cloned())
             .and(warp::ws())
     }

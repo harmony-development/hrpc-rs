@@ -102,8 +102,8 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
         };
         let middleware_methods = quote! {
             // Filter to be run before all API operations but after API path is matched.
-            fn #pre_name(&self) -> BoxedFilter<(Result<(), Self::Error>,)> {
-                warp::any().map(|| Ok(())).boxed()
+            fn #pre_name(&self) -> BoxedFilter<()> {
+                warp::any().boxed()
             }
         };
 

@@ -100,13 +100,8 @@ struct Server;
 impl mu_server::Mu for Server {
     type Error = ServerError;
 
-    fn mu_pre(&self) -> BoxedFilter<(Result<(), ServerError>,)> {
-        warp::any()
-            .and(rate_limit(
-                Rate::new(1, Duration::from_secs(5)),
-                ServerError::TooFast,
-            ))
-            .boxed()
+    fn mu_pre(&self) -> BoxedFilter<()> {
+        rate_limit(Rate::new(1, Duration::from_secs(5)), ServerError::TooFast).boxed()
     }
 
     async fn mu(&self, request: Request<Ping>) -> Result<Pong, Self::Error> {
