@@ -249,12 +249,30 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
         };
 
         comb_stream.extend(if index > 0 {
-            quote! {
-                .or(#name)
+            #[cfg(feature = "boxed")]
+            {
+                quote! {
+                    .or(#name.boxed())
+                }
+            }
+            #[cfg(not(feature = "boxed"))]
+            {
+                quote! {
+                    .or(#name)
+                }
             }
         } else {
-            quote! {
-                #name
+            #[cfg(feature = "boxed")]
+            {
+                quote! {
+                    #name.boxed()
+                }
+            }
+            #[cfg(not(feature = "boxed"))]
+            {
+                quote! {
+                    #name
+                }
             }
         });
 
