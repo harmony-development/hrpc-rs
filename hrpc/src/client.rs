@@ -196,7 +196,6 @@ pub mod socket {
         fmt::{self, Debug, Formatter},
         marker::PhantomData,
         sync::Arc,
-        time::Duration,
     };
     use tokio::sync::Mutex;
 
@@ -259,17 +258,7 @@ pub mod socket {
         ///
         /// This should be polled always in order to handle incoming ping messages.
         pub async fn get_message(&self) -> Option<ClientResult<Resp>> {
-            let raw =
-                tokio::time::timeout(Duration::from_nanos(1), self.data.rx.lock().await.next())
-                    .await;
-
-            let raw = match raw {
-                Ok(raw) => raw?,
-                Err(_) => {
-                    tokio::time::sleep(Duration::from_nanos(1)).await;
-                    return None;
-                }
-            };
+            let raw = self.data.rx.lock().await.next().await?;
 
             match raw {
                 Ok(msg) => {

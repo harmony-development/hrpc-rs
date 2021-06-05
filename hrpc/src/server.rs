@@ -6,7 +6,6 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
     sync::Arc,
-    time::Duration,
 };
 use warp::{ws::WebSocket, Rejection, Reply};
 
@@ -375,9 +374,10 @@ impl<Req: prost::Message + Default> ReadSocket<Req> {
     ///
     /// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.
     pub async fn receive_message(&mut self) -> Result<Option<Req>, SocketError> {
-        let msg_maybe = tokio::time::timeout(Duration::from_nanos(1), self.rx.next())
+        let msg_maybe = self
+            .rx
+            .next()
             .await
-            .map_or(Ok(None), Ok)?
             .transpose()
             .map_err(SocketError::Other)?;
 
