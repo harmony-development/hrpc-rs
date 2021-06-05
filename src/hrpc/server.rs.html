@@ -684,6 +684,10 @@
 <span id="681">681</span>
 <span id="682">682</span>
 <span id="683">683</span>
+<span id="684">684</span>
+<span id="685">685</span>
+<span id="686">686</span>
+<span id="687">687</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">futures_util</span>::<span class="ident">stream</span>::{<span class="ident">SplitSink</span>, <span class="ident">SplitStream</span>};
 <span class="kw">use</span> <span class="ident">prelude</span>::<span class="kw-2">*</span>;
@@ -879,7 +883,7 @@
     <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">HeaderMap</span>, <span class="ident">Request</span>};
 
     <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">CustomError</span>, <span class="ident">Socket</span>, <span class="ident">SocketError</span>};
-    <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">future</span>::<span class="ident">Future</span>, <span class="ident">time</span>::<span class="ident">Instant</span>};
+    <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">future</span>::<span class="ident">Future</span>, <span class="ident">time</span>::<span class="ident">Duration</span>};
     <span class="kw">use</span> <span class="ident">tracing</span>::<span class="ident">error</span>;
     <span class="kw">use</span> <span class="ident">warp</span>::{<span class="ident">ws</span>::<span class="ident">Ws</span>, <span class="ident">Filter</span>};
 
@@ -914,28 +918,32 @@
         <span class="ident">Func</span>: <span class="ident">FnOnce</span>(<span class="ident">Request</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Fut</span>,
         <span class="prelude-val">Err</span>: <span class="ident">CustomError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     {
-        <span class="kw">let</span> <span class="ident">ins</span> <span class="op">=</span> <span class="ident">Instant</span>::<span class="ident">now</span>();
-        <span class="kw">let</span> <span class="ident">val</span>;
-        <span class="kw">loop</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">message</span>) <span class="op">=</span> <span class="ident">sock</span>.<span class="ident">receive_message</span>().<span class="kw">await</span><span class="question-mark">?</span> {
-                <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Request</span>::<span class="ident">from_parts</span>((<span class="prelude-val">Some</span>(<span class="ident">message</span>), <span class="ident">req</span>.<span class="ident">into_parts</span>().<span class="number">1</span>));
-                <span class="kw">match</span> <span class="ident">validator_func</span>(<span class="ident">req</span>).<span class="kw">await</span> {
-                    <span class="prelude-val">Ok</span>(<span class="ident">vall</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">val</span> <span class="op">=</span> <span class="ident">vall</span>;
-                        <span class="kw">break</span>;
-                    }
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;socked validation error: {}&quot;</span>, <span class="ident">err</span>);
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError</span>::<span class="ident">ClosedNormally</span>);
+        <span class="kw">let</span> <span class="ident">recv_fut</span> <span class="op">=</span> <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="kw">let</span> <span class="ident">val</span>;
+            <span class="kw">loop</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">message</span>) <span class="op">=</span> <span class="ident">sock</span>.<span class="ident">receive_message</span>().<span class="kw">await</span><span class="question-mark">?</span> {
+                    <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Request</span>::<span class="ident">from_parts</span>((<span class="prelude-val">Some</span>(<span class="ident">message</span>), <span class="ident">req</span>.<span class="ident">into_parts</span>().<span class="number">1</span>));
+                    <span class="kw">match</span> <span class="ident">validator_func</span>(<span class="ident">req</span>).<span class="kw">await</span> {
+                        <span class="prelude-val">Ok</span>(<span class="ident">vall</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">val</span> <span class="op">=</span> <span class="ident">vall</span>;
+                            <span class="kw">break</span>;
+                        }
+                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;socked validation error: {}&quot;</span>, <span class="ident">err</span>);
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError</span>::<span class="ident">ClosedNormally</span>);
+                        }
                     }
                 }
             }
-            <span class="kw">if</span> <span class="ident">ins</span>.<span class="ident">elapsed</span>().<span class="ident">as_secs</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">10</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">val</span>)
+        };
+
+        <span class="ident">tokio</span>::<span class="ident">time</span>::<span class="ident">timeout</span>(<span class="ident">Duration</span>::<span class="ident">from_secs</span>(<span class="number">10</span>), <span class="ident">recv_fut</span>)
+            .<span class="kw">await</span>
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
                 <span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;socket validation request error: timeout&quot;</span>);
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError</span>::<span class="ident">ClosedNormally</span>);
-            }
-        }
-        <span class="prelude-val">Ok</span>(<span class="ident">val</span>)
+                <span class="ident">SocketError</span>::<span class="ident">ClosedNormally</span>
+            })<span class="question-mark">?</span>
     }
 }
 
