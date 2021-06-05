@@ -697,7 +697,6 @@
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>},
     <span class="ident">marker</span>::<span class="ident">PhantomData</span>,
     <span class="ident">sync</span>::<span class="ident">Arc</span>,
-    <span class="ident">time</span>::<span class="ident">Duration</span>,
 };
 <span class="kw">use</span> <span class="ident">warp</span>::{<span class="ident">ws</span>::<span class="ident">WebSocket</span>, <span class="ident">Rejection</span>, <span class="ident">Reply</span>};
 
@@ -1066,9 +1065,10 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>, <span class="ident">SocketError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">msg_maybe</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">time</span>::<span class="ident">timeout</span>(<span class="ident">Duration</span>::<span class="ident">from_nanos</span>(<span class="number">1</span>), <span class="self">self</span>.<span class="ident">rx</span>.<span class="ident">next</span>())
+        <span class="kw">let</span> <span class="ident">msg_maybe</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">rx</span>
+            .<span class="ident">next</span>()
             .<span class="kw">await</span>
-            .<span class="ident">map_or</span>(<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>), <span class="prelude-val">Ok</span>)<span class="question-mark">?</span>
             .<span class="ident">transpose</span>()
             .<span class="ident">map_err</span>(<span class="ident">SocketError</span>::<span class="ident">Other</span>)<span class="question-mark">?</span>;
 
