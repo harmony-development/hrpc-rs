@@ -16,6 +16,35 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let service_doc = generate_doc_comments(service.comment());
     let (serve_filters, serve_combined_filters) = generate_filters(service, proto_path);
 
+    let filters_method = {
+        #[cfg(feature = "boxed")]
+        quote! {
+            /// Convert this service to `warp` `Filter`s.
+            ///
+            /// This can be used to compose multiple services. See `serve_multiple` macro in `hrpc`.
+            #[allow(clippy::redundant_clone)]
+            pub fn filters(self) -> BoxedFilter<(impl Reply,)> {
+                let server = self.inner;
+
+                #serve_filters
+                #serve_combined_filters.boxed()
+            }
+        }
+        #[cfg(not(feature = "boxed"))]
+        quote! {
+            /// Convert this service to `warp` `Filter`s.
+            ///
+            /// This can be used to compose multiple services. See `serve_multiple` macro in `hrpc`.
+            #[allow(clippy::redundant_clone)]
+            pub fn filters(self) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
+                let server = self.inner;
+
+                #serve_filters
+                #serve_combined_filters
+            }
+        }
+    };
+
     quote! {
         /// Generated server implementations.
         pub mod #server_mod {
@@ -47,16 +76,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                     warp::serve(filters).run(address).await
                 }
 
-                /// Convert this service to `warp` `Filter`s.
-                ///
-                /// This can be used to compose multiple services. See `serve_multiple` macro in `hrpc`.
-                #[allow(clippy::redundant_clone)]
-                pub fn filters(self) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
-                    let server = self.inner;
-
-                    #serve_filters
-                    #serve_combined_filters
-                }
+                #filters_method
             }
         }
     }
