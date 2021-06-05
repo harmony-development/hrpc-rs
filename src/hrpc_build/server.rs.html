@@ -266,6 +266,24 @@
 <span id="263">263</span>
 <span id="264">264</span>
 <span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Method</span>, <span class="ident">Service</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">generate_doc_comment</span>, <span class="ident">generate_doc_comments</span>, <span class="ident">naive_snake_case</span>};
@@ -518,12 +536,30 @@
         };
 
         <span class="ident">comb_stream</span>.<span class="ident">extend</span>(<span class="kw">if</span> <span class="ident">index</span> <span class="op">&gt;</span> <span class="number">0</span> {
-            <span class="macro">quote</span><span class="macro">!</span> {
-                .<span class="ident">or</span>(#<span class="ident">name</span>)
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;boxed&quot;</span>)]</span>
+            {
+                <span class="macro">quote</span><span class="macro">!</span> {
+                    .<span class="ident">or</span>(#<span class="ident">name</span>.<span class="ident">boxed</span>())
+                }
+            }
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;boxed&quot;</span>))]</span>
+            {
+                <span class="macro">quote</span><span class="macro">!</span> {
+                    .<span class="ident">or</span>(#<span class="ident">name</span>)
+                }
             }
         } <span class="kw">else</span> {
-            <span class="macro">quote</span><span class="macro">!</span> {
-                #<span class="ident">name</span>
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;boxed&quot;</span>)]</span>
+            {
+                <span class="macro">quote</span><span class="macro">!</span> {
+                    #<span class="ident">name</span>.<span class="ident">boxed</span>()
+                }
+            }
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;boxed&quot;</span>))]</span>
+            {
+                <span class="macro">quote</span><span class="macro">!</span> {
+                    #<span class="ident">name</span>
+                }
             }
         });
 
