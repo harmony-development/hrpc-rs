@@ -192,7 +192,7 @@ pub mod socket_common {
     use crate::{HeaderMap, Request};
 
     use super::{CustomError, Socket, SocketError};
-    use std::{future::Future, time::Instant};
+    use std::{future::Future, time::Duration};
     use tracing::error;
     use warp::{ws::Ws, Filter};
 
@@ -227,28 +227,32 @@ pub mod socket_common {
         Func: FnOnce(Request<Option<Req>>) -> Fut,
         Err: CustomError + 'static,
     {
-        let ins = Instant::now();
-        let val;
-        loop {
-            if let Some(message) = sock.receive_message().await? {
-                let req = Request::from_parts((Some(message), req.into_parts().1));
-                match validator_func(req).await {
-                    Ok(vall) => {
-                        val = vall;
-                        break;
-                    }
-                    Err(err) => {
-                        error!("socked validation error: {}", err);
-                        return Err(SocketError::ClosedNormally);
+        let recv_fut = async move {
+            let val;
+            loop {
+                if let Some(message) = sock.receive_message().await? {
+                    let req = Request::from_parts((Some(message), req.into_parts().1));
+                    match validator_func(req).await {
+                        Ok(vall) => {
+                            val = vall;
+                            break;
+                        }
+                        Err(err) => {
+                            error!("socked validation error: {}", err);
+                            return Err(SocketError::ClosedNormally);
+                        }
                     }
                 }
             }
-            if ins.elapsed().as_secs() >= 10 {
+            Ok(val)
+        };
+
+        tokio::time::timeout(Duration::from_secs(10), recv_fut)
+            .await
+            .map_err(|_| {
                 error!("socket validation request error: timeout");
-                return Err(SocketError::ClosedNormally);
-            }
-        }
-        Ok(val)
+                SocketError::ClosedNormally
+            })?
     }
 }
 

@@ -50,6 +50,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 /// Convert this service to `warp` `Filter`s.
                 ///
                 /// This can be used to compose multiple services. See `serve_multiple` macro in `hrpc`.
+                #[allow(clippy::redundant_clone)]
                 pub fn filters(self) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
                     let server = self.inner;
 
@@ -177,7 +178,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                         #validation
                     })
                     .untuple_one()
-                    .map(move |val, _req: Request<#req_msg>, ws: Ws| {
+                    .map(move |_val, _req: Request<#req_msg>, ws: Ws| {
                         let svr = svr.clone();
                         let svr3 = svr.clone();
                         let reply =
@@ -234,7 +235,7 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
             ),
             (true, true) => wrap_stream_handler(
                 quote! {
-                    svr. #name (val, sock).await
+                    svr. #name (_val, sock).await
                 },
                 validater(quote! { () }),
                 quote! { () },

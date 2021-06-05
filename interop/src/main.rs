@@ -2,7 +2,7 @@ use hrpc::{
     return_print,
     server::{
         filters::rate::{rate_limit, Rate},
-        json_err_bytes, Socket, StatusCode,
+        json_err_bytes, Socket, StatusCode, WriteSocket,
     },
     warp::reply::Response,
     Request,
@@ -46,6 +46,7 @@ async fn client() {
     println!("{:#?}", resp);
 
     let mut socket = client.mu_mute(()).await.unwrap();
+    let _ = client.mu_mu(Ping::default()).await.unwrap();
 
     tokio::spawn({
         let socket = socket.clone();
@@ -158,6 +159,19 @@ impl mu_server::Mu for Server {
             }
         };
         tokio::join!(periodic_task, recv_task);
+    }
+
+    type MuMuValidationType = Ping;
+
+    async fn mu_mu_validation(
+        &self,
+        request: Request<Option<Ping>>,
+    ) -> Result<Self::MuMuValidationType, Self::Error> {
+        Ok(request.into_parts().0.unwrap_or_default())
+    }
+
+    async fn mu_mu(&self, validation_value: Self::MuMuValidationType, _socket: WriteSocket<Pong>) {
+        println!("mu_mu: {:?}", validation_value);
     }
 }
 
