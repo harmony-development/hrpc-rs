@@ -390,13 +390,13 @@ mod error {
                     write!(f, "an error occured within the HTTP client: {}", err)
                 }
                 ClientError::EndpointError {
-                    raw_error: _,
+                    raw_error,
                     status,
                     endpoint,
                 } => write!(
                     f,
-                    "endpoint {} returned an error with status code {}",
-                    endpoint, status,
+                    "endpoint {} returned an error with status code {}: {:?}",
+                    endpoint, status, raw_error,
                 ),
                 ClientError::SocketError(err) => {
                     write!(f, "an error occured within the websocket: {}", err)
