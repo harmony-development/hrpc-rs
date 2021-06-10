@@ -141,9 +141,9 @@ pub mod unary_common {
         PreFunc: Filter<Extract = (), Error = warp::Rejection> + Send + Clone,
         Err: CustomError + 'static,
     {
-        warp::path(pkg)
+        warp::post()
+            .and(warp::path(pkg))
             .and(warp::path(method))
-            .and(warp::path::end())
             .and(pre)
             .and(warp::body::bytes())
             .and(warp::header::exact_ignore_case(
@@ -207,7 +207,6 @@ pub mod socket_common {
     {
         warp::path(pkg)
             .and(warp::path(method))
-            .and(warp::path::end())
             .and(pre)
             .and(warp::header::headers_cloned())
             .and(warp::ws())
