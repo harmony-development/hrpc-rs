@@ -90,6 +90,19 @@ impl<T> Request<T> {
         }
     }
 
+    /// Map the contained message.
+    pub fn map<S, Mapper: FnOnce(T) -> S>(self, f: Mapper) -> Request<S> {
+        let Request {
+            message,
+            header_map,
+        } = self;
+
+        Request {
+            message: f(message),
+            header_map,
+        }
+    }
+
     /// Get a reference to the inner message.
     pub const fn get_message(&self) -> &T {
         &self.message
