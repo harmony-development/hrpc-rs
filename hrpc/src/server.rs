@@ -622,15 +622,15 @@ pub async fn handle_rejection<Err: CustomError + 'static>(
         reply
     }
 
-    let reply = if err.is_not_found() {
-        make_response(Err::NOT_FOUND_ERROR)
-    } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
-        make_response(Err::METHOD_NOT_ALLOWED)
-    } else if let Some(e) = err.find::<ServerError<Err>>() {
+    let reply = if let Some(e) = err.find::<ServerError<Err>>() {
         match e {
             ServerError::MessageDecode(_) => make_response(Err::DECODE_ERROR),
             ServerError::Custom(err) => make_response((err.code(), err.message())),
         }
+    } else if err.is_not_found() {
+        make_response(Err::NOT_FOUND_ERROR)
+    } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
+        make_response(Err::METHOD_NOT_ALLOWED)
     } else {
         error!("unhandled rejection: {:?}", err);
         make_response(Err::INTERNAL_SERVER_ERROR)
