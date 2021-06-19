@@ -9,7 +9,7 @@ use quote::ToTokens;
 use std::io;
 use std::path::{Path, PathBuf};
 
-/// Configure `tonic-build` code generation.
+/// Configure `hrpc-build` code generation.
 ///
 /// Use [`compile_protos`] instead if you don't need to tweak anything.
 pub fn configure() -> Builder {
@@ -45,11 +45,7 @@ pub fn compile_protos(proto: impl AsRef<Path>) -> io::Result<()> {
     Ok(())
 }
 
-const PROST_CODEC_PATH: &str = "tonic::codec::ProstCodec";
-
 impl crate::Service for Service {
-    const CODEC_PATH: &'static str = PROST_CODEC_PATH;
-
     type Method = Method;
     type Comment = String;
 
@@ -75,7 +71,6 @@ impl crate::Service for Service {
 }
 
 impl crate::Method for Method {
-    const CODEC_PATH: &'static str = PROST_CODEC_PATH;
     type Comment = String;
 
     fn name(&self) -> &str {

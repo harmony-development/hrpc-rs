@@ -189,7 +189,23 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
         let (req_message, resp_message) = method.request_response_name(proto_path);
         let streaming = (method.client_streaming(), method.server_streaming());
 
-        let wrap_stream_handler = |code, validation, req_msg| {
+        let validater = |t| {
+            quote! {
+                let req = Request::from_parts((#t, headers));
+                let svr = svr2.clone();
+                async move {
+                    svr. #validation_name (req.clone())
+                        .await
+                        .map_err(|err| warp::reject::custom(ServerError::Custom(err)))
+                        .map(|val| (val, req, ws))
+                }
+            }
+        };
+        let wrap_stream_handler = |code,
+                                   validation: Option<TokenStream>,
+                                   req_msg: Option<TokenStream>| {
+            let validation = validation.map_or_else(|| validater(quote! { () }), validater);
+            let req_msg = req_msg.unwrap_or_else(|| quote! { () });
             quote! {
                 let svr = server.clone();
                 let svr2 = server.clone();
@@ -209,18 +225,6 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                             }).into_response();
                         svr3. #on_upgrade_response_name (reply)
                     })
-            }
-        };
-        let validater = |t| {
-            quote! {
-                let req = Request::from_parts((#t, headers));
-                let svr = svr2.clone();
-                async move {
-                    svr. #validation_name (req.clone())
-                        .await
-                        .map_err(|err| warp::reject::custom(ServerError::Custom(err)))
-                        .map(|val| (val, req, ws))
-                }
             }
         };
 
@@ -246,8 +250,8 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                         |val| svr. #name (val, sock.split().1).await
                     );
                 },
-                validater(quote! { None }),
-                quote! { Option<#req_message> },
+                Some(quote! { None }),
+                Some(quote! { Option<#req_message> }),
             ),
             (true, false) => panic!(
                 "{}.{}: Client streaming server unary method is invalid.",
@@ -257,8 +261,8 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
                 quote! {
                     svr. #name (_val, sock).await
                 },
-                validater(quote! { () }),
-                quote! { () },
+                None,
+                None,
             ),
         };
 

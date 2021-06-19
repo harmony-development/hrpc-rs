@@ -27,9 +27,6 @@ pub mod server;
 /// to allow any codegen module to generate service
 /// abstractions.
 pub trait Service {
-    /// Path to the codec.
-    const CODEC_PATH: &'static str;
-
     /// Comment type.
     type Comment: AsRef<str>;
 
@@ -55,8 +52,6 @@ pub trait Service {
 /// to generate abstraction implementations for
 /// the provided methods.
 pub trait Method {
-    /// Path to the codec.
-    const CODEC_PATH: &'static str;
     /// Comment type.
     type Comment: AsRef<str>;
 
