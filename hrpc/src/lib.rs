@@ -91,7 +91,7 @@ impl<T> Request<T> {
     }
 
     /// Get a reference to the inner message.
-    pub fn get_message(&self) -> &T {
+    pub const fn get_message(&self) -> &T {
         &self.message
     }
 

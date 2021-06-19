@@ -7,7 +7,7 @@ use std::{
     marker::PhantomData,
     sync::Arc,
 };
-use warp::{ws::WebSocket, Rejection, Reply};
+use warp::{reply::Response as WarpResponse, ws::WebSocket, Rejection};
 
 /// Useful filters.
 pub mod filters {
@@ -487,24 +487,27 @@ pub trait CustomError: Debug + Display + Send + Sync {
     fn code(&self) -> StatusCode;
     /// Message that will be used in client response.
     fn message(&self) -> Vec<u8>;
-    /// Return a message decode error.
-    fn decode_error() -> (StatusCode, Vec<u8>) {
-        (
-            StatusCode::BAD_REQUEST,
-            json_err_bytes("invalid protobuf message"),
-        )
-    }
-    /// Return a not fonud error.
-    fn not_found_error() -> (StatusCode, Vec<u8>) {
-        (StatusCode::NOT_FOUND, json_err_bytes("not found"))
-    }
-    /// Return an internal server error.
-    fn internal_server_error() -> (StatusCode, Vec<u8>) {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            json_err_bytes("internal server error"),
-        )
-    }
+
+    /// Status code and error body used to respond when a protobuf decode error occurs.
+    const DECODE_ERROR: (StatusCode, &'static [u8]) = (
+        StatusCode::BAD_REQUEST,
+        r#"{ "message": "invalid protobuf message" }"#.as_bytes(),
+    );
+    /// Status code and error body used to respond when a not found error occurs.
+    const NOT_FOUND_ERROR: (StatusCode, &'static [u8]) = (
+        StatusCode::NOT_FOUND,
+        r#"{ "message": "not found" }"#.as_bytes(),
+    );
+    /// Status code and error body used to respond when a method not allowed error occurs.
+    const METHOD_NOT_ALLOWED: (StatusCode, &'static [u8]) = (
+        StatusCode::METHOD_NOT_ALLOWED,
+        r#"{ "message": "method not allowed" }"#.as_bytes(),
+    );
+    /// Status code and error body used to respond when an internal server error occurs.
+    const INTERNAL_SERVER_ERROR: (StatusCode, &'static [u8]) = (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        r#"{ "message": "internal server error" }"#.as_bytes(),
+    );
 }
 
 impl CustomError for std::convert::Infallible {
@@ -612,28 +615,33 @@ impl<Err: CustomError + 'static> warp::reject::Reject for ServerError<Err> {}
 #[doc(hidden)]
 pub async fn handle_rejection<Err: CustomError + 'static>(
     err: Rejection,
-) -> Result<impl Reply, Infallible> {
-    let (code, message) = if err.is_not_found() {
-        Err::not_found_error()
+) -> Result<WarpResponse, Infallible> {
+    fn make_response(data: (StatusCode, impl Into<warp::hyper::Body>)) -> WarpResponse {
+        let mut reply = WarpResponse::new(data.1.into());
+        *reply.status_mut() = data.0;
+        reply
+    }
+
+    let reply = if err.is_not_found() {
+        make_response(Err::NOT_FOUND_ERROR)
+    } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
+        make_response(Err::METHOD_NOT_ALLOWED)
     } else if let Some(e) = err.find::<ServerError<Err>>() {
         match e {
-            ServerError::MessageDecode(_) => Err::decode_error(),
-            ServerError::Custom(err) => (err.code(), err.message()),
+            ServerError::MessageDecode(_) => make_response(Err::DECODE_ERROR),
+            ServerError::Custom(err) => make_response((err.code(), err.message())),
         }
     } else {
         error!("unhandled rejection: {:?}", err);
-        Err::internal_server_error()
+        make_response(Err::INTERNAL_SERVER_ERROR)
     };
-
-    let mut reply = warp::reply::Response::new(message.into());
-    *reply.status_mut() = code;
 
     Ok(reply)
 }
 
 /// Creates a JSON error response from a message.
 pub fn json_err_bytes(msg: &str) -> Vec<u8> {
-    format!("{{ \"message\": \"{}\" }}", msg).into_bytes()
+    format!(r#"{{ "message": "{}" }}"#, msg).into_bytes()
 }
 
 /// Serves multiple services' filters on the same address.
