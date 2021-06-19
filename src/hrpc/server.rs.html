@@ -1320,15 +1320,15 @@
         <span class="ident">reply</span>
     }
 
-    <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">err</span>.<span class="ident">is_not_found</span>() {
-        <span class="ident">make_response</span>(<span class="ident">Err::NOT_FOUND_ERROR</span>)
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">err</span>.<span class="ident">find</span>::<span class="op">&lt;</span><span class="ident">warp::reject::MethodNotAllowed</span><span class="op">&gt;</span>().<span class="ident">is_some</span>() {
-        <span class="ident">make_response</span>(<span class="ident">Err::METHOD_NOT_ALLOWED</span>)
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">err</span>.<span class="ident">find</span>::<span class="op">&lt;</span><span class="ident">ServerError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span><span class="op">&gt;</span>() {
+    <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">err</span>.<span class="ident">find</span>::<span class="op">&lt;</span><span class="ident">ServerError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span><span class="op">&gt;</span>() {
         <span class="kw">match</span> <span class="ident">e</span> {
             <span class="ident">ServerError::MessageDecode</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">make_response</span>(<span class="ident">Err::DECODE_ERROR</span>),
             <span class="ident">ServerError::Custom</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">make_response</span>((<span class="ident">err</span>.<span class="ident">code</span>(), <span class="ident">err</span>.<span class="ident">message</span>())),
         }
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">err</span>.<span class="ident">is_not_found</span>() {
+        <span class="ident">make_response</span>(<span class="ident">Err::NOT_FOUND_ERROR</span>)
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">err</span>.<span class="ident">find</span>::<span class="op">&lt;</span><span class="ident">warp::reject::MethodNotAllowed</span><span class="op">&gt;</span>().<span class="ident">is_some</span>() {
+        <span class="ident">make_response</span>(<span class="ident">Err::METHOD_NOT_ALLOWED</span>)
     } <span class="kw">else</span> {
         <span class="macro">error!</span>(<span class="string">&quot;unhandled rejection: {:?}&quot;</span>, <span class="ident">err</span>);
         <span class="ident">make_response</span>(<span class="ident">Err::INTERNAL_SERVER_ERROR</span>)
