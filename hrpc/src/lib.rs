@@ -95,6 +95,11 @@ impl<T> Request<T> {
         &self.message
     }
 
+    /// Get a reference to the inner header map.
+    pub const fn get_header_map(&self) -> &HeaderMap {
+        &self.header_map
+    }
+
     /// Get a header.
     pub fn get_header(&self, key: &HeaderName) -> Option<&HeaderValue> {
         self.header_map.get(key)
