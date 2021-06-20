@@ -138,7 +138,8 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 #middleware_methods
                 #on_upgrade_method
 
-                type #validation_value: Send;
+                type #validation_value: Send + Sync;
+                // The message may be `None` or `Some`.
                 async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, Self::Error>;
 
                 #method_doc
@@ -149,8 +150,9 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 #middleware_methods
                 #on_upgrade_method
 
-                type #validation_value: Send;
-                async fn #validation_name(&self, request: Request<()>) -> Result<Self::#validation_value, Self::Error>;
+                type #validation_value: Send + Sync;
+                // The message will always be `None`.
+                async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, Self::Error>;
 
                 #method_doc
                 async fn #name(&self, validation_value: Self::#validation_value, socket: Socket<#req_message, #res_message>);
@@ -163,7 +165,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
     stream
 }
 
-fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, TokenStream) {
+fn generate_filters<T: Service>(service: &T, _proto_path: &str) -> (TokenStream, TokenStream) {
     let mut stream = TokenStream::new();
     let mut comb_stream = TokenStream::new();
 
@@ -172,7 +174,6 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
         let pre_name = quote::format_ident!("{}_pre", name);
         let validation_name = quote::format_ident!("{}_validation", name);
-        let validation_value = quote::format_ident!("{}ValidationType", method.identifier());
 
         let package_name = format!(
             "{}{}{}",
@@ -186,84 +187,46 @@ fn generate_filters<T: Service>(service: &T, proto_path: &str) -> (TokenStream, 
         );
         let method_name = method.identifier();
 
-        let (req_message, resp_message) = method.request_response_name(proto_path);
         let streaming = (method.client_streaming(), method.server_streaming());
 
-        let validater = |t| {
-            quote! {
-                let req = Request::from_parts((#t, headers));
-                let svr = svr2.clone();
-                async move {
-                    svr. #validation_name (req.clone())
-                        .await
-                        .map_err(|err| warp::reject::custom(ServerError::Custom(err)))
-                        .map(|val| (val, req, ws))
-                }
-            }
-        };
-        let wrap_stream_handler = |code,
-                                   validation: Option<TokenStream>,
-                                   req_msg: Option<TokenStream>| {
-            let validation = validation.map_or_else(|| validater(quote! { () }), validater);
-            let req_msg = req_msg.unwrap_or_else(|| quote! { () });
+        let wrap_stream_handler = |code| {
             quote! {
                 let svr = server.clone();
                 let svr2 = server.clone();
-                socket_common::base_filter::<T::Error, _>(#package_name, #method_name, svr.#pre_name())
-                    .and_then(move |headers: HeaderMap, ws: Ws| {
-                        #validation
-                    })
-                    .untuple_one()
-                    .map(move |_val, _req: Request<#req_msg>, ws: Ws| {
-                        let svr = svr.clone();
-                        let svr3 = svr.clone();
-                        let reply =
-                            ws.on_upgrade(move |ws| async move {
-                                #[allow(unused_mut)]
-                                let mut sock = Socket::<#req_message, #resp_message>::new(ws);
-                                #code
-                            }).into_response();
-                        svr3. #on_upgrade_response_name (reply)
-                    })
+                let svr3 = server.clone();
+                #[allow(unused_mut)]
+                socket_common::base_filter(
+                    #package_name, #method_name, svr.#pre_name(),
+                    move |req| async move { svr2. #validation_name (req) .await },
+                    move |reply| svr3. #on_upgrade_response_name (reply),
+                    move |_val, _req, mut sock| async move { #code },
+                )
             }
         };
 
         let unary = quote! {
             let svr = server.clone();
-            let pre = svr.#pre_name();
-            unary_common::base_filter::<#req_message, #resp_message, T::Error, _>(#package_name, #method_name, pre)
-                .and_then(move |msg, headers| {
-                    let svr = svr.clone();
-                    async move {
-                        unary_common::encode(svr. #name (Request::from_parts((msg, headers))).await)
-                    }
-                })
+            unary_common::base_filter(
+                #package_name, #method_name,
+                svr.#pre_name(), move |request| async move { svr. #name (request).await }
+            )
         };
 
         let method = match streaming {
             (false, false) => unary,
-            (false, true) => wrap_stream_handler(
-                quote! {
-                    hrpc::return_print!(
-                        socket_common::validator::<#req_message, #resp_message, T::Error, T::#validation_value, _, _>(_req, &mut sock, |req| svr. #validation_name (req))
-                            .await,
-                        |val| svr. #name (val, sock.split().1).await
-                    );
-                },
-                Some(quote! { None }),
-                Some(quote! { Option<#req_message> }),
-            ),
+            (false, true) => wrap_stream_handler(quote! {
+                hrpc::return_print!(
+                    socket_common::validator(_req, &mut sock, |req| svr. #validation_name (req)).await,
+                    |val| svr. #name (val, sock.split().1).await
+                );
+            }),
             (true, false) => panic!(
                 "{}.{}: Client streaming server unary method is invalid.",
                 package_name, method_name
             ),
-            (true, true) => wrap_stream_handler(
-                quote! {
-                    svr. #name (_val, sock).await
-                },
-                None,
-                None,
-            ),
+            (true, true) => wrap_stream_handler(quote! {
+                svr. #name (_val, sock).await
+            }),
         };
 
         let apply_middleware = quote! {

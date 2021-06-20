@@ -18,7 +18,7 @@ hrpc::include_proto!("test");
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    tracing_subscriber::fmt().pretty().init();
+    tracing_subscriber::fmt().init();
 
     let is_server = std::env::args().nth(1).map_or(false, |t| t == "server");
     if is_server {
@@ -122,7 +122,7 @@ impl mu_server::Mu for Server {
 
     async fn mu_mute_validation(
         &self,
-        _request: Request<()>,
+        _request: Request<Option<Ping>>,
     ) -> Result<Self::MuMuteValidationType, Self::Error> {
         Ok(())
     }

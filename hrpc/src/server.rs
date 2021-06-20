@@ -125,42 +125,53 @@ pub use warp::http::StatusCode;
 #[doc(hidden)]
 pub mod unary_common {
     use super::{error, CustomError, ServerError};
+    use crate::Request;
     use bytes::BytesMut;
-    use http::HeaderMap;
+    use futures_util::{future, FutureExt};
+    use std::future::Future;
     use warp::Filter;
 
     #[doc(hidden)]
-    pub fn base_filter<Req, Resp, Err, PreFunc>(
+    pub fn base_filter<Req, Resp, Err, PreFunc, HandlerFut, Handler>(
         pkg: &'static str,
         method: &'static str,
         pre: PreFunc,
-    ) -> impl Filter<Extract = (Req, HeaderMap), Error = warp::Rejection> + Clone
+        handler: Handler,
+    ) -> impl Filter<Extract = (warp::reply::Response,), Error = warp::Rejection> + Clone
     where
         Req: prost::Message + Default,
         Resp: prost::Message,
         PreFunc: Filter<Extract = (), Error = warp::Rejection> + Send + Clone,
         Err: CustomError + 'static,
+        HandlerFut: Future<Output = Result<Resp, Err>> + Send,
+        Handler: FnOnce(Request<Req>) -> HandlerFut + Send + Clone,
     {
         warp::post()
             .and(warp::path(pkg))
             .and(warp::path(method))
             .and(pre)
-            .and(warp::body::bytes())
             .and(warp::header::exact_ignore_case(
                 "content-type",
                 "application/hrpc",
             ))
+            .and(warp::body::bytes())
             .map(Req::decode)
-            .and_then(move |res: Result<Req, prost::DecodeError>| async move {
-                res.map_err(|err| {
+            .and_then(move |res: Result<Req, prost::DecodeError>| {
+                future::ready(res.map_err(|err| {
                     error!("received invalid protobuf message: {}", pkg);
                     warp::reject::custom(ServerError::<Err>::MessageDecode(err))
-                })
+                }))
             })
             .and(warp::header::headers_cloned())
+            .and_then(move |msg, headers| {
+                let handler = handler.clone();
+                let request = Request::from_parts((msg, headers));
+                handler(request).map(encode)
+            })
     }
 
     #[doc(hidden)]
+    #[inline(always)]
     pub fn encode<Resp, Err>(
         resp: Result<Resp, Err>,
     ) -> Result<warp::reply::Response, warp::Rejection>
@@ -173,9 +184,10 @@ pub mod unary_common {
                 let mut buf = BytesMut::with_capacity(resp.encoded_len());
                 crate::encode_protobuf_message(&mut buf, resp);
                 let mut resp = warp::reply::Response::new(buf.to_vec().into());
-                resp.headers_mut()
-                    .entry("content-type")
-                    .or_insert("application/hrpc".parse().unwrap());
+                resp.headers_mut().insert(
+                    http::header::CONTENT_TYPE,
+                    http::HeaderValue::from_static("application/hrpc"),
+                );
                 Ok(resp)
             }
             Err(err) => {
@@ -190,26 +202,70 @@ pub mod unary_common {
 pub mod socket_common {
     use crate::{HeaderMap, Request};
 
-    use super::{CustomError, Socket, SocketError};
+    use super::{CustomError, ServerError, Socket, SocketError};
+    use futures_util::TryFutureExt;
     use std::{future::Future, time::Duration};
     use tracing::error;
-    use warp::{ws::Ws, Filter};
+    use warp::{ws::Ws, Filter, Reply};
 
     #[doc(hidden)]
-    pub fn base_filter<Err, PreFunc>(
+    pub fn base_filter<
+        Req,
+        Resp,
+        Err,
+        PreFunc,
+        ValidationValue,
+        Validation,
+        ValidationFut,
+        OnUpgrade,
+        Handler,
+        HandlerFut,
+    >(
         pkg: &'static str,
         method: &'static str,
         pre: PreFunc,
-    ) -> impl Filter<Extract = (HeaderMap, Ws), Error = warp::Rejection> + Clone
+        validation: Validation,
+        on_upgrade: OnUpgrade,
+        handler: Handler,
+    ) -> impl Filter<Extract = (warp::reply::Response,), Error = warp::Rejection> + Clone
     where
+        Req: prost::Message + Default + Clone + 'static,
+        Resp: prost::Message,
         PreFunc: Filter<Extract = (), Error = warp::Rejection> + Send + Clone,
         Err: CustomError + 'static,
+        ValidationValue: Send + 'static,
+        ValidationFut: Future<Output = Result<ValidationValue, Err>> + Send,
+        Validation: FnOnce(Request<Option<Req>>) -> ValidationFut + Send + Clone,
+        OnUpgrade: Fn(warp::reply::Response) -> warp::reply::Response + Send + Clone,
+        HandlerFut: Future<Output = ()> + Send + 'static,
+        Handler: FnOnce(ValidationValue, Request<Option<Req>>, Socket<Req, Resp>) -> HandlerFut
+            + Send
+            + Clone
+            + 'static,
     {
         warp::path(pkg)
             .and(warp::path(method))
             .and(pre)
             .and(warp::header::headers_cloned())
             .and(warp::ws())
+            .and_then(move |headers: HeaderMap, ws: Ws| {
+                let req = Request::from_parts((None, headers));
+                let validation = (validation.clone())(req.clone());
+                validation
+                    .map_err(|err| warp::reject::custom(ServerError::Custom(err)))
+                    .map_ok(move |val| (val, req, ws))
+            })
+            .untuple_one()
+            .map(move |val, req: Request<Option<Req>>, ws: Ws| {
+                let handler = handler.clone();
+                let reply = ws
+                    .on_upgrade(move |ws| {
+                        let sock = Socket::<Req, Resp>::new(ws);
+                        handler(val, req, sock)
+                    })
+                    .into_response();
+                on_upgrade(reply)
+            })
     }
 
     #[doc(hidden)]
@@ -405,22 +461,7 @@ pub struct WriteSocketArc<Resp: prost::Message> {
 impl<Resp: prost::Message> WriteSocketArc<Resp> {
     /// Send a message over the socket.
     pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
-        let resp = {
-            crate::encode_protobuf_message(&mut self.buf, resp);
-            self.buf.to_vec()
-        };
-
-        if let Err(e) = self.tx.lock().await.send(WsMessage::binary(resp)).await {
-            return Err(if e.to_string().contains("closed normally") {
-                SocketError::ClosedNormally
-            } else {
-                SocketError::Other(e)
-            });
-        } else {
-            debug!("responded to client socket");
-        }
-
-        Ok(())
+        internal_send_message(&mut self.buf, &mut *self.tx.lock().await, resp).await
     }
 }
 
@@ -462,23 +503,32 @@ impl<Resp: prost::Message> WriteSocket<Resp> {
 
     /// Send a message over the socket.
     pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
-        let resp = {
-            crate::encode_protobuf_message(&mut self.buf, resp);
-            self.buf.to_vec()
-        };
-
-        if let Err(e) = self.tx.send(WsMessage::binary(resp)).await {
-            return Err(if e.to_string().contains("closed normally") {
-                SocketError::ClosedNormally
-            } else {
-                SocketError::Other(e)
-            });
-        } else {
-            debug!("responded to client socket");
-        }
-
-        Ok(())
+        internal_send_message(&mut self.buf, &mut self.tx, resp).await
     }
+}
+
+#[inline(always)]
+async fn internal_send_message<Resp: prost::Message>(
+    buf: &mut BytesMut,
+    tx: &mut SplitSink<WebSocket, WsMessage>,
+    resp: Resp,
+) -> Result<(), SocketError> {
+    let resp = {
+        crate::encode_protobuf_message(buf, resp);
+        buf.to_vec()
+    };
+
+    if let Err(e) = tx.send(WsMessage::binary(resp)).await {
+        return Err(if e.to_string().contains("closed normally") {
+            SocketError::ClosedNormally
+        } else {
+            SocketError::Other(e)
+        });
+    } else {
+        debug!("responded to client socket");
+    }
+
+    Ok(())
 }
 
 /// Trait that needs to be implemented to use an error type with a generated service server.
