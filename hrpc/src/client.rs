@@ -38,10 +38,10 @@ impl Client {
     }
 
     /// Executes an unary request returns the decoded response.
-    pub async fn execute_request<Msg: prost::Message, Resp: prost::Message + Default>(
+    pub async fn execute_request<Req: prost::Message, Resp: prost::Message + Default>(
         &mut self,
         path: &str,
-        req: Request<Msg>,
+        req: Request<Req>,
     ) -> ClientResult<Resp> {
         let request = {
             encode_protobuf_message(&mut self.buf, req.message);
@@ -51,7 +51,7 @@ impl Client {
                     .join(path)
                     .expect("failed to form request URL, something must be terribly wrong"),
             );
-            *request.body_mut() = Some(self.buf.to_vec().into());
+            *request.body_mut() = Some(self.buf.clone().freeze().into());
             for (key, value) in req.header_map {
                 if let Some(key) = key {
                     request.headers_mut().entry(key).or_insert(value);
@@ -75,17 +75,16 @@ impl Client {
         }
 
         // Handle non-protobuf successful responses
-        #[allow(clippy::blocks_in_if_conditions)]
+        let is_hrpc = |t: &[u8]| {
+            !(t.eq_ignore_ascii_case(b"application/octet-stream")
+                || t.eq_ignore_ascii_case(crate::HRPC_HEADER))
+        };
         if resp
             .headers()
-            .get("Content-Type")
-            .map(|v| v.to_str().ok())
+            .get(&http::header::CONTENT_TYPE)
+            .map(|t| t.as_bytes().split(|c| b';'.eq(c)).next())
             .flatten()
-            .map(|t| t.split(';').next())
-            .flatten()
-            .map_or(true, |t| {
-                !matches!(t, "application/octet-stream" | "application/hrpc")
-            })
+            .map_or(true, is_hrpc)
         {
             return Err(ClientError::NonProtobuf(resp.bytes().await?));
         }
@@ -95,13 +94,13 @@ impl Client {
     }
 
     /// Connect a socket with the server and return it.
-    pub async fn connect_socket<Msg, Resp>(
+    pub async fn connect_socket<Req, Resp>(
         &self,
         path: &str,
         req: Request<()>,
-    ) -> ClientResult<socket::Socket<Msg, Resp>>
+    ) -> ClientResult<socket::Socket<Req, Resp>>
     where
-        Msg: prost::Message,
+        Req: prost::Message,
         Resp: prost::Message + Default,
     {
         let mut url = self.server.join(path).unwrap();
@@ -165,13 +164,13 @@ impl Client {
     /// Connect a socket with the server, send a message and return it.
     ///
     /// Used by the server streaming methods.
-    pub async fn connect_socket_req<Msg, Resp>(
+    pub async fn connect_socket_req<Req, Resp>(
         &self,
         path: &str,
-        request: Request<Msg>,
-    ) -> ClientResult<socket::ReadSocket<Msg, Resp>>
+        request: Request<Req>,
+    ) -> ClientResult<socket::ReadSocket<Req, Resp>>
     where
-        Msg: prost::Message,
+        Req: prost::Message,
         Resp: prost::Message + Default,
     {
         let (message, headers) = request.into_parts();
@@ -200,14 +199,14 @@ pub mod socket {
     use tokio::sync::Mutex;
 
     /// A websocket, wrapped for ease of use with protobuf messages.
-    pub struct Socket<Msg, Resp>
+    pub struct Socket<Req, Resp>
     where
-        Msg: prost::Message,
+        Req: prost::Message,
         Resp: prost::Message + Default,
     {
         data: Arc<SocketData>,
         buf: BytesMut,
-        _msg: PhantomData<Msg>,
+        _msg: PhantomData<Req>,
         _resp: PhantomData<Resp>,
     }
 
@@ -216,9 +215,9 @@ pub mod socket {
         rx: Mutex<SplitStream<WebSocketStream>>,
     }
 
-    impl<Msg, Resp> Debug for Socket<Msg, Resp>
+    impl<Req, Resp> Debug for Socket<Req, Resp>
     where
-        Msg: prost::Message,
+        Req: prost::Message,
         Resp: prost::Message + Default,
     {
         fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -226,9 +225,9 @@ pub mod socket {
         }
     }
 
-    impl<Msg, Resp> Socket<Msg, Resp>
+    impl<Req, Resp> Socket<Req, Resp>
     where
-        Msg: prost::Message,
+        Req: prost::Message,
         Resp: prost::Message + Default,
     {
         pub(super) fn new(inner: WebSocketStream) -> Self {
@@ -245,7 +244,7 @@ pub mod socket {
         }
 
         /// Send a protobuf message over the websocket.
-        pub async fn send_message(&mut self, msg: Msg) -> ClientResult<()> {
+        pub async fn send_message(&mut self, msg: Req) -> ClientResult<()> {
             use futures_util::SinkExt;
 
             encode_protobuf_message(&mut self.buf, msg);
@@ -300,14 +299,14 @@ pub mod socket {
         }
 
         /// Converts this socket to a read-only socket.
-        pub fn read_only(self) -> ReadSocket<Msg, Resp> {
+        pub fn read_only(self) -> ReadSocket<Req, Resp> {
             ReadSocket { inner: self }
         }
     }
 
-    impl<Msg, Resp> Clone for Socket<Msg, Resp>
+    impl<Req, Resp> Clone for Socket<Req, Resp>
     where
-        Msg: prost::Message,
+        Req: prost::Message,
         Resp: prost::Message + Default,
     {
         fn clone(&self) -> Self {
@@ -322,17 +321,17 @@ pub mod socket {
 
     /// A read-only version of [`Socket`].
     #[derive(Debug, Clone)]
-    pub struct ReadSocket<Msg, Resp>
+    pub struct ReadSocket<Req, Resp>
     where
-        Msg: prost::Message,
+        Req: prost::Message,
         Resp: prost::Message + Default,
     {
-        inner: Socket<Msg, Resp>,
+        inner: Socket<Req, Resp>,
     }
 
-    impl<Msg, Resp> ReadSocket<Msg, Resp>
+    impl<Req, Resp> ReadSocket<Req, Resp>
     where
-        Msg: prost::Message,
+        Req: prost::Message,
         Resp: prost::Message + Default,
     {
         /// Get a message from the websocket.

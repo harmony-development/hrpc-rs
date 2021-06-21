@@ -32,13 +32,10 @@ pub mod filters {
         impl Rate {
             /// Create a new rate.
             ///
-            /// # Panics
-            ///
-            /// This function panics if `num` or `per` is 0.
-            pub fn new(num: u64, per: Duration) -> Self {
-                assert!(num > 0);
-                assert!(per > Duration::from_millis(0));
-
+            /// # Notes
+            /// This function WILL NOT panic if `num` or `per` is invalid,
+            /// ie. either of them are `0`.
+            pub const fn new(num: u64, per: Duration) -> Self {
                 Rate { num, per }
             }
         }
@@ -87,7 +84,7 @@ pub mod filters {
                     let res =
                         res.map_err(|dur| warp::reject::custom(ServerError::Custom(error(dur))));
 
-                    async move { res }
+                    futures_util::future::ready(res)
                 })
                 .untuple_one()
         }
@@ -184,10 +181,8 @@ pub mod unary_common {
                 let mut buf = BytesMut::with_capacity(resp.encoded_len());
                 crate::encode_protobuf_message(&mut buf, resp);
                 let mut resp = warp::reply::Response::new(buf.to_vec().into());
-                resp.headers_mut().insert(
-                    http::header::CONTENT_TYPE,
-                    http::HeaderValue::from_static("application/hrpc"),
-                );
+                resp.headers_mut()
+                    .insert(http::header::CONTENT_TYPE, crate::hrpc_header_value());
                 Ok(resp)
             }
             Err(err) => {
@@ -292,7 +287,7 @@ pub mod socket_common {
                             break;
                         }
                         Err(err) => {
-                            error!("socked validation error: {}", err);
+                            error!("socket validation error: {}", err);
                             return Err(SocketError::ClosedNormally);
                         }
                     }

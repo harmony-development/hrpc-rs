@@ -38,6 +38,14 @@ pub mod server;
 
 use http::HeaderMap;
 
+pub(crate) const HRPC_HEADER: &[u8] = b"application/hrpc";
+
+pub(crate) fn hrpc_header_value() -> HeaderValue {
+    unsafe {
+        http::HeaderValue::from_maybe_shared_unchecked(bytes::Bytes::from_static(HRPC_HEADER))
+    }
+}
+
 #[derive(Debug, Clone)]
 /// A hRPC request.
 pub struct Request<T> {
@@ -55,7 +63,7 @@ impl<T> Request<T> {
             header_map: {
                 #[allow(clippy::mutable_key_type)]
                 let mut map: HeaderMap = HeaderMap::with_capacity(1);
-                map.insert("content-type", "application/hrpc".parse().unwrap());
+                map.insert(http::header::CONTENT_TYPE, hrpc_header_value());
                 map
             },
         }
