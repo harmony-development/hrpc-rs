@@ -1,6 +1,6 @@
 [package]
 name = "hrpc-build"
-version = "0.6.2"
+version = "0.7.0"
 authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -10,7 +10,6 @@ description = "Code generation for hRPC."
 keywords = ["hrpc", "harmony", "rpc", "build"]
 
 [dependencies]
-prost = "0.7"
 prost-build = "0.7"
 syn = "1.0"
 quote = "1.0"
