@@ -740,11 +740,6 @@
 <span id="737">737</span>
 <span id="738">738</span>
 <span id="739">739</span>
-<span id="740">740</span>
-<span id="741">741</span>
-<span id="742">742</span>
-<span id="743">743</span>
-<span id="744">744</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">futures_util::stream</span>::{<span class="ident">SplitSink</span>, <span class="ident">SplitStream</span>};
 <span class="kw">use</span> <span class="ident">prelude</span>::<span class="kw-2">*</span>;
@@ -780,13 +775,10 @@
         <span class="kw">impl</span> <span class="ident">Rate</span> {
             <span class="doccomment">/// Create a new rate.</span>
             <span class="doccomment">///</span>
-            <span class="doccomment">/// # Panics</span>
-            <span class="doccomment">///</span>
-            <span class="doccomment">/// This function panics if `num` or `per` is 0.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">num</span>: <span class="ident">u64</span>, <span class="ident">per</span>: <span class="ident">Duration</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-                <span class="macro">assert!</span>(<span class="ident">num</span> <span class="op">&gt;</span> <span class="number">0</span>);
-                <span class="macro">assert!</span>(<span class="ident">per</span> <span class="op">&gt;</span> <span class="ident">Duration::from_millis</span>(<span class="number">0</span>));
-
+            <span class="doccomment">/// # Notes</span>
+            <span class="doccomment">/// This function WILL NOT panic if `num` or `per` is invalid,</span>
+            <span class="doccomment">/// ie. either of them are `0`.</span>
+            <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">num</span>: <span class="ident">u64</span>, <span class="ident">per</span>: <span class="ident">Duration</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="ident">Rate</span> { <span class="ident">num</span>, <span class="ident">per</span> }
             }
         }
@@ -835,7 +827,7 @@
                     <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span>
                         <span class="ident">res</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">dur</span><span class="op">|</span> <span class="ident">warp::reject::custom</span>(<span class="ident">ServerError::Custom</span>(<span class="ident">error</span>(<span class="ident">dur</span>))));
 
-                    <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">res</span> }
+                    <span class="ident">futures_util::future::ready</span>(<span class="ident">res</span>)
                 })
                 .<span class="ident">untuple_one</span>()
         }
@@ -932,10 +924,8 @@
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">BytesMut::with_capacity</span>(<span class="ident">resp</span>.<span class="ident">encoded_len</span>());
                 <span class="kw">crate</span><span class="ident">::encode_protobuf_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>, <span class="ident">resp</span>);
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">warp::reply::Response::new</span>(<span class="ident">buf</span>.<span class="ident">to_vec</span>().<span class="ident">into</span>());
-                <span class="ident">resp</span>.<span class="ident">headers_mut</span>().<span class="ident">insert</span>(
-                    <span class="ident">http::header::CONTENT_TYPE</span>,
-                    <span class="ident">http::HeaderValue::from_static</span>(<span class="string">&quot;application/hrpc&quot;</span>),
-                );
+                <span class="ident">resp</span>.<span class="ident">headers_mut</span>()
+                    .<span class="ident">insert</span>(<span class="ident">http::header::CONTENT_TYPE</span>, <span class="kw">crate</span><span class="ident">::hrpc_header_value</span>());
                 <span class="prelude-val">Ok</span>(<span class="ident">resp</span>)
             }
             <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
@@ -1040,7 +1030,7 @@
                             <span class="kw">break</span>;
                         }
                         <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                            <span class="macro">error!</span>(<span class="string">&quot;socked validation error: {}&quot;</span>, <span class="ident">err</span>);
+                            <span class="macro">error!</span>(<span class="string">&quot;socket validation error: {}&quot;</span>, <span class="ident">err</span>);
                             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError::ClosedNormally</span>);
                         }
                     }
