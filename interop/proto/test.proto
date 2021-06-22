@@ -4,15 +4,20 @@ package test;
 
 option go_package = "hrpc/jiti";
 
+// Ping message.
 message Ping {
     string mu = 1;
 }
+// Pong message.
 message Pong {
     string mu = 1;
 }
 
 service Mu {
+    // Mu RPC.
     rpc Mu(Ping) returns (Pong);
+    // MuMute RPC.
     rpc MuMute(stream Ping) returns (stream Pong);
+    // MuMu RPC. ```test```
     rpc MuMu(Ping) returns (stream Pong);
 }
