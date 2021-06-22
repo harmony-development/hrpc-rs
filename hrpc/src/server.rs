@@ -125,7 +125,7 @@ pub mod unary_common {
     use crate::Request;
     use bytes::BytesMut;
     use futures_util::{future, FutureExt};
-    use std::future::Future;
+    use std::{future::Future, net::SocketAddr};
     use warp::Filter;
 
     #[doc(hidden)]
@@ -160,9 +160,10 @@ pub mod unary_common {
                 }))
             })
             .and(warp::header::headers_cloned())
-            .and_then(move |msg, headers| {
+            .and(warp::addr::remote())
+            .and_then(move |msg, headers, addr: Option<SocketAddr>| {
                 let handler = handler.clone();
-                let request = Request::from_parts((msg, headers));
+                let request = Request::from_parts((msg, headers, addr));
                 handler(request).map(encode)
             })
     }
@@ -241,10 +242,11 @@ pub mod socket_common {
         warp::path(pkg)
             .and(warp::path(method))
             .and(pre)
-            .and(warp::header::headers_cloned())
             .and(warp::ws())
-            .and_then(move |headers: HeaderMap, ws: Ws| {
-                let req = Request::from_parts((None, headers));
+            .and(warp::header::headers_cloned())
+            .and(warp::addr::remote())
+            .and_then(move |ws: Ws, headers: HeaderMap, addr| {
+                let req = Request::from_parts((None, headers, addr));
                 let validation = (validation.clone())(req.clone());
                 validation
                     .map_err(|err| warp::reject::custom(ServerError::Custom(err)))
@@ -280,7 +282,8 @@ pub mod socket_common {
             let val;
             loop {
                 if let Some(message) = sock.receive_message().await? {
-                    let req = Request::from_parts((Some(message), req.into_parts().1));
+                    let (_, headers, addr) = req.into_parts();
+                    let req = Request::from_parts((Some(message), headers, addr));
                     match validator_func(req).await {
                         Ok(vall) => {
                             val = vall;

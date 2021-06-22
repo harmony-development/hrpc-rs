@@ -178,9 +178,9 @@ impl Client {
         Req: prost::Message,
         Resp: prost::Message + Default,
     {
-        let (message, headers) = request.into_parts();
+        let (message, headers, url) = request.into_parts();
         let mut socket = self
-            .connect_socket(path, Request::from_parts(((), headers)))
+            .connect_socket(path, Request::from_parts(((), headers, url)))
             .await?;
         socket.send_message(message).await?;
 

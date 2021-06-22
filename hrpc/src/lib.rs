@@ -1,4 +1,6 @@
 //! Common code used in hRPC code generation.
+use std::net::SocketAddr;
+
 use http::{header::HeaderName, HeaderValue};
 
 #[doc(inline)]
@@ -51,6 +53,7 @@ pub(crate) fn hrpc_header_value() -> HeaderValue {
 pub struct Request<T> {
     message: T,
     header_map: HeaderMap,
+    socket_addr: Option<SocketAddr>,
 }
 
 impl<T> Request<T> {
@@ -66,6 +69,7 @@ impl<T> Request<T> {
                 map.insert(http::header::CONTENT_TYPE, hrpc_header_value());
                 map
             },
+            socket_addr: None,
         }
     }
 
@@ -76,6 +80,7 @@ impl<T> Request<T> {
         Request {
             message: (),
             header_map: HeaderMap::new(),
+            socket_addr: None,
         }
     }
 
@@ -90,11 +95,13 @@ impl<T> Request<T> {
         let Request {
             message: _,
             header_map,
+            socket_addr,
         } = self;
 
         Request {
             message,
             header_map,
+            socket_addr,
         }
     }
 
@@ -103,11 +110,13 @@ impl<T> Request<T> {
         let Request {
             message,
             header_map,
+            socket_addr,
         } = self;
 
         Request {
             message: f(message),
             header_map,
+            socket_addr,
         }
     }
 
@@ -121,21 +130,29 @@ impl<T> Request<T> {
         &self.header_map
     }
 
+    /// Get a reference to the inner socket address this request came from.
+    ///
+    /// It will be none if the underlying transport doesn't use socket addresses.
+    pub const fn get_socket_addr(&self) -> Option<&SocketAddr> {
+        self.socket_addr.as_ref()
+    }
+
     /// Get a header.
     pub fn get_header(&self, key: &HeaderName) -> Option<&HeaderValue> {
         self.header_map.get(key)
     }
 
     /// Destructure this request into parts.
-    pub fn into_parts(self) -> (T, HeaderMap) {
-        (self.message, self.header_map)
+    pub fn into_parts(self) -> (T, HeaderMap, Option<SocketAddr>) {
+        (self.message, self.header_map, self.socket_addr)
     }
 
     /// Create a request from parts.
-    pub fn from_parts(parts: (T, HeaderMap)) -> Self {
+    pub fn from_parts(parts: (T, HeaderMap, Option<SocketAddr>)) -> Self {
         Self {
             message: parts.0,
             header_map: parts.1,
+            socket_addr: parts.2,
         }
     }
 }
