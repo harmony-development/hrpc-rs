@@ -162,6 +162,7 @@
 <span id="159">159</span>
 <span id="160">160</span>
 <span id="161">161</span>
+<span id="162">162</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">proc_macro2</span>::{<span class="ident">Delimiter</span>, <span class="ident">Group</span>, <span class="ident">Ident</span>, <span class="ident">Literal</span>, <span class="ident">Punct</span>, <span class="ident">Spacing</span>, <span class="ident">Span</span>, <span class="ident">TokenStream</span>};
 <span class="kw">use</span> <span class="ident">quote::TokenStreamExt</span>;
@@ -276,6 +277,7 @@
 
     <span class="ident">doc_stream</span>.<span class="ident">append</span>(<span class="ident">Ident::new</span>(<span class="string">&quot;doc&quot;</span>, <span class="ident">Span::call_site</span>()));
     <span class="ident">doc_stream</span>.<span class="ident">append</span>(<span class="ident">Punct::new</span>(<span class="string">&#39;=&#39;</span>, <span class="ident">Spacing::Alone</span>));
+    <span class="ident">doc_stream</span>.<span class="ident">append</span>(<span class="ident">Punct::new</span>(<span class="string">&#39;r&#39;</span>, <span class="ident">Spacing::Joint</span>));
     <span class="ident">doc_stream</span>.<span class="ident">append</span>(<span class="ident">Literal::string</span>(<span class="ident">comment</span>.<span class="ident">as_ref</span>()));
 
     <span class="kw">let</span> <span class="ident">group</span> <span class="op">=</span> <span class="ident">Group::new</span>(<span class="ident">Delimiter::Bracket</span>, <span class="ident">doc_stream</span>);
