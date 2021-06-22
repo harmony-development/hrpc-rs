@@ -659,9 +659,9 @@
         <span class="ident">Req</span>: <span class="ident">prost::Message</span>,
         <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span>,
     {
-        <span class="kw">let</span> (<span class="ident">message</span>, <span class="ident">headers</span>) <span class="op">=</span> <span class="ident">request</span>.<span class="ident">into_parts</span>();
+        <span class="kw">let</span> (<span class="ident">message</span>, <span class="ident">headers</span>, <span class="ident">url</span>) <span class="op">=</span> <span class="ident">request</span>.<span class="ident">into_parts</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">socket</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">connect_socket</span>(<span class="ident">path</span>, <span class="ident">Request::from_parts</span>(((), <span class="ident">headers</span>)))
+            .<span class="ident">connect_socket</span>(<span class="ident">path</span>, <span class="ident">Request::from_parts</span>(((), <span class="ident">headers</span>, <span class="ident">url</span>)))
             .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="ident">socket</span>.<span class="ident">send_message</span>(<span class="ident">message</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 

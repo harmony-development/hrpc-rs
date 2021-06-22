@@ -740,6 +740,9 @@
 <span id="737">737</span>
 <span id="738">738</span>
 <span id="739">739</span>
+<span id="740">740</span>
+<span id="741">741</span>
+<span id="742">742</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">futures_util::stream</span>::{<span class="ident">SplitSink</span>, <span class="ident">SplitStream</span>};
 <span class="kw">use</span> <span class="ident">prelude</span>::<span class="kw-2">*</span>;
@@ -868,7 +871,7 @@
     <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::Request</span>;
     <span class="kw">use</span> <span class="ident">bytes::BytesMut</span>;
     <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future</span>, <span class="ident">FutureExt</span>};
-    <span class="kw">use</span> <span class="ident">std::future::Future</span>;
+    <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">future::Future</span>, <span class="ident">net::SocketAddr</span>};
     <span class="kw">use</span> <span class="ident">warp::Filter</span>;
 
     <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
@@ -903,9 +906,10 @@
                 }))
             })
             .<span class="ident">and</span>(<span class="ident">warp::header::headers_cloned</span>())
-            .<span class="ident">and_then</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">msg</span>, <span class="ident">headers</span><span class="op">|</span> {
+            .<span class="ident">and</span>(<span class="ident">warp::addr::remote</span>())
+            .<span class="ident">and_then</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">msg</span>, <span class="ident">headers</span>, <span class="ident">addr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span><span class="op">|</span> {
                 <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="ident">handler</span>.<span class="ident">clone</span>();
-                <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Request::from_parts</span>((<span class="ident">msg</span>, <span class="ident">headers</span>));
+                <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Request::from_parts</span>((<span class="ident">msg</span>, <span class="ident">headers</span>, <span class="ident">addr</span>));
                 <span class="ident">handler</span>(<span class="ident">request</span>).<span class="ident">map</span>(<span class="ident">encode</span>)
             })
     }
@@ -984,10 +988,11 @@
         <span class="ident">warp::path</span>(<span class="ident">pkg</span>)
             .<span class="ident">and</span>(<span class="ident">warp::path</span>(<span class="ident">method</span>))
             .<span class="ident">and</span>(<span class="ident">pre</span>)
-            .<span class="ident">and</span>(<span class="ident">warp::header::headers_cloned</span>())
             .<span class="ident">and</span>(<span class="ident">warp::ws</span>())
-            .<span class="ident">and_then</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">headers</span>: <span class="ident">HeaderMap</span>, <span class="ident">ws</span>: <span class="ident">Ws</span><span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Request::from_parts</span>((<span class="prelude-val">None</span>, <span class="ident">headers</span>));
+            .<span class="ident">and</span>(<span class="ident">warp::header::headers_cloned</span>())
+            .<span class="ident">and</span>(<span class="ident">warp::addr::remote</span>())
+            .<span class="ident">and_then</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">ws</span>: <span class="ident">Ws</span>, <span class="ident">headers</span>: <span class="ident">HeaderMap</span>, <span class="ident">addr</span><span class="op">|</span> {
+                <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Request::from_parts</span>((<span class="prelude-val">None</span>, <span class="ident">headers</span>, <span class="ident">addr</span>));
                 <span class="kw">let</span> <span class="ident">validation</span> <span class="op">=</span> (<span class="ident">validation</span>.<span class="ident">clone</span>())(<span class="ident">req</span>.<span class="ident">clone</span>());
                 <span class="ident">validation</span>
                     .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">warp::reject::custom</span>(<span class="ident">ServerError::Custom</span>(<span class="ident">err</span>)))
@@ -1023,7 +1028,8 @@
             <span class="kw">let</span> <span class="ident">val</span>;
             <span class="kw">loop</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">message</span>) <span class="op">=</span> <span class="ident">sock</span>.<span class="ident">receive_message</span>().<span class="kw">await</span><span class="question-mark">?</span> {
-                    <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Request::from_parts</span>((<span class="prelude-val">Some</span>(<span class="ident">message</span>), <span class="ident">req</span>.<span class="ident">into_parts</span>().<span class="number">1</span>));
+                    <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">headers</span>, <span class="ident">addr</span>) <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into_parts</span>();
+                    <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Request::from_parts</span>((<span class="prelude-val">Some</span>(<span class="ident">message</span>), <span class="ident">headers</span>, <span class="ident">addr</span>));
                     <span class="kw">match</span> <span class="ident">validator_func</span>(<span class="ident">req</span>).<span class="kw">await</span> {
                         <span class="prelude-val">Ok</span>(<span class="ident">vall</span>) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="ident">val</span> <span class="op">=</span> <span class="ident">vall</span>;
