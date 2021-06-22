@@ -473,6 +473,11 @@
 <span id="470">470</span>
 <span id="471">471</span>
 <span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 
@@ -511,6 +516,11 @@
         } <span class="kw">else</span> {
             <span class="prelude-val">Err</span>(<span class="ident">ClientError::InvalidUrl</span>(<span class="ident">InvalidUrlKind::InvalidScheme</span>))
         }
+    }
+
+    <span class="doccomment">/// Access to the inner HTTP client.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">inner</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">reqwest::Client</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>
     }
 
     <span class="doccomment">/// Executes an unary request returns the decoded response.</span>
