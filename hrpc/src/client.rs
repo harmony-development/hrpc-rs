@@ -37,6 +37,11 @@ impl Client {
         }
     }
 
+    /// Access to the inner HTTP client.
+    pub fn inner(&self) -> &reqwest::Client {
+        &self.inner
+    }
+
     /// Executes an unary request returns the decoded response.
     pub async fn execute_request<Req: prost::Message, Resp: prost::Message + Default>(
         &mut self,
