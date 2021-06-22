@@ -18,6 +18,9 @@ service Mu {
     rpc Mu(Ping) returns (Pong);
     // MuMute RPC.
     rpc MuMute(stream Ping) returns (stream Pong);
-    // MuMu RPC. ```test```
+    // MuMu RPC.
+    // ```
+    // test
+    // ```
     rpc MuMu(Ping) returns (stream Pong);
 }
