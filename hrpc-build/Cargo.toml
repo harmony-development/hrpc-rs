@@ -10,7 +10,7 @@ description = "Code generation for hRPC."
 keywords = ["hrpc", "harmony", "rpc", "build"]
 
 [dependencies]
-prost-build = "0.7"
+prost-build = "0.8"
 syn = "1.0"
 quote = "1.0"
 proc-macro2 = "1.0"
