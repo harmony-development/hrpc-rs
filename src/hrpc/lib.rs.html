@@ -221,10 +221,19 @@
 <span id="218">218</span>
 <span id="219">219</span>
 <span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Common code used in hRPC code generation.</span>
 <span class="kw">use</span> <span class="ident">std::net::SocketAddr</span>;
 
+<span class="kw">use</span> <span class="ident">bytes::BytesMut</span>;
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header::HeaderName</span>, <span class="ident">HeaderValue</span>};
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
@@ -399,12 +408,19 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encode_protobuf_message</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bytes::BytesMut</span>, <span class="ident">msg</span>: <span class="kw">impl</span> <span class="ident">prost::Message</span>) {
+<span class="doccomment">/// Encodes a protobuf message into the given `BytesMut` buffer.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encode_protobuf_message_to</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">BytesMut</span>, <span class="ident">msg</span>: <span class="kw">impl</span> <span class="ident">prost::Message</span>) {
     <span class="ident">buf</span>.<span class="ident">reserve</span>(<span class="ident">msg</span>.<span class="ident">encoded_len</span>().<span class="ident">saturating_sub</span>(<span class="ident">buf</span>.<span class="ident">len</span>()));
     <span class="ident">buf</span>.<span class="ident">clear</span>();
-    <span class="ident">msg</span>.<span class="ident">encode</span>(<span class="ident">buf</span>)
-        .<span class="ident">expect</span>(<span class="string">&quot;failed to encode protobuf message, something must be terribly wrong&quot;</span>);
+    <span class="comment">// ignore the error since this can never fail</span>
+    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">msg</span>.<span class="ident">encode</span>(<span class="ident">buf</span>);
+}
+
+<span class="doccomment">/// Encodes a protobuf message into a new `BytesMut` buffer.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encode_protobuf_message</span>(<span class="ident">msg</span>: <span class="kw">impl</span> <span class="ident">prost::Message</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BytesMut</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">BytesMut::new</span>();
+    <span class="ident">encode_protobuf_message_to</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>, <span class="ident">msg</span>);
+    <span class="ident">buf</span>
 }
 
 <span class="doccomment">/// Include generated proto server and client items.</span>
