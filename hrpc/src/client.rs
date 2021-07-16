@@ -49,7 +49,7 @@ impl Client {
         req: Request<Req>,
     ) -> ClientResult<Resp> {
         let request = {
-            encode_protobuf_message(&mut self.buf, req.message);
+            encode_protobuf_message_to(&mut self.buf, req.message);
             let mut request = UnaryRequest::new(
                 reqwest::Method::POST,
                 self.server
@@ -190,7 +190,7 @@ impl Client {
 
 /// Socket implementations.
 pub mod socket {
-    use super::{encode_protobuf_message, tungstenite, ClientResult, WebSocketStream};
+    use super::{encode_protobuf_message_to, tungstenite, ClientResult, WebSocketStream};
     use bytes::{Bytes, BytesMut};
     use futures_util::{
         stream::{SplitSink, SplitStream},
@@ -252,7 +252,7 @@ pub mod socket {
         pub async fn send_message(&mut self, msg: Req) -> ClientResult<()> {
             use futures_util::SinkExt;
 
-            encode_protobuf_message(&mut self.buf, msg);
+            encode_protobuf_message_to(&mut self.buf, msg);
             let msg = tungstenite::Message::Binary(self.buf.to_vec());
 
             Ok(self.data.tx.lock().await.send(msg).await?)

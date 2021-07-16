@@ -1,6 +1,7 @@
 //! Common code used in hRPC code generation.
 use std::net::SocketAddr;
 
+use bytes::BytesMut;
 use http::{header::HeaderName, HeaderValue};
 
 #[doc(inline)]
@@ -175,12 +176,19 @@ impl<T> IntoRequest<T> for Request<T> {
     }
 }
 
-#[doc(hidden)]
-pub fn encode_protobuf_message(buf: &mut bytes::BytesMut, msg: impl prost::Message) {
+/// Encodes a protobuf message into the given `BytesMut` buffer.
+pub fn encode_protobuf_message_to(buf: &mut BytesMut, msg: impl prost::Message) {
     buf.reserve(msg.encoded_len().saturating_sub(buf.len()));
     buf.clear();
-    msg.encode(buf)
-        .expect("failed to encode protobuf message, something must be terribly wrong");
+    // ignore the error since this can never fail
+    let _ = msg.encode(buf);
+}
+
+/// Encodes a protobuf message into a new `BytesMut` buffer.
+pub fn encode_protobuf_message(msg: impl prost::Message) -> BytesMut {
+    let mut buf = BytesMut::new();
+    encode_protobuf_message_to(&mut buf, msg);
+    buf
 }
 
 /// Include generated proto server and client items.

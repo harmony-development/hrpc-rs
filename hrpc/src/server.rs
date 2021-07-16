@@ -180,7 +180,7 @@ pub mod unary_common {
         match resp {
             Ok(resp) => {
                 let mut buf = BytesMut::with_capacity(resp.encoded_len());
-                crate::encode_protobuf_message(&mut buf, resp);
+                crate::encode_protobuf_message_to(&mut buf, resp);
                 let mut resp = warp::reply::Response::new(buf.to_vec().into());
                 resp.headers_mut()
                     .insert(http::header::CONTENT_TYPE, crate::hrpc_header_value());
@@ -512,7 +512,7 @@ async fn internal_send_message<Resp: prost::Message>(
     resp: Resp,
 ) -> Result<(), SocketError> {
     let resp = {
-        crate::encode_protobuf_message(buf, resp);
+        crate::encode_protobuf_message_to(buf, resp);
         buf.to_vec()
     };
 
