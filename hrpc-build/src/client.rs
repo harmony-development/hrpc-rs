@@ -9,7 +9,7 @@ use quote::{format_ident, quote};
 /// a public module with the generated client.
 pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let service_ident = quote::format_ident!("{}Client", service.name());
-    let client_mod = quote::format_ident!("{}_client", naive_snake_case(&service.name()));
+    let client_mod = quote::format_ident!("{}_client", naive_snake_case(service.name()));
     let methods = generate_methods(service, proto_path);
 
     let service_doc = generate_doc_comments(service.comment());

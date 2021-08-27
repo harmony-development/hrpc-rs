@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    fmt::{self, Debug, Formatter},
+    sync::Arc,
+};
 
 use super::*;
 
@@ -16,11 +19,22 @@ type SocketRequest = tungstenite::handshake::client::Request;
 type UnaryRequest = reqwest::Request;
 
 /// Generic client implementation with common methods.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Client {
     inner: reqwest::Client,
     server: Url,
     buf: BytesMut,
+    modify_request_headers: Arc<dyn Fn(&mut HeaderMap)>,
+}
+
+impl Debug for Client {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Client")
+            .field("inner", &self.inner)
+            .field("server", &self.server)
+            .field("buf", &self.buf)
+            .finish()
+    }
 }
 
 impl Client {
@@ -31,10 +45,17 @@ impl Client {
                 inner,
                 server,
                 buf: BytesMut::new(),
+                modify_request_headers: Arc::new(|_| ()),
             })
         } else {
             Err(ClientError::InvalidUrl(InvalidUrlKind::InvalidScheme))
         }
+    }
+
+    /// Set the function to modify request headers with before sending the request.
+    pub fn modify_request_headers_with(mut self, f: Arc<dyn Fn(&mut HeaderMap)>) -> Self {
+        self.modify_request_headers = f;
+        self
     }
 
     /// Access to the inner HTTP client.
@@ -42,11 +63,11 @@ impl Client {
         &self.inner
     }
 
-    /// Executes an unary request returns the decoded response.
+    /// Executes an unary request and returns the decoded response.
     pub async fn execute_request<Req: prost::Message, Resp: prost::Message + Default>(
         &mut self,
         path: &str,
-        req: Request<Req>,
+        mut req: Request<Req>,
     ) -> ClientResult<Resp> {
         let request = {
             encode_protobuf_message_to(&mut self.buf, req.message);
@@ -57,6 +78,7 @@ impl Client {
                     .expect("failed to form request URL, something must be terribly wrong"),
             );
             *request.body_mut() = Some(self.buf.clone().freeze().into());
+            (self.modify_request_headers)(&mut req.header_map);
             for (key, value) in req.header_map {
                 if let Some(key) = key {
                     request.headers_mut().entry(key).or_insert(value);
@@ -102,7 +124,7 @@ impl Client {
     pub async fn connect_socket<Req, Resp>(
         &self,
         path: &str,
-        req: Request<()>,
+        mut req: Request<()>,
     ) -> ClientResult<socket::Socket<Req, Resp>>
     where
         Req: prost::Message,
@@ -119,6 +141,7 @@ impl Client {
         let mut request = SocketRequest::get(Into::<String>::into(url))
             .body(())
             .unwrap();
+        (self.modify_request_headers)(&mut req.header_map);
         for (key, value) in req.header_map {
             if let Some(key) = key {
                 request.headers_mut().entry(key).or_insert(value);

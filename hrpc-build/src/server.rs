@@ -11,7 +11,7 @@ use syn::Ident;
 pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let server_service = quote::format_ident!("{}Server", service.name());
     let server_trait = quote::format_ident!("{}", service.name());
-    let server_mod = quote::format_ident!("{}_server", naive_snake_case(&service.name()));
+    let server_mod = quote::format_ident!("{}_server", naive_snake_case(service.name()));
     let generated_trait = generate_trait(service, proto_path, server_trait.clone());
     let service_doc = generate_doc_comments(service.comment());
     let (serve_filters, serve_combined_filters) = generate_filters(service, proto_path);
