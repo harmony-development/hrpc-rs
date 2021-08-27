@@ -24,7 +24,7 @@ pub struct Client {
     inner: reqwest::Client,
     server: Url,
     buf: BytesMut,
-    modify_request_headers: Arc<dyn Fn(&mut HeaderMap)>,
+    modify_request_headers: Arc<dyn Fn(&mut HeaderMap) + Send + Sync>,
 }
 
 impl Debug for Client {
@@ -53,7 +53,10 @@ impl Client {
     }
 
     /// Set the function to modify request headers with before sending the request.
-    pub fn modify_request_headers_with(mut self, f: Arc<dyn Fn(&mut HeaderMap)>) -> Self {
+    pub fn modify_request_headers_with(
+        mut self,
+        f: Arc<dyn Fn(&mut HeaderMap) + Send + Sync>,
+    ) -> Self {
         self.modify_request_headers = f;
         self
     }
