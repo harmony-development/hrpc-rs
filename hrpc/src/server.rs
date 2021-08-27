@@ -660,6 +660,18 @@ impl<Err: CustomError + StdError + 'static> StdError for ServerError<Err> {
 
 impl<Err: CustomError + 'static> warp::reject::Reject for ServerError<Err> {}
 
+impl<Err: CustomError> From<Err> for ServerError<Err> {
+    fn from(err: Err) -> Self {
+        ServerError::Custom(err)
+    }
+}
+
+impl<Err: CustomError> From<prost::DecodeError> for ServerError<Err> {
+    fn from(err: prost::DecodeError) -> Self {
+        ServerError::MessageDecode(err)
+    }
+}
+
 #[doc(hidden)]
 pub async fn handle_rejection<Err: CustomError + 'static>(
     err: Rejection,
