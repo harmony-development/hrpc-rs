@@ -742,6 +742,18 @@
 <span id="740">740</span>
 <span id="741">741</span>
 <span id="742">742</span>
+<span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
+<span id="747">747</span>
+<span id="748">748</span>
+<span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">futures_util::stream</span>::{<span class="ident">SplitSink</span>, <span class="ident">SplitStream</span>};
 <span class="kw">use</span> <span class="ident">prelude</span>::<span class="kw-2">*</span>;
@@ -1404,6 +1416,18 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="prelude-val">Err</span>: <span class="ident">CustomError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">warp::reject::Reject</span> <span class="kw">for</span> <span class="ident">ServerError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span> {}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="prelude-val">Err</span>: <span class="ident">CustomError</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ServerError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="prelude-val">Err</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">ServerError::Custom</span>(<span class="ident">err</span>)
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="prelude-val">Err</span>: <span class="ident">CustomError</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">prost::DecodeError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ServerError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">prost::DecodeError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">ServerError::MessageDecode</span>(<span class="ident">err</span>)
+    }
+}
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_rejection</span><span class="op">&lt;</span><span class="prelude-val">Err</span>: <span class="ident">CustomError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(
