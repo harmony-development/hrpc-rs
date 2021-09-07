@@ -270,6 +270,13 @@
 <span id="268">268</span>
 <span id="269">269</span>
 <span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Method</span>, <span class="ident">Service</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">generate_doc_comment</span>, <span class="ident">generate_doc_comments</span>, <span class="ident">naive_snake_case</span>};
@@ -368,6 +375,10 @@
         <span class="kw">pub</span> <span class="kw">trait</span> #<span class="ident">server_trait</span> : <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
             <span class="kw">type</span> <span class="ident">Error</span>: <span class="ident">CustomError</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>;
 
+            <span class="kw">fn</span> <span class="ident">middleware</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">endpoint</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxedFilter</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+                <span class="ident">warp::any</span>().<span class="ident">boxed</span>()
+            }
+
             #<span class="ident">methods</span>
         }
     }
@@ -381,7 +392,7 @@
 
         <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">method</span>.<span class="ident">name</span>());
         <span class="kw">let</span> <span class="ident">on_upgrade_response_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_on_upgrade&quot;</span>, <span class="ident">name</span>);
-        <span class="kw">let</span> <span class="ident">pre_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_pre&quot;</span>, <span class="ident">name</span>);
+        <span class="kw">let</span> <span class="ident">pre_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_middleware&quot;</span>, <span class="ident">name</span>);
         <span class="kw">let</span> <span class="ident">validation_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_validation&quot;</span>, <span class="ident">name</span>);
         <span class="kw">let</span> <span class="ident">validation_value</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}ValidationType&quot;</span>, <span class="ident">method</span>.<span class="ident">identifier</span>());
 
@@ -396,7 +407,7 @@
         };
         <span class="kw">let</span> <span class="ident">middleware_methods</span> <span class="op">=</span> <span class="macro">quote!</span> {
             <span class="comment">// Filter to be run before all API operations but after API path is matched.</span>
-            <span class="kw">fn</span> #<span class="ident">pre_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxedFilter</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+            <span class="kw">fn</span> #<span class="ident">pre_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">endpoint</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxedFilter</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
                 <span class="ident">warp::any</span>().<span class="ident">boxed</span>()
             }
         };
@@ -445,7 +456,7 @@
     <span class="kw">for</span> (<span class="ident">index</span>, <span class="ident">method</span>) <span class="kw">in</span> <span class="ident">service</span>.<span class="ident">methods</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
         <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">method</span>.<span class="ident">name</span>());
         <span class="kw">let</span> <span class="ident">on_upgrade_response_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_on_upgrade&quot;</span>, <span class="ident">name</span>);
-        <span class="kw">let</span> <span class="ident">pre_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_pre&quot;</span>, <span class="ident">name</span>);
+        <span class="kw">let</span> <span class="ident">pre_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_middleware&quot;</span>, <span class="ident">name</span>);
         <span class="kw">let</span> <span class="ident">validation_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_validation&quot;</span>, <span class="ident">name</span>);
 
         <span class="kw">let</span> <span class="ident">package_name</span> <span class="op">=</span> <span class="macro">format!</span>(
@@ -461,6 +472,7 @@
         <span class="kw">let</span> <span class="ident">method_name</span> <span class="op">=</span> <span class="ident">method</span>.<span class="ident">identifier</span>();
 
         <span class="kw">let</span> <span class="ident">streaming</span> <span class="op">=</span> (<span class="ident">method</span>.<span class="ident">client_streaming</span>(), <span class="ident">method</span>.<span class="ident">server_streaming</span>());
+        <span class="kw">let</span> <span class="ident">endpoint</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;/{}/{}&quot;</span>, <span class="ident">package_name</span>, <span class="ident">method_name</span>);
 
         <span class="kw">let</span> <span class="ident">wrap_stream_handler</span> <span class="op">=</span> <span class="op">|</span><span class="ident">code</span><span class="op">|</span> {
             <span class="macro">quote!</span> {
@@ -469,7 +481,8 @@
                 <span class="kw">let</span> <span class="ident">svr3</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
                 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_mut</span>)]</span>
                 <span class="ident">socket_common::base_filter</span>(
-                    #<span class="ident">package_name</span>, #<span class="ident">method_name</span>, <span class="ident">svr</span>.#<span class="ident">pre_name</span>(),
+                    #<span class="ident">package_name</span>, #<span class="ident">method_name</span>,
+                    <span class="ident">svr</span>.<span class="ident">middleware</span>(#<span class="ident">endpoint</span>).<span class="ident">and</span>(<span class="ident">svr</span>.#<span class="ident">pre_name</span>(#<span class="ident">endpoint</span>)),
                     <span class="kw">move</span> <span class="op">|</span><span class="ident">req</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr2</span>. #<span class="ident">validation_name</span> (<span class="ident">req</span>) .<span class="kw">await</span> },
                     <span class="kw">move</span> <span class="op">|</span><span class="ident">reply</span><span class="op">|</span> <span class="ident">svr3</span>. #<span class="ident">on_upgrade_response_name</span> (<span class="ident">reply</span>),
                     <span class="kw">move</span> <span class="op">|</span><span class="ident">_val</span>, <span class="ident">_req</span>, <span class="kw-2">mut</span> <span class="ident">sock</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { #<span class="ident">code</span> },
@@ -481,7 +494,8 @@
             <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
             <span class="ident">unary_common::base_filter</span>(
                 #<span class="ident">package_name</span>, #<span class="ident">method_name</span>,
-                <span class="ident">svr</span>.#<span class="ident">pre_name</span>(), <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>. #<span class="ident">name</span> (<span class="ident">request</span>).<span class="kw">await</span> }
+                <span class="ident">svr</span>.<span class="ident">middleware</span>(#<span class="ident">endpoint</span>).<span class="ident">and</span>(<span class="ident">svr</span>.#<span class="ident">pre_name</span>(#<span class="ident">endpoint</span>)).<span class="ident">boxed</span>(),
+                <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>. #<span class="ident">name</span> (<span class="ident">request</span>).<span class="kw">await</span> },
             )
         };
 
