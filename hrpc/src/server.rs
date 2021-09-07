@@ -88,6 +88,41 @@ pub mod filters {
                 })
                 .untuple_one()
         }
+
+        /// Creates a filter that will return an `Err(error)` with `error`
+        /// generated with the provided error function if rate limited globally,
+        /// irregardless of client address.
+        pub fn rate_limit_global<Err: CustomError + 'static>(
+            rate: Rate,
+            error: fn(Duration) -> Err,
+        ) -> impl Filter<Extract = (), Error = warp::Rejection> + Sync + Send + Clone {
+            let state = Arc::new(parking_lot::Mutex::new(State::new(rate)));
+
+            warp::any()
+                .and_then(move || {
+                    let now = Instant::now();
+
+                    let mut state = state.lock();
+                    if now >= state.until {
+                        state.until = now + rate.per;
+                        state.rem = rate.num;
+                    }
+
+                    let res = if state.rem >= 1 {
+                        state.rem -= 1;
+                        Ok(())
+                    } else {
+                        Err(state.until - now)
+                    };
+                    drop(state);
+
+                    let res =
+                        res.map_err(|dur| warp::reject::custom(ServerError::Custom(error(dur))));
+
+                    futures_util::future::ready(res)
+                })
+                .untuple_one()
+        }
     }
 }
 

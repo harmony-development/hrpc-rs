@@ -95,6 +95,9 @@ fn generate_trait<T: Service>(service: &T, proto_path: &str, server_trait: Ident
         pub trait #server_trait : Send + Sync + 'static {
             type Error: CustomError + Send + Sync + 'static;
 
+            /// Filter to be run before all API operations but after API path is matched,
+            /// for all endpoints.
+            #[allow(unused_variables)]
             fn middleware(&self, endpoint: &'static str) -> BoxedFilter<()> {
                 warp::any().boxed()
             }
@@ -120,13 +123,14 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
         let method_doc = generate_doc_comments(method.comment());
         let on_upgrade_method = quote! {
-            // Method that can be used to modify the response sent when the WebSocket is upgraded.
+            /// Method that can be used to modify the response sent when the WebSocket is upgraded.
             fn #on_upgrade_response_name(&self, response: Response) -> Response {
                 response
             }
         };
         let middleware_methods = quote! {
-            // Filter to be run before all API operations but after API path is matched.
+            /// Filter to be run before all API operations but after API path is matched.
+            #[allow(unused_variables)]
             fn #pre_name(&self, endpoint: &'static str) -> BoxedFilter<()> {
                 warp::any().boxed()
             }
@@ -143,7 +147,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 #on_upgrade_method
 
                 type #validation_value: Send + Sync;
-                // The message may be `None` or `Some`.
+                /// The message may be `None` or `Some`.
                 async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, Self::Error>;
 
                 #method_doc
@@ -155,7 +159,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 #on_upgrade_method
 
                 type #validation_value: Send + Sync;
-                // The message will always be `None`.
+                /// The message will always be `None`.
                 async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, Self::Error>;
 
                 #method_doc
