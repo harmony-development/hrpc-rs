@@ -95,6 +95,10 @@ fn generate_trait<T: Service>(service: &T, proto_path: &str, server_trait: Ident
         pub trait #server_trait : Send + Sync + 'static {
             type Error: CustomError + Send + Sync + 'static;
 
+            fn middleware(&self, endpoint: &'static str) -> BoxedFilter<()> {
+                warp::any().boxed()
+            }
+
             #methods
         }
     }
@@ -108,7 +112,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
         let name = quote::format_ident!("{}", method.name());
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
-        let pre_name = quote::format_ident!("{}_pre", name);
+        let pre_name = quote::format_ident!("{}_middleware", name);
         let validation_name = quote::format_ident!("{}_validation", name);
         let validation_value = quote::format_ident!("{}ValidationType", method.identifier());
 
@@ -123,7 +127,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
         };
         let middleware_methods = quote! {
             // Filter to be run before all API operations but after API path is matched.
-            fn #pre_name(&self) -> BoxedFilter<()> {
+            fn #pre_name(&self, endpoint: &'static str) -> BoxedFilter<()> {
                 warp::any().boxed()
             }
         };
@@ -172,7 +176,7 @@ fn generate_filters<T: Service>(service: &T, _proto_path: &str) -> (TokenStream,
     for (index, method) in service.methods().iter().enumerate() {
         let name = quote::format_ident!("{}", method.name());
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
-        let pre_name = quote::format_ident!("{}_pre", name);
+        let pre_name = quote::format_ident!("{}_middleware", name);
         let validation_name = quote::format_ident!("{}_validation", name);
 
         let package_name = format!(
@@ -188,6 +192,7 @@ fn generate_filters<T: Service>(service: &T, _proto_path: &str) -> (TokenStream,
         let method_name = method.identifier();
 
         let streaming = (method.client_streaming(), method.server_streaming());
+        let endpoint = format!("/{}/{}", package_name, method_name);
 
         let wrap_stream_handler = |code| {
             quote! {
@@ -196,7 +201,8 @@ fn generate_filters<T: Service>(service: &T, _proto_path: &str) -> (TokenStream,
                 let svr3 = server.clone();
                 #[allow(unused_mut)]
                 socket_common::base_filter(
-                    #package_name, #method_name, svr.#pre_name(),
+                    #package_name, #method_name,
+                    svr.middleware(#endpoint).and(svr.#pre_name(#endpoint)),
                     move |req| async move { svr2. #validation_name (req) .await },
                     move |reply| svr3. #on_upgrade_response_name (reply),
                     move |_val, _req, mut sock| async move { #code },
@@ -208,7 +214,8 @@ fn generate_filters<T: Service>(service: &T, _proto_path: &str) -> (TokenStream,
             let svr = server.clone();
             unary_common::base_filter(
                 #package_name, #method_name,
-                svr.#pre_name(), move |request| async move { svr. #name (request).await }
+                svr.middleware(#endpoint).and(svr.#pre_name(#endpoint)).boxed(),
+                move |request| async move { svr. #name (request).await },
             )
         };
 

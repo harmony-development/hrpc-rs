@@ -101,7 +101,16 @@ struct Server;
 impl mu_server::Mu for Server {
     type Error = ServerError;
 
-    fn mu_pre(&self) -> BoxedFilter<()> {
+    fn middleware(&self, endpoint: &'static str) -> BoxedFilter<()> {
+        warp::any()
+            .map(move || {
+                println!("got {} request", endpoint);
+            })
+            .untuple_one()
+            .boxed()
+    }
+
+    fn mu_middleware(&self, _endpoint: &'static str) -> BoxedFilter<()> {
         rate_limit(Rate::new(1, Duration::from_secs(5)), ServerError::TooFast).boxed()
     }
 
