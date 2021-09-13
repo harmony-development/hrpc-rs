@@ -137,7 +137,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
             (false, false) => quote! {
                 #middleware_methods
                 #method_doc
-                async fn #name(&self, request: Request<#req_message>) -> Result<#res_message, Self::Error>;
+                async fn #name(&self, request: Request<#req_message>) -> Result<#res_message, ServerError<Self::Error>>;
             },
             (false, true) => quote! {
                 #middleware_methods
@@ -145,7 +145,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
                 type #validation_value: Send + Sync;
                 /// The message may be `None` or `Some`.
-                async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, Self::Error>;
+                async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, ServerError<Self::Error>>;
 
                 #method_doc
                 async fn #name(&self, validation_value: Self::#validation_value, socket: Socket<#req_message, #res_message>);
@@ -157,7 +157,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
                 type #validation_value: Send + Sync;
                 /// The message will always be `None`.
-                async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, Self::Error>;
+                async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, ServerError<Self::Error>>;
 
                 #method_doc
                 async fn #name(&self, validation_value: Self::#validation_value, socket: Socket<#req_message, #res_message>);

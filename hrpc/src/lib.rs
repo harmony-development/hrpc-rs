@@ -1,7 +1,13 @@
 //! Common code used in hRPC code generation.
-use std::net::SocketAddr;
+use std::{
+    error::Error as StdError,
+    fmt::{self, Debug, Formatter},
+    net::SocketAddr,
+    pin::Pin,
+};
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
+use futures_util::StreamExt;
 use http::{header::HeaderName, HeaderValue};
 
 #[doc(inline)]
@@ -44,15 +50,103 @@ use http::HeaderMap;
 pub(crate) const HRPC_HEADER: &[u8] = b"application/hrpc";
 
 pub(crate) fn hrpc_header_value() -> HeaderValue {
-    unsafe {
-        http::HeaderValue::from_maybe_shared_unchecked(bytes::Bytes::from_static(HRPC_HEADER))
+    unsafe { http::HeaderValue::from_maybe_shared_unchecked(Bytes::from_static(HRPC_HEADER)) }
+}
+
+pub type BodyError = Box<dyn StdError + Send + Sync>;
+pub type BodyResult<T> = Result<T, BodyError>;
+pub type BodyStream = Pin<Box<dyn futures_util::Stream<Item = BodyResult<Bytes>> + Send + Sync>>;
+
+pub enum BodyKind<T> {
+    DecodedMessage(T),
+    Stream(BodyStream),
+}
+
+impl<T: prost::Message + Default> BodyKind<T> {
+    pub async fn into_message(self) -> BodyResult<Result<T, prost::DecodeError>> {
+        match self {
+            BodyKind::DecodedMessage(msg) => Ok(Ok(msg)),
+            BodyKind::Stream(mut body) => {
+                use bytes::{Buf, BufMut};
+
+                // If there's only 1 chunk, we can just return Buf::to_bytes()
+                let mut first = if let Some(buf) = body.next().await {
+                    buf?
+                } else {
+                    return Ok(Err(prost::DecodeError::new("no message in stream")));
+                };
+
+                let second = if let Some(buf) = body.next().await {
+                    buf?
+                } else {
+                    return Ok(T::decode(first.copy_to_bytes(first.remaining()).as_ref()));
+                };
+
+                // With more than 1 buf, we gotta flatten into a Vec first.
+                let cap = first.remaining() + second.remaining() + body.size_hint().0 as usize;
+                let mut vec = Vec::with_capacity(cap);
+                vec.put(first);
+                vec.put(second);
+
+                while let Some(buf) = body.next().await {
+                    vec.put(buf?);
+                }
+
+                Ok(T::decode(vec.as_slice()))
+            }
+        }
     }
 }
 
-#[derive(Debug, Clone)]
+impl<T: prost::Message + Default> BodyKind<Option<T>> {
+    pub async fn into_optional_message(self) -> BodyResult<Result<Option<T>, prost::DecodeError>> {
+        match self {
+            BodyKind::DecodedMessage(msg) => Ok(Ok(msg)),
+            BodyKind::Stream(mut body) => {
+                use bytes::{Buf, BufMut};
+
+                // If there's only 1 chunk, we can just return Buf::to_bytes()
+                let mut first = if let Some(buf) = body.next().await {
+                    buf?
+                } else {
+                    return Ok(Ok(None));
+                };
+
+                let second = if let Some(buf) = body.next().await {
+                    buf?
+                } else {
+                    return Ok(T::decode(first.copy_to_bytes(first.remaining()).as_ref()).map(Some));
+                };
+
+                // With more than 1 buf, we gotta flatten into a Vec first.
+                let cap = first.remaining() + second.remaining() + body.size_hint().0 as usize;
+                let mut vec = Vec::with_capacity(cap);
+                vec.put(first);
+                vec.put(second);
+
+                while let Some(buf) = body.next().await {
+                    vec.put(buf?);
+                }
+
+                Ok(T::decode(vec.as_slice()).map(Some))
+            }
+        }
+    }
+}
+
+impl<T: Debug> Debug for BodyKind<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BodyKind::DecodedMessage(msg) => msg.fmt(f),
+            BodyKind::Stream(_) => write!(f, "stream"),
+        }
+    }
+}
+
+#[derive(Debug)]
 /// A hRPC request.
 pub struct Request<T> {
-    message: T,
+    body: BodyKind<T>,
     header_map: HeaderMap,
     socket_addr: Option<SocketAddr>,
 }
@@ -63,7 +157,7 @@ impl<T> Request<T> {
     /// This adds the default "content-type" header used for hRPC unary requests.
     pub fn new(message: T) -> Self {
         Self {
-            message,
+            body: BodyKind::DecodedMessage(message),
             header_map: {
                 #[allow(clippy::mutable_key_type)]
                 let mut map: HeaderMap = HeaderMap::with_capacity(1);
@@ -79,7 +173,7 @@ impl<T> Request<T> {
     /// This is useful for hRPC socket requests, since they don't send any messages.
     pub fn empty() -> Request<()> {
         Request {
-            message: (),
+            body: BodyKind::DecodedMessage(()),
             header_map: HeaderMap::new(),
             socket_addr: None,
         }
@@ -91,39 +185,24 @@ impl<T> Request<T> {
         self
     }
 
-    /// Change the contained message.
-    pub fn message<S>(self, message: S) -> Request<S> {
+    /// Change the contained body.
+    pub fn body<S>(self, body: BodyKind<S>) -> Request<S> {
         let Request {
-            message: _,
+            body: _,
             header_map,
             socket_addr,
         } = self;
 
         Request {
-            message,
+            body,
             header_map,
             socket_addr,
         }
     }
 
-    /// Map the contained message.
-    pub fn map<S, Mapper: FnOnce(T) -> S>(self, f: Mapper) -> Request<S> {
-        let Request {
-            message,
-            header_map,
-            socket_addr,
-        } = self;
-
-        Request {
-            message: f(message),
-            header_map,
-            socket_addr,
-        }
-    }
-
-    /// Get a reference to the inner message.
-    pub const fn get_message(&self) -> &T {
-        &self.message
+    /// Get a reference to the body.
+    pub async fn get_body(&self) -> &BodyKind<T> {
+        &self.body
     }
 
     /// Get a reference to the inner header map.
@@ -144,14 +223,14 @@ impl<T> Request<T> {
     }
 
     /// Destructure this request into parts.
-    pub fn into_parts(self) -> (T, HeaderMap, Option<SocketAddr>) {
-        (self.message, self.header_map, self.socket_addr)
+    pub fn into_parts(self) -> (BodyKind<T>, HeaderMap, Option<SocketAddr>) {
+        (self.body, self.header_map, self.socket_addr)
     }
 
     /// Create a request from parts.
-    pub fn from_parts(parts: (T, HeaderMap, Option<SocketAddr>)) -> Self {
+    pub fn from_parts(parts: (BodyKind<T>, HeaderMap, Option<SocketAddr>)) -> Self {
         Self {
-            message: parts.0,
+            body: parts.0,
             header_map: parts.1,
             socket_addr: parts.2,
         }

@@ -150,12 +150,14 @@ pub mod prelude {
 #[doc(inline)]
 pub use warp::http::StatusCode;
 
+use crate::BodyError;
+
 #[doc(hidden)]
 pub mod unary_common {
     use super::{error, CustomError, ServerError};
-    use crate::Request;
+    use crate::{BodyKind, Request};
     use bytes::BytesMut;
-    use futures_util::{future, FutureExt};
+    use futures_util::{FutureExt, TryStreamExt};
     use std::{future::Future, net::SocketAddr};
     use warp::Filter;
 
@@ -171,7 +173,7 @@ pub mod unary_common {
         Resp: prost::Message,
         PreFunc: Filter<Extract = (), Error = warp::Rejection> + Send + Clone,
         Err: CustomError + 'static,
-        HandlerFut: Future<Output = Result<Resp, Err>> + Send,
+        HandlerFut: Future<Output = Result<Resp, ServerError<Err>>> + Send,
         Handler: FnOnce(Request<Req>) -> HandlerFut + Send + Clone,
     {
         warp::post()
@@ -182,27 +184,26 @@ pub mod unary_common {
                 "content-type",
                 "application/hrpc",
             ))
-            .and(warp::body::bytes())
-            .map(Req::decode)
-            .and_then(move |res: Result<Req, prost::DecodeError>| {
-                future::ready(res.map_err(|err| {
-                    error!("received invalid protobuf message: {}", pkg);
-                    warp::reject::custom(ServerError::<Err>::MessageDecode(err))
-                }))
-            })
+            .and(warp::body::body())
             .and(warp::header::headers_cloned())
             .and(warp::addr::remote())
-            .and_then(move |msg, headers, addr: Option<SocketAddr>| {
-                let handler = handler.clone();
-                let request = Request::from_parts((msg, headers, addr));
-                handler(request).map(encode)
-            })
+            .and_then(
+                move |body: warp::hyper::Body, headers, addr: Option<SocketAddr>| {
+                    let handler = handler.clone();
+                    let request = Request::from_parts((
+                        BodyKind::Stream(Box::pin(body.map_err(|err| err.into()))),
+                        headers,
+                        addr,
+                    ));
+                    handler(request).map(encode)
+                },
+            )
     }
 
     #[doc(hidden)]
     #[inline(always)]
     pub fn encode<Resp, Err>(
-        resp: Result<Resp, Err>,
+        resp: Result<Resp, ServerError<Err>>,
     ) -> Result<warp::reply::Response, warp::Rejection>
     where
         Resp: prost::Message,
@@ -219,7 +220,7 @@ pub mod unary_common {
             }
             Err(err) => {
                 error!("{}", err);
-                Err(warp::reject::custom(ServerError::Custom(err)))
+                Err(warp::reject::custom(err))
             }
         }
     }
@@ -227,11 +228,11 @@ pub mod unary_common {
 
 #[doc(hidden)]
 pub mod socket_common {
-    use crate::{HeaderMap, Request};
+    use crate::{BodyKind, HeaderMap, Request};
 
     use super::{CustomError, ServerError, Socket, SocketError};
     use futures_util::TryFutureExt;
-    use std::{future::Future, time::Duration};
+    use std::{future::Future, net::SocketAddr, time::Duration};
     use tracing::error;
     use warp::{ws::Ws, Filter, Reply};
 
@@ -261,7 +262,7 @@ pub mod socket_common {
         PreFunc: Filter<Extract = (), Error = warp::Rejection> + Send + Clone,
         Err: CustomError + 'static,
         ValidationValue: Send + 'static,
-        ValidationFut: Future<Output = Result<ValidationValue, Err>> + Send,
+        ValidationFut: Future<Output = Result<ValidationValue, ServerError<Err>>> + Send,
         Validation: FnOnce(Request<Option<Req>>) -> ValidationFut + Send + Clone,
         OnUpgrade: Fn(warp::reply::Response) -> warp::reply::Response + Send + Clone,
         HandlerFut: Future<Output = ()> + Send + 'static,
@@ -276,13 +277,23 @@ pub mod socket_common {
             .and(warp::ws())
             .and(warp::header::headers_cloned())
             .and(warp::addr::remote())
-            .and_then(move |ws: Ws, headers: HeaderMap, addr| {
-                let req = Request::from_parts((None, headers, addr));
-                let validation = (validation.clone())(req.clone());
-                validation
-                    .map_err(|err| warp::reject::custom(ServerError::Custom(err)))
-                    .map_ok(move |val| (val, req, ws))
-            })
+            .and_then(
+                move |ws: Ws, headers: HeaderMap, addr: Option<SocketAddr>| {
+                    let req = Request::from_parts((
+                        BodyKind::DecodedMessage(None),
+                        headers.clone(),
+                        addr,
+                    ));
+                    let validation = (validation.clone())(Request::from_parts((
+                        BodyKind::DecodedMessage(None),
+                        headers,
+                        addr,
+                    )));
+                    validation
+                        .map_err(warp::reject::custom)
+                        .map_ok(move |val| (val, req, ws))
+                },
+            )
             .untuple_one()
             .map(move |val, req: Request<Option<Req>>, ws: Ws| {
                 let handler = handler.clone();
@@ -305,7 +316,7 @@ pub mod socket_common {
     where
         Req: prost::Message + Default,
         Resp: prost::Message,
-        Fut: Future<Output = Result<Val, Err>>,
+        Fut: Future<Output = Result<Val, ServerError<Err>>>,
         Func: FnOnce(Request<Option<Req>>) -> Fut,
         Err: CustomError + 'static,
     {
@@ -313,7 +324,7 @@ pub mod socket_common {
             let message = sock.receive_message().await?;
 
             let (_, headers, addr) = req.into_parts();
-            let req = Request::from_parts((Some(message), headers, addr));
+            let req = Request::from_parts((BodyKind::DecodedMessage(Some(message)), headers, addr));
 
             match validator_func(req).await {
                 Ok(val) => Ok(val),
@@ -488,6 +499,10 @@ pub trait CustomError: Debug + Display + Send + Sync {
         StatusCode::BAD_REQUEST,
         r#"{ "message": "invalid protobuf message" }"#.as_bytes(),
     );
+    const MALFORMED_BODY: (StatusCode, &'static [u8]) = (
+        StatusCode::BAD_REQUEST,
+        r#"{ "message": "malformed body" }"#.as_bytes(),
+    );
     /// Status code and error body used to respond when a not found error occurs.
     const NOT_FOUND_ERROR: (StatusCode, &'static [u8]) = (
         StatusCode::NOT_FOUND,
@@ -598,6 +613,7 @@ impl From<warp::Error> for SocketError {
 #[derive(Debug)]
 pub enum ServerError<Err: CustomError> {
     MessageDecode(prost::DecodeError),
+    BodyDecode(BodyError),
     Custom(Err),
     Warp(warp::Rejection),
 }
@@ -606,6 +622,7 @@ impl<Err: CustomError> Display for ServerError<Err> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ServerError::MessageDecode(err) => write!(f, "invalid protobuf message: {}", err),
+            ServerError::BodyDecode(err) => write!(f, "body (stream) error: {}", err),
             ServerError::Custom(err) => write!(f, "error occured: {}", err),
             ServerError::Warp(err) => write!(f, "warp rejection: {:?}", err),
         }
@@ -616,6 +633,7 @@ impl<Err: CustomError + StdError + 'static> StdError for ServerError<Err> {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             ServerError::MessageDecode(err) => Some(err),
+            ServerError::BodyDecode(err) => Some(err.as_ref()),
             ServerError::Custom(err) => Some(err),
             ServerError::Warp(_) => None,
         }
@@ -642,6 +660,12 @@ impl<Err: CustomError> From<warp::Rejection> for ServerError<Err> {
     }
 }
 
+impl<Err: CustomError> From<BodyError> for ServerError<Err> {
+    fn from(err: BodyError) -> Self {
+        ServerError::BodyDecode(err)
+    }
+}
+
 #[doc(hidden)]
 pub async fn handle_rejection<Err: CustomError + 'static>(
     err: Rejection,
@@ -656,6 +680,7 @@ pub async fn handle_rejection<Err: CustomError + 'static>(
         if let Some(e) = rejection.find::<ServerError<Err>>() {
             match e {
                 ServerError::MessageDecode(_) => make_response(Err::DECODE_ERROR),
+                ServerError::BodyDecode(_) => make_response(Err::MALFORMED_BODY),
                 ServerError::Custom(err) => make_response((err.code(), err.message())),
                 ServerError::Warp(err) => find_error::<Err>(err),
             }

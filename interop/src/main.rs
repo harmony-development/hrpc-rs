@@ -2,12 +2,15 @@ use hrpc::{
     return_print,
     server::{
         filters::rate::{rate_limit, Rate},
-        json_err_bytes, Socket, StatusCode,
+        json_err_bytes, ServerError as HrpcServerError, Socket, StatusCode,
     },
-    warp::reply::Response,
+    warp::{
+        self,
+        reply::Response,
+        {filters::BoxedFilter, Filter},
+    },
     Request,
 };
-use warp::{filters::BoxedFilter, Filter};
 
 use std::{
     fmt::{self, Display, Formatter},
@@ -113,13 +116,14 @@ impl mu_server::Mu for Server {
         rate_limit(Rate::new(1, Duration::from_secs(5)), ServerError::TooFast).boxed()
     }
 
-    async fn mu(&self, request: Request<Ping>) -> Result<Pong, Self::Error> {
-        if request.get_message().mu.is_empty() {
-            return Err(ServerError::PingEmpty);
+    async fn mu(&self, request: Request<Ping>) -> Result<Pong, HrpcServerError<Self::Error>> {
+        let (body, _, _) = request.into_parts();
+        let msg = body.into_message().await??;
+
+        if msg.mu.is_empty() {
+            return Err(ServerError::PingEmpty.into());
         }
-        Ok(Pong {
-            mu: request.into_parts().0.mu,
-        })
+        Ok(Pong { mu: msg.mu })
     }
 
     fn mu_mute_on_upgrade(&self, response: Response) -> Response {
@@ -131,7 +135,7 @@ impl mu_server::Mu for Server {
     async fn mu_mute_validation(
         &self,
         _request: Request<Option<Ping>>,
-    ) -> Result<Self::MuMuteValidationType, Self::Error> {
+    ) -> Result<Self::MuMuteValidationType, HrpcServerError<Self::Error>> {
         Ok(())
     }
 
@@ -170,8 +174,13 @@ impl mu_server::Mu for Server {
     async fn mu_mu_validation(
         &self,
         request: Request<Option<Ping>>,
-    ) -> Result<Self::MuMuValidationType, Self::Error> {
-        Ok(request.into_parts().0.unwrap_or_default())
+    ) -> Result<Self::MuMuValidationType, HrpcServerError<Self::Error>> {
+        Ok(request
+            .into_parts()
+            .0
+            .into_optional_message()
+            .await??
+            .unwrap_or_default())
     }
 
     async fn mu_mu(&self, validation_value: Self::MuMuValidationType, _socket: Socket<Ping, Pong>) {

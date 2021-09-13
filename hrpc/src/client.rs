@@ -76,14 +76,20 @@ impl Client {
         mut req: Request<Req>,
     ) -> ClientResult<Resp> {
         let request = {
-            encode_protobuf_message_to(&mut self.buf, req.message);
             let mut request = UnaryRequest::new(
                 reqwest::Method::POST,
                 self.server
                     .join(path)
                     .expect("failed to form request URL, something must be terribly wrong"),
             );
-            *request.body_mut() = Some(self.buf.clone().freeze().into());
+            let body = match req.body {
+                BodyKind::DecodedMessage(msg) => {
+                    encode_protobuf_message_to(&mut self.buf, msg);
+                    self.buf.clone().freeze().into()
+                }
+                BodyKind::Stream(stream) => reqwest::Body::wrap_stream(stream),
+            };
+            *request.body_mut() = Some(body);
             (self.modify_request_headers)(&mut req.header_map);
             for (key, value) in req.header_map {
                 if let Some(key) = key {
@@ -209,8 +215,15 @@ impl Client {
     {
         let (message, headers, url) = request.into_parts();
         let socket = self
-            .connect_socket(path, Request::from_parts(((), headers, url)))
+            .connect_socket(
+                path,
+                Request::from_parts((BodyKind::DecodedMessage(()), headers, url)),
+            )
             .await?;
+        let message = message
+            .into_message()
+            .await
+            .map_err(|err| ClientError::BodyError(err))??;
         socket.send_message(message).await?;
 
         Ok(socket)
@@ -390,6 +403,8 @@ mod error {
     };
     use tokio_tungstenite::tungstenite;
 
+    use crate::BodyError;
+
     /// Convenience type for `Client` operation result.
     pub type ClientResult<T> = Result<T, ClientError>;
 
@@ -414,6 +429,8 @@ mod error {
         InvalidUrl(InvalidUrlKind),
         /// Occurs if an IO error is returned.
         Io(std::io::Error),
+        /// Occurs if a `Request` body cannot be streamed properly.
+        BodyError(BodyError),
     }
 
     impl Display for ClientError {
@@ -444,7 +461,14 @@ mod error {
                 ),
                 ClientError::InvalidUrl(err) => write!(f, "invalid base URL: {}", err),
                 ClientError::Io(err) => write!(f, "io error: {}", err),
+                ClientError::BodyError(err) => write!(f, "body error: {}", err),
             }
+        }
+    }
+
+    impl From<BodyError> for ClientError {
+        fn from(err: BodyError) -> Self {
+            ClientError::BodyError(err)
         }
     }
 
@@ -480,6 +504,7 @@ mod error {
                 ClientError::Reqwest(err) => Some(err),
                 ClientError::SocketError(err) => Some(err),
                 ClientError::Io(err) => Some(err),
+                ClientError::BodyError(err) => Some(err.as_ref()),
                 _ => None,
             }
         }
