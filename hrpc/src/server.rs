@@ -673,6 +673,7 @@ impl StdError for SocketError {
 pub enum ServerError<Err: CustomError> {
     MessageDecode(prost::DecodeError),
     Custom(Err),
+    Warp(warp::Rejection),
 }
 
 impl<Err: CustomError> Display for ServerError<Err> {
@@ -680,6 +681,7 @@ impl<Err: CustomError> Display for ServerError<Err> {
         match self {
             ServerError::MessageDecode(err) => write!(f, "invalid protobuf message: {}", err),
             ServerError::Custom(err) => write!(f, "error occured: {}", err),
+            ServerError::Warp(err) => write!(f, "warp rejection: {:?}", err),
         }
     }
 }
@@ -689,6 +691,7 @@ impl<Err: CustomError + StdError + 'static> StdError for ServerError<Err> {
         match self {
             ServerError::MessageDecode(err) => Some(err),
             ServerError::Custom(err) => Some(err),
+            ServerError::Warp(_) => None,
         }
     }
 }
@@ -707,6 +710,12 @@ impl<Err: CustomError> From<prost::DecodeError> for ServerError<Err> {
     }
 }
 
+impl<Err: CustomError> From<warp::Rejection> for ServerError<Err> {
+    fn from(err: warp::Rejection) -> Self {
+        ServerError::Warp(err)
+    }
+}
+
 #[doc(hidden)]
 pub async fn handle_rejection<Err: CustomError + 'static>(
     err: Rejection,
@@ -717,19 +726,24 @@ pub async fn handle_rejection<Err: CustomError + 'static>(
         reply
     }
 
-    let reply = if let Some(e) = err.find::<ServerError<Err>>() {
-        match e {
-            ServerError::MessageDecode(_) => make_response(Err::DECODE_ERROR),
-            ServerError::Custom(err) => make_response((err.code(), err.message())),
+    fn find_error<Err: CustomError + 'static>(rejection: &Rejection) -> WarpResponse {
+        if let Some(e) = rejection.find::<ServerError<Err>>() {
+            match e {
+                ServerError::MessageDecode(_) => make_response(Err::DECODE_ERROR),
+                ServerError::Custom(err) => make_response((err.code(), err.message())),
+                ServerError::Warp(err) => find_error::<Err>(err),
+            }
+        } else if rejection.is_not_found() {
+            make_response(Err::NOT_FOUND_ERROR)
+        } else if rejection.find::<warp::reject::MethodNotAllowed>().is_some() {
+            make_response(Err::METHOD_NOT_ALLOWED)
+        } else {
+            error!("unhandled rejection: {:?}", rejection);
+            make_response(Err::INTERNAL_SERVER_ERROR)
         }
-    } else if err.is_not_found() {
-        make_response(Err::NOT_FOUND_ERROR)
-    } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
-        make_response(Err::METHOD_NOT_ALLOWED)
-    } else {
-        error!("unhandled rejection: {:?}", err);
-        make_response(Err::INTERNAL_SERVER_ERROR)
-    };
+    }
+
+    let reply = find_error::<Err>(&err);
 
     Ok(reply)
 }
