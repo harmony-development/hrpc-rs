@@ -372,6 +372,16 @@ impl<Req: prost::Message + Default, Resp: prost::Message> SocketArc<Req, Resp> {
     pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
         self.write.send_message(resp).await
     }
+
+    /// Close this socket.
+    pub async fn close(self) -> Result<(), SocketError> {
+        self.write.close().await
+    }
+
+    /// Is this socket closed?
+    pub async fn is_closed(&self) -> bool {
+        self.read.is_closed().await
+    }
 }
 
 /// A web socket.
@@ -419,6 +429,16 @@ impl<Req: prost::Message + Default, Resp: prost::Message> Socket<Req, Resp> {
     pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
         self.write.send_message(resp).await
     }
+
+    /// Close this socket.
+    pub async fn close(self) -> Result<(), SocketError> {
+        self.write.close().await
+    }
+
+    /// Is this socket closed?
+    pub fn is_closed(&self) -> bool {
+        self.read.is_closed()
+    }
 }
 
 /// A clonable read only socket.
@@ -434,6 +454,11 @@ impl<Req: prost::Message + Default> ReadSocketArc<Req> {
     pub async fn receive_message(&self) -> Result<Option<Req>, SocketError> {
         self.inner.lock().await.receive_message().await
     }
+
+    /// Is this socket closed?
+    pub async fn is_closed(&self) -> bool {
+        self.inner.lock().await.is_closed
+    }
 }
 
 /// A read only socket.
@@ -441,6 +466,7 @@ impl<Req: prost::Message + Default> ReadSocketArc<Req> {
 pub struct ReadSocket<Req: prost::Message + Default> {
     rx: SplitStream<WebSocket>,
     _req: PhantomData<Req>,
+    is_closed: bool,
 }
 
 impl<Req: prost::Message + Default> ReadSocket<Req> {
@@ -448,6 +474,7 @@ impl<Req: prost::Message + Default> ReadSocket<Req> {
         Self {
             rx,
             _req: PhantomData,
+            is_closed: false,
         }
     }
 
@@ -476,10 +503,16 @@ impl<Req: prost::Message + Default> ReadSocket<Req> {
                     .map(Some)
                     .map_err(SocketError::MessageDecode);
             } else if msg.is_close() {
+                self.is_closed = true;
                 return Err(SocketError::ClosedNormally);
             }
         }
         Ok(None)
+    }
+
+    /// Is this socket closed?
+    pub fn is_closed(&self) -> bool {
+        self.is_closed
     }
 }
 
@@ -495,6 +528,16 @@ impl<Resp: prost::Message> WriteSocketArc<Resp> {
     /// Send a message over the socket.
     pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
         internal_send_message(&mut self.buf, &mut *self.tx.lock().await, resp).await
+    }
+
+    /// Close this socket.
+    pub async fn close(self) -> Result<(), SocketError> {
+        self.tx
+            .lock()
+            .await
+            .close()
+            .await
+            .map_err(SocketError::Other)
     }
 }
 
@@ -537,6 +580,11 @@ impl<Resp: prost::Message> WriteSocket<Resp> {
     /// Send a message over the socket.
     pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
         internal_send_message(&mut self.buf, &mut self.tx, resp).await
+    }
+
+    /// Close this socket.
+    pub async fn close(mut self) -> Result<(), SocketError> {
+        self.tx.close().await.map_err(SocketError::Other)
     }
 }
 

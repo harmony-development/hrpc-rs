@@ -151,7 +151,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, Self::Error>;
 
                 #method_doc
-                async fn #name(&self, validation_value: Self::#validation_value, socket: WriteSocket<#res_message>);
+                async fn #name(&self, validation_value: Self::#validation_value, socket: Socket<#req_message, #res_message>);
             },
             (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
             (true, true) => quote! {
@@ -228,7 +228,7 @@ fn generate_filters<T: Service>(service: &T, _proto_path: &str) -> (TokenStream,
             (false, true) => wrap_stream_handler(quote! {
                 hrpc::return_print!(
                     socket_common::validator(_req, &mut sock, |req| svr. #validation_name (req)).await,
-                    |val| svr. #name (val, sock.split().1).await
+                    |val| svr. #name (val, sock).await
                 );
             }),
             (true, false) => panic!(

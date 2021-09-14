@@ -2,7 +2,7 @@ use hrpc::{
     return_print,
     server::{
         filters::rate::{rate_limit, Rate},
-        json_err_bytes, Socket, StatusCode, WriteSocket,
+        json_err_bytes, Socket, StatusCode,
     },
     warp::reply::Response,
     Request,
@@ -179,7 +179,7 @@ impl mu_server::Mu for Server {
         Ok(request.into_parts().0.unwrap_or_default())
     }
 
-    async fn mu_mu(&self, validation_value: Self::MuMuValidationType, _socket: WriteSocket<Pong>) {
+    async fn mu_mu(&self, validation_value: Self::MuMuValidationType, _socket: Socket<Ping, Pong>) {
         println!("mu_mu: {:?}", validation_value);
     }
 }
