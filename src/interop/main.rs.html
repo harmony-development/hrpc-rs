@@ -218,7 +218,7 @@
     <span class="ident">return_print</span>,
     <span class="ident">server</span>::{
         <span class="ident">filters::rate</span>::{<span class="ident">rate_limit</span>, <span class="ident">Rate</span>},
-        <span class="ident">json_err_bytes</span>, <span class="ident">Socket</span>, <span class="ident">StatusCode</span>, <span class="ident">WriteSocket</span>,
+        <span class="ident">json_err_bytes</span>, <span class="ident">Socket</span>, <span class="ident">StatusCode</span>,
     },
     <span class="ident">warp::reply::Response</span>,
     <span class="ident">Request</span>,
@@ -395,7 +395,7 @@
         <span class="prelude-val">Ok</span>(<span class="ident">request</span>.<span class="ident">into_parts</span>().<span class="number">0</span>.<span class="ident">unwrap_or_default</span>())
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu_mu</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">validation_value</span>: <span class="self">Self</span><span class="ident">::MuMuValidationType</span>, <span class="ident">_socket</span>: <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Pong</span><span class="op">&gt;</span>) {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu_mu</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">validation_value</span>: <span class="self">Self</span><span class="ident">::MuMuValidationType</span>, <span class="ident">_socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Ping</span>, <span class="ident">Pong</span><span class="op">&gt;</span>) {
         <span class="macro">println!</span>(<span class="string">&quot;mu_mu: {:?}&quot;</span>, <span class="ident">validation_value</span>);
     }
 }
