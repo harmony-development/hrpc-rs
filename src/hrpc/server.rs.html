@@ -687,6 +687,17 @@
 <span id="687">687</span>
 <span id="688">688</span>
 <span id="689">689</span>
+<span id="690">690</span>
+<span id="691">691</span>
+<span id="692">692</span>
+<span id="693">693</span>
+<span id="694">694</span>
+<span id="695">695</span>
+<span id="696">696</span>
+<span id="697">697</span>
+<span id="698">698</span>
+<span id="699">699</span>
+<span id="700">700</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">prelude</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -1008,7 +1019,7 @@
                 <span class="prelude-val">Ok</span>(<span class="ident">val</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">val</span>),
                 <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="macro">error!</span>(<span class="string">&quot;socket validation error: {}&quot;</span>, <span class="ident">err</span>);
-                    <span class="prelude-val">Err</span>(<span class="ident">SocketError::ClosedNormally</span>)
+                    <span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)
                 }
             }
         };
@@ -1017,7 +1028,7 @@
             .<span class="kw">await</span>
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
                 <span class="macro">error!</span>(<span class="string">&quot;socket validation request error: timeout&quot;</span>);
-                <span class="ident">SocketError::ClosedNormally</span>
+                <span class="ident">SocketError::Closed</span>
             })<span class="question-mark">?</span>
     }
 }
@@ -1055,7 +1066,7 @@
                                     <span class="ident">Req::decode</span>(<span class="ident">msg_bin</span>)
                                         .<span class="ident">map_err</span>(<span class="ident">SocketError::MessageDecode</span>)
                                 } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">is_close</span>() {
-                                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::ClosedNormally</span>)).<span class="kw">await</span>;
+                                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)).<span class="kw">await</span>;
                                     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
                                     <span class="kw">break</span>;
                                 } <span class="kw">else</span> {
@@ -1063,7 +1074,13 @@
                                 };
                                 <span class="ident">res</span>
                             }
-                            <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError::Other</span>(<span class="ident">err</span>)),
+                            <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">if</span> <span class="ident">err</span>.<span class="ident">to_string</span>().<span class="ident">contains</span>(<span class="string">&quot;Connection reset&quot;</span>) {
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)).<span class="kw">await</span>;
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
+                                <span class="kw">break</span>;
+                            } <span class="kw">else</span> {
+                                <span class="prelude-val">Err</span>(<span class="ident">SocketError::Other</span>(<span class="ident">err</span>))
+                            },
                         };
                         <span class="kw">if</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="ident">resp</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
                             <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
@@ -1078,6 +1095,11 @@
 
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">send</span>(<span class="ident">WsMessage::binary</span>(<span class="ident">resp</span>)).<span class="kw">await</span> {
                             <span class="macro">error!</span>(<span class="string">&quot;socket send error: {}&quot;</span>, <span class="ident">e</span>);
+                            <span class="kw">if</span> <span class="ident">e</span>.<span class="ident">to_string</span>().<span class="ident">contains</span>(<span class="string">&quot;Connection reset&quot;</span>) {
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)).<span class="kw">await</span>;
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
+                                <span class="kw">break</span>;
+                            }
                         } <span class="kw">else</span> {
                             <span class="macro">debug!</span>(<span class="string">&quot;responded to client socket&quot;</span>);
                         }
@@ -1108,12 +1130,12 @@
     <span class="doccomment">/// This will block until getting a message if the socket is not closed.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">SocketError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_closed</span>() {
-            <span class="prelude-val">Err</span>(<span class="ident">SocketError::ClosedNormally</span>)
+            <span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)
         } <span class="kw">else</span> {
             <span class="self">self</span>.<span class="ident">rx</span>
                 .<span class="ident">recv_async</span>()
                 .<span class="kw">await</span>
-                .<span class="ident">unwrap_or</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::ClosedNormally</span>))
+                .<span class="ident">unwrap_or</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>))
         }
     }
 
@@ -1122,7 +1144,7 @@
     <span class="doccomment">/// This will block if the inner send buffer is filled.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">resp</span>: <span class="ident">Resp</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_closed</span>() <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">send_async</span>(<span class="ident">resp</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
-            <span class="prelude-val">Err</span>(<span class="ident">SocketError::ClosedNormally</span>)
+            <span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)
         } <span class="kw">else</span> {
             <span class="prelude-val">Ok</span>(())
         }
@@ -1184,7 +1206,7 @@
 <span class="macro">macro_rules!</span> <span class="ident">return_closed</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">result</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {{
         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">result</span>;
-        <span class="kw">if</span> <span class="macro">matches!</span>(<span class="ident">res</span>, <span class="prelude-val">Err</span>(<span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::server::SocketError::ClosedNormally</span>)) {
+        <span class="kw">if</span> <span class="macro">matches!</span>(<span class="ident">res</span>, <span class="prelude-val">Err</span>(<span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::server::SocketError::Closed</span>)) {
             <span class="kw">return</span>;
         } <span class="kw">else</span> {
             <span class="ident">res</span>
@@ -1217,7 +1239,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SocketError</span> {
     <span class="doccomment">/// The socket is closed normally. This is NOT an error.</span>
-    <span class="ident">ClosedNormally</span>,
+    <span class="ident">Closed</span>,
     <span class="doccomment">/// Error occured while decoding protobuf data.</span>
     <span class="ident">MessageDecode</span>(<span class="ident">prost::DecodeError</span>),
     <span class="doccomment">/// Some error occured in socket.</span>
@@ -1227,7 +1249,7 @@
 <span class="kw">impl</span> <span class="ident">Display</span> <span class="kw">for</span> <span class="ident">SocketError</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">SocketError::ClosedNormally</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;socket closed normally&quot;</span>),
+            <span class="ident">SocketError::Closed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;socket closed normally&quot;</span>),
             <span class="ident">SocketError::Other</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;error occured in socket: {}&quot;</span>, <span class="ident">err</span>),
             <span class="ident">SocketError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;invalid protobuf message: {}&quot;</span>, <span class="ident">err</span>),
         }
@@ -1237,7 +1259,7 @@
 <span class="kw">impl</span> <span class="ident">StdError</span> <span class="kw">for</span> <span class="ident">SocketError</span> {
     <span class="kw">fn</span> <span class="ident">source</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">StdError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>)<span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">SocketError::ClosedNormally</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+            <span class="ident">SocketError::Closed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
             <span class="ident">SocketError::Other</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
             <span class="ident">SocketError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
         }

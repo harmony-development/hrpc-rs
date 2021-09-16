@@ -469,6 +469,21 @@
 <span id="469">469</span>
 <span id="470">470</span>
 <span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Formatter</span>},
@@ -722,7 +737,11 @@
                                     <span class="ident">Message::Binary</span>(<span class="ident">raw</span>) <span class="op">=</span><span class="op">&gt;</span> {
                                         <span class="ident">Resp::decode</span>(<span class="ident">Bytes::from</span>(<span class="ident">raw</span>)).<span class="ident">map_err</span>(<span class="ident">Into::into</span>)
                                     }
-                                    <span class="ident">Message::Close</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">tungstenite::Error::ConnectionClosed</span>.<span class="ident">into</span>()),
+                                    <span class="ident">Message::Close</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                                        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">tungstenite::Error::ConnectionClosed</span>.<span class="ident">into</span>())).<span class="kw">await</span>;
+                                        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span>;
+                                        <span class="kw">break</span>;
+                                    },
                                     <span class="ident">Message::Ping</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> {
                                         <span class="kw">let</span> <span class="ident">pong_res</span> <span class="op">=</span> <span class="ident">ws</span>
                                             .<span class="ident">send</span>(<span class="ident">tungstenite::Message::Pong</span>(<span class="ident">data</span>))
@@ -736,7 +755,13 @@
                                     <span class="ident">Message::Pong</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Message::Text</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">continue</span>,
                                 }
                             }
-                            <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">err</span>)),
+                            <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">tungstenite::Error::ConnectionClosed</span> <span class="op">|</span> <span class="ident">tungstenite::Error::AlreadyClosed</span> <span class="op">=</span> <span class="ident">err</span> {
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">err</span>))).<span class="kw">await</span>;
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span>;
+                                <span class="kw">break</span>;
+                            } <span class="kw">else</span> {
+                                <span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">err</span>))
+                            },
                         };
                         <span class="kw">if</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="ident">resp</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
                             <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span>;
@@ -751,6 +776,11 @@
 
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">send</span>(<span class="ident">tungstenite::Message::binary</span>(<span class="ident">resp</span>)).<span class="kw">await</span> {
                             <span class="macro">error!</span>(<span class="string">&quot;socket send error: {}&quot;</span>, <span class="ident">e</span>);
+                            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">tungstenite::Error::ConnectionClosed</span> <span class="op">|</span> <span class="ident">tungstenite::Error::AlreadyClosed</span> <span class="op">=</span> <span class="ident">e</span> {
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">e</span>))).<span class="kw">await</span>;
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span>;
+                                <span class="kw">break</span>;
+                            }
                         } <span class="kw">else</span> {
                             <span class="macro">debug!</span>(<span class="string">&quot;responded to server socket&quot;</span>);
                         }
