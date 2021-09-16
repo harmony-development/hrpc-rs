@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["ReadSocket","A read-only version of [`Socket`]."],["Socket","A websocket, wrapped for ease of use with protobuf messages."]]});

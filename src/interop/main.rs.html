@@ -208,11 +208,6 @@
 <span id="208">208</span>
 <span id="209">209</span>
 <span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
-<span id="215">215</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">hrpc</span>::{
     <span class="ident">return_print</span>,
@@ -261,7 +256,7 @@
     <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">client</span>.<span class="ident">mu</span>(<span class="ident">Ping</span> { <span class="ident">mu</span>: <span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>() }).<span class="kw">await</span>;
     <span class="macro">println!</span>(<span class="string">&quot;{:#?}&quot;</span>, <span class="ident">resp</span>);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">client</span>.<span class="ident">mu_mute</span>(()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">client</span>.<span class="ident">mu_mute</span>(()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">client</span>.<span class="ident">mu_mu</span>(<span class="ident">Ping::default</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
 
     <span class="ident">tokio::spawn</span>({
@@ -269,13 +264,12 @@
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">loop</span> {
                 <span class="kw">let</span> <span class="ident">ins</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
-                <span class="kw">match</span> <span class="ident">socket</span>.<span class="ident">get_message</span>().<span class="kw">await</span> {
-                    <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(<span class="ident">msg</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">match</span> <span class="ident">socket</span>.<span class="ident">receive_message</span>().<span class="kw">await</span> {
+                    <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">println!</span>(<span class="string">&quot;got in {}&quot;</span>, <span class="ident">ins</span>.<span class="ident">elapsed</span>().<span class="ident">as_secs_f64</span>());
                         <span class="macro">println!</span>(<span class="string">&quot;{:#?}&quot;</span>, <span class="ident">msg</span>);
                     }
-                    <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="kw">_</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">break</span>,
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {}
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">break</span>,
                 }
             }
         }
@@ -301,7 +295,7 @@
         <span class="ident">tokio::time::sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
     }
 
-    <span class="ident">socket</span>.<span class="ident">close</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
+    <span class="ident">socket</span>.<span class="ident">close</span>().<span class="kw">await</span>;
 }
 
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">server</span>() {
@@ -357,16 +351,14 @@
         <span class="ident">_validation_value</span>: <span class="self">Self</span><span class="ident">::MuMuteValidationType</span>,
         <span class="ident">sock</span>: <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Ping</span>, <span class="ident">Pong</span><span class="op">&gt;</span>,
     ) {
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">rs</span>, <span class="ident">ws</span>) <span class="op">=</span> <span class="ident">sock</span>.<span class="ident">split</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ws</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">clonable</span>();
         <span class="kw">let</span> <span class="ident">periodic_task</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ws</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">clone</span>();
+            <span class="kw">let</span> <span class="ident">sock</span> <span class="op">=</span> <span class="ident">sock</span>.<span class="ident">clone</span>();
             <span class="kw">async</span> <span class="kw">move</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">int</span> <span class="op">=</span> <span class="ident">tokio::time::interval</span>(<span class="ident">Duration::from_secs</span>(<span class="number">10</span>));
                 <span class="kw">loop</span> {
                     <span class="ident">int</span>.<span class="ident">tick</span>().<span class="kw">await</span>;
                     <span class="macro">return_print!</span>(
-                        <span class="ident">ws</span>.<span class="ident">send_message</span>(<span class="ident">Pong</span> {
+                        <span class="ident">sock</span>.<span class="ident">send_message</span>(<span class="ident">Pong</span> {
                             <span class="ident">mu</span>: <span class="string">&quot;been 10 seconds&quot;</span>.<span class="ident">to_string</span>(),
                         })
                         .<span class="kw">await</span>
@@ -376,10 +368,8 @@
         };
         <span class="kw">let</span> <span class="ident">recv_task</span> <span class="op">=</span> <span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">loop</span> {
-                <span class="macro">return_print!</span>(<span class="ident">rs</span>.<span class="ident">receive_message</span>().<span class="kw">await</span>, <span class="op">|</span><span class="ident">maybe_req</span><span class="op">|</span> {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">req</span>) <span class="op">=</span> <span class="ident">maybe_req</span> {
-                        <span class="macro">return_print!</span>(<span class="ident">ws</span>.<span class="ident">send_message</span>(<span class="ident">Pong</span> { <span class="ident">mu</span>: <span class="ident">req</span>.<span class="ident">mu</span> }).<span class="kw">await</span>);
-                    }
+                <span class="macro">return_print!</span>(<span class="ident">sock</span>.<span class="ident">receive_message</span>().<span class="kw">await</span>, <span class="op">|</span><span class="ident">req</span><span class="op">|</span> {
+                    <span class="macro">return_print!</span>(<span class="ident">sock</span>.<span class="ident">send_message</span>(<span class="ident">Pong</span> { <span class="ident">mu</span>: <span class="ident">req</span>.<span class="ident">mu</span> }).<span class="kw">await</span>);
                 });
             }
         };
