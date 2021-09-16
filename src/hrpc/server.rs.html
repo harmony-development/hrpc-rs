@@ -1056,7 +1056,7 @@
         <span class="kw">let</span> (<span class="ident">close_chan_tx</span>, <span class="ident">close_chan_rx</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">1</span>);
         <span class="ident">tokio::spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">BytesMut::new</span>();
-            <span class="kw">loop</span> {
+            <span class="lifetime">&#39;outer</span>: <span class="kw">loop</span> {
                 <span class="macro">tokio::select!</span> {
                     <span class="prelude-val">Some</span>(<span class="ident">res_msg</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">next</span>() <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">res_msg</span> {
@@ -1068,7 +1068,7 @@
                                 } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">is_close</span>() {
                                     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)).<span class="kw">await</span>;
                                     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
-                                    <span class="kw">break</span>;
+                                    <span class="kw">break</span> <span class="lifetime">&#39;outer</span>;
                                 } <span class="kw">else</span> {
                                     <span class="macro">unreachable!</span>(<span class="string">&quot;we handled everything&quot;</span>);
                                 };
@@ -1077,14 +1077,14 @@
                             <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">if</span> <span class="ident">err</span>.<span class="ident">to_string</span>().<span class="ident">contains</span>(<span class="string">&quot;Connection reset&quot;</span>) {
                                 <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)).<span class="kw">await</span>;
                                 <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
-                                <span class="kw">break</span>;
+                                <span class="kw">break</span> <span class="lifetime">&#39;outer</span>;
                             } <span class="kw">else</span> {
                                 <span class="prelude-val">Err</span>(<span class="ident">SocketError::Other</span>(<span class="ident">err</span>))
                             },
                         };
                         <span class="kw">if</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="ident">resp</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
                             <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
-                            <span class="kw">break</span>;
+                            <span class="kw">break</span> <span class="lifetime">&#39;outer</span>;
                         }
                     }
                     <span class="prelude-val">Ok</span>(<span class="ident">resp</span>) <span class="op">=</span> <span class="ident">send_msg_rx</span>.<span class="ident">recv_async</span>() <span class="op">=</span><span class="op">&gt;</span> {
@@ -1098,7 +1098,7 @@
                             <span class="kw">if</span> <span class="ident">e</span>.<span class="ident">to_string</span>().<span class="ident">contains</span>(<span class="string">&quot;Connection reset&quot;</span>) {
                                 <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)).<span class="kw">await</span>;
                                 <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
-                                <span class="kw">break</span>;
+                                <span class="kw">break</span> <span class="lifetime">&#39;outer</span>;
                             }
                         } <span class="kw">else</span> {
                             <span class="macro">debug!</span>(<span class="string">&quot;responded to client socket&quot;</span>);
@@ -1110,7 +1110,7 @@
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span> {
                             <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Other</span>(<span class="ident">err</span>))).<span class="kw">await</span>;
                         }
-                        <span class="kw">break</span>;
+                        <span class="kw">break</span> <span class="lifetime">&#39;outer</span>;
                     }
                     <span class="kw">else</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">std::hint::spin_loop</span>(),
                 }
