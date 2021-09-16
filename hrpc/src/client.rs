@@ -306,7 +306,7 @@ where
                         }
                         return;
                     }
-                    else => std::hint::spin_loop(),
+                    else => tokio::task::yield_now().await,
                 }
             }
         });

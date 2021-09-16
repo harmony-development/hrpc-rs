@@ -362,8 +362,7 @@ where
                             Ok(msg) => {
                                 let res = if msg.is_binary() || msg.is_text() {
                                     let msg_bin = Bytes::from(msg.into_bytes());
-                                    Req::decode(msg_bin)
-                                        .map_err(SocketError::MessageDecode)
+                                    Req::decode(msg_bin).map_err(SocketError::MessageDecode)
                                 } else if msg.is_close() {
                                     let _ = recv_msg_tx.send_async(Err(SocketError::Closed)).await;
                                     let _ = ws.close().await;
@@ -373,13 +372,11 @@ where
                                 };
                                 res
                             }
-                            Err(err) => if err.to_string().contains("Connection reset") {
-                                let _ = recv_msg_tx.send_async(Err(SocketError::Closed)).await;
+                            Err(err) => {
+                                let _ = recv_msg_tx.send_async(Err(SocketError::Other(err))).await;
                                 let _ = ws.close().await;
                                 return;
-                            } else {
-                                Err(SocketError::Other(err))
-                            },
+                            }
                         };
                         if recv_msg_tx.send_async(resp).await.is_err() {
                             let _ = ws.close().await;
@@ -394,11 +391,8 @@ where
 
                         if let Err(e) = ws.send(WsMessage::binary(resp)).await {
                             error!("socket send error: {}", e);
-                            if e.to_string().contains("Connection reset") {
-                                let _ = recv_msg_tx.send_async(Err(SocketError::Closed)).await;
-                                let _ = ws.close().await;
-                                return;
-                            }
+                            let _ = ws.close().await;
+                            return;
                         } else {
                             debug!("responded to client socket");
                         }
@@ -411,7 +405,7 @@ where
                         }
                         return;
                     }
-                    else => std::hint::spin_loop(),
+                    else => tokio::task::yield_now().await,
                 }
             }
         });
