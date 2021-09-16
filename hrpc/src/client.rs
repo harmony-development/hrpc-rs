@@ -5,8 +5,10 @@ use std::{
 
 use super::*;
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
+use futures_util::{SinkExt, StreamExt};
 use tokio_rustls::webpki::DNSNameRef;
+use tracing::{debug, error};
 use url::Url;
 
 #[doc(inline)]
@@ -128,10 +130,10 @@ impl Client {
         &self,
         path: &str,
         mut req: Request<()>,
-    ) -> ClientResult<socket::Socket<Req, Resp>>
+    ) -> ClientResult<Socket<Req, Resp>>
     where
-        Req: prost::Message,
-        Resp: prost::Message + Default,
+        Req: prost::Message + 'static,
+        Resp: prost::Message + Default + 'static,
     {
         let mut url = self.server.join(path).unwrap();
         url.set_scheme(match url.scheme() {
@@ -189,7 +191,7 @@ impl Client {
 
         let inner = tokio_tungstenite::client_async(request, stream).await?.0;
 
-        Ok(socket::Socket::new(inner))
+        Ok(Socket::new(inner))
     }
 
     /// Connect a socket with the server, send a message and return it.
@@ -199,183 +201,149 @@ impl Client {
         &self,
         path: &str,
         request: Request<Req>,
-    ) -> ClientResult<socket::ReadSocket<Req, Resp>>
+    ) -> ClientResult<Socket<Req, Resp>>
     where
-        Req: prost::Message,
-        Resp: prost::Message + Default,
+        Req: prost::Message + Default + 'static,
+        Resp: prost::Message + Default + 'static,
     {
         let (message, headers, url) = request.into_parts();
-        let mut socket = self
+        let socket = self
             .connect_socket(path, Request::from_parts(((), headers, url)))
             .await?;
         socket.send_message(message).await?;
 
-        Ok(socket.read_only())
+        Ok(socket)
     }
 }
 
-/// Socket implementations.
-pub mod socket {
-    use super::{encode_protobuf_message_to, tungstenite, ClientResult, WebSocketStream};
-    use bytes::{Bytes, BytesMut};
-    use futures_util::{
-        stream::{SplitSink, SplitStream},
-        StreamExt,
-    };
-    use std::{
-        fmt::{self, Debug, Formatter},
-        marker::PhantomData,
-        sync::Arc,
-    };
-    use tokio::sync::Mutex;
+/// A websocket, wrapped for ease of use with protobuf messages.
+#[derive(Debug, Clone)]
+pub struct Socket<Req, Resp>
+where
+    Req: prost::Message,
+    Resp: prost::Message + Default,
+{
+    rx: flume::Receiver<Result<Resp, ClientError>>,
+    tx: flume::Sender<Req>,
+    close_chan: flume::Sender<()>,
+}
 
-    /// A websocket, wrapped for ease of use with protobuf messages.
-    pub struct Socket<Req, Resp>
-    where
-        Req: prost::Message,
-        Resp: prost::Message + Default,
-    {
-        data: Arc<SocketData>,
-        buf: BytesMut,
-        _msg: PhantomData<Req>,
-        _resp: PhantomData<Resp>,
-    }
+impl<Req, Resp> Socket<Req, Resp>
+where
+    Req: prost::Message + 'static,
+    Resp: prost::Message + Default + 'static,
+{
+    pub(super) fn new(mut ws: WebSocketStream) -> Self {
+        let (recv_msg_tx, recv_msg_rx) = flume::bounded(64);
+        let (send_msg_tx, send_msg_rx) = flume::bounded(64);
+        let (close_chan_tx, close_chan_rx) = flume::bounded(1);
+        tokio::spawn(async move {
+            let mut buf = BytesMut::new();
+            loop {
+                tokio::select! {
+                    Some(res_msg) = ws.next() => {
+                        let resp = match res_msg {
+                            Ok(msg) => {
+                                use tungstenite::Message;
 
-    struct SocketData {
-        tx: Mutex<SplitSink<WebSocketStream, tungstenite::Message>>,
-        rx: Mutex<SplitStream<WebSocketStream>>,
-    }
-
-    impl<Req, Resp> Debug for Socket<Req, Resp>
-    where
-        Req: prost::Message,
-        Resp: prost::Message + Default,
-    {
-        fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-            f.debug_struct("Socket").field("buf", &self.buf).finish()
-        }
-    }
-
-    impl<Req, Resp> Socket<Req, Resp>
-    where
-        Req: prost::Message,
-        Resp: prost::Message + Default,
-    {
-        pub(super) fn new(inner: WebSocketStream) -> Self {
-            let (tx, rx) = inner.split();
-            Self {
-                data: Arc::new(SocketData {
-                    tx: Mutex::new(tx),
-                    rx: Mutex::new(rx),
-                }),
-                buf: BytesMut::new(),
-                _msg: Default::default(),
-                _resp: Default::default(),
-            }
-        }
-
-        /// Send a protobuf message over the websocket.
-        pub async fn send_message(&mut self, msg: Req) -> ClientResult<()> {
-            use futures_util::SinkExt;
-
-            encode_protobuf_message_to(&mut self.buf, msg);
-            let msg = tungstenite::Message::Binary(self.buf.to_vec());
-
-            Ok(self.data.tx.lock().await.send(msg).await?)
-        }
-
-        /// Get a message from the websocket.
-        ///
-        /// This should be polled always in order to handle incoming ping messages.
-        pub async fn get_message(&self) -> Option<ClientResult<Resp>> {
-            let raw = self.data.rx.lock().await.next().await?;
-
-            match raw {
-                Ok(msg) => {
-                    use futures_util::SinkExt;
-                    use tungstenite::Message;
-
-                    match msg {
-                        Message::Binary(raw) => {
-                            Some(Resp::decode(Bytes::from(raw)).map_err(Into::into))
+                                match msg {
+                                    Message::Binary(raw) => {
+                                        Resp::decode(Bytes::from(raw)).map_err(Into::into)
+                                    }
+                                    Message::Close(_) => Err(tungstenite::Error::ConnectionClosed.into()),
+                                    Message::Ping(data) => {
+                                        let pong_res = ws
+                                            .send(tungstenite::Message::Pong(data))
+                                            .await;
+                                        if let Err(err) = pong_res {
+                                            Err(ClientError::SocketError(err))
+                                        } else {
+                                            continue;
+                                        }
+                                    },
+                                    Message::Pong(_) | Message::Text(_) => continue,
+                                }
+                            }
+                            Err(err) => Err(ClientError::SocketError(err)),
+                        };
+                        if recv_msg_tx.send_async(resp).await.is_err() {
+                            let _ = ws.close(None).await;
+                            break;
                         }
-                        Message::Close(_) => Some(Err(tungstenite::Error::ConnectionClosed.into())),
-                        Message::Ping(data) => self
-                            .data
-                            .tx
-                            .lock()
-                            .await
-                            .send(tungstenite::Message::Pong(data))
-                            .await
-                            .map_or_else(|err| Some(Err(err.into())), |_| None),
-                        Message::Pong(_) | Message::Text(_) => None,
                     }
+                    Ok(resp) = send_msg_rx.recv_async() => {
+                        let resp = {
+                            crate::encode_protobuf_message_to(&mut buf, resp);
+                            buf.to_vec()
+                        };
+
+                        if let Err(e) = ws.send(tungstenite::Message::binary(resp)).await {
+                            error!("socket send error: {}", e);
+                        } else {
+                            debug!("responded to server socket");
+                        }
+                    }
+                    // If we get *anything*, it means that either the channel is closed
+                    // or we got a close message
+                    _ = close_chan_rx.recv_async() => {
+                        if let Err(err) = ws.close(None).await {
+                            let _ = recv_msg_tx.send_async(Err(ClientError::SocketError(err))).await;
+                        }
+                        break;
+                    }
+                    else => std::hint::spin_loop(),
                 }
-                Err(err) => Some(Err(err.into())),
             }
+        });
+
+        Self {
+            rx: recv_msg_rx,
+            tx: send_msg_tx,
+            close_chan: close_chan_tx,
         }
+    }
 
-        /// Close this websocket.
-        /// All subsequent message sending operations will return an "connection closed" error.
-        pub async fn close(&self) -> ClientResult<()> {
-            use futures_util::SinkExt;
-
-            Ok(self
-                .data
-                .tx
-                .lock()
+    /// Receive a message from the socket.
+    ///
+    /// Returns a connection closed error if the socket is closed.
+    /// This will block until getting a message if the socket is not closed.
+    pub async fn receive_message(&self) -> ClientResult<Resp> {
+        if self.is_closed() {
+            Err(ClientError::SocketError(
+                tungstenite::Error::ConnectionClosed,
+            ))
+        } else {
+            self.rx
+                .recv_async()
                 .await
-                .send(tungstenite::Message::Close(None))
-                .await?)
-        }
-
-        /// Converts this socket to a read-only socket.
-        pub fn read_only(self) -> ReadSocket<Req, Resp> {
-            ReadSocket { inner: self }
+                .unwrap_or(Err(ClientError::SocketError(
+                    tungstenite::Error::ConnectionClosed,
+                )))
         }
     }
 
-    impl<Req, Resp> Clone for Socket<Req, Resp>
-    where
-        Req: prost::Message,
-        Resp: prost::Message + Default,
-    {
-        fn clone(&self) -> Self {
-            Self {
-                data: self.data.clone(),
-                buf: BytesMut::with_capacity(self.buf.capacity()),
-                _msg: PhantomData::default(),
-                _resp: PhantomData::default(),
-            }
+    /// Send a message over the socket.
+    ///
+    /// This will block if the inner send buffer is filled.
+    pub async fn send_message(&self, req: Req) -> ClientResult<()> {
+        if self.is_closed() || self.tx.send_async(req).await.is_err() {
+            Err(ClientError::SocketError(
+                tungstenite::Error::ConnectionClosed,
+            ))
+        } else {
+            Ok(())
         }
     }
 
-    /// A read-only version of [`Socket`].
-    #[derive(Debug, Clone)]
-    pub struct ReadSocket<Req, Resp>
-    where
-        Req: prost::Message,
-        Resp: prost::Message + Default,
-    {
-        inner: Socket<Req, Resp>,
+    /// Return whether the socket is closed or not.
+    pub fn is_closed(&self) -> bool {
+        self.close_chan.is_disconnected()
     }
 
-    impl<Req, Resp> ReadSocket<Req, Resp>
-    where
-        Req: prost::Message,
-        Resp: prost::Message + Default,
-    {
-        /// Get a message from the websocket.
-        ///
-        /// This should be polled always in order to handle incoming ping messages.
-        pub async fn get_message(&self) -> Option<ClientResult<Resp>> {
-            self.inner.get_message().await
-        }
-
-        /// Close this websocket.
-        pub async fn close(&self) -> ClientResult<()> {
-            self.inner.close().await.map_err(Into::into)
-        }
+    /// Close the socket.
+    pub async fn close(&self) {
+        // We don't care about the error, it's closed either way
+        let _ = self.close_chan.send_async(()).await;
     }
 }
 

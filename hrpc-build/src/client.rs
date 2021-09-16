@@ -22,8 +22,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             use hrpc::{
                 IntoRequest, Request,
                 client::{
-                    Client, ClientResult,
-                    socket::{Socket, ReadSocket},
+                    Client, ClientResult, Socket
                 },
                 reqwest::Client as ReqwestClient,
                 url::Url,
@@ -122,7 +121,7 @@ fn generate_server_streaming<T: Method>(method: &T, proto_path: &str, path: Stri
         pub async fn #ident(
             &mut self,
             request: impl IntoRequest<#request>,
-        ) -> ClientResult<ReadSocket<#request, #response>> {
+        ) -> ClientResult<Socket<#request, #response>> {
             self.inner.connect_socket_req(#path, request.into_request()).await
         }
     }

@@ -1,13 +1,10 @@
-use futures_util::stream::{SplitSink, SplitStream};
 use prelude::*;
 use std::{
     convert::Infallible,
     error::Error as StdError,
     fmt::{self, Debug, Display, Formatter},
-    marker::PhantomData,
-    sync::Arc,
 };
-use warp::{reply::Response as WarpResponse, ws::WebSocket, Rejection};
+use warp::{reply::Response as WarpResponse, Rejection};
 
 /// Useful filters.
 pub mod filters {
@@ -128,9 +125,7 @@ pub mod filters {
 
 #[doc(hidden)]
 pub mod prelude {
-    pub use super::{
-        socket_common, unary_common, CustomError, ReadSocket, ServerError, Socket, WriteSocket,
-    };
+    pub use super::{socket_common, unary_common, CustomError, ServerError, Socket};
     pub use crate::{IntoRequest, Request};
     pub use bytes::{Bytes, BytesMut};
     pub use futures_util::{FutureExt, SinkExt, StreamExt};
@@ -261,7 +256,7 @@ pub mod socket_common {
     ) -> impl Filter<Extract = (warp::reply::Response,), Error = warp::Rejection> + Clone
     where
         Req: prost::Message + Default + Clone + 'static,
-        Resp: prost::Message,
+        Resp: prost::Message + 'static,
         PreFunc: Filter<Extract = (), Error = warp::Rejection> + Send + Clone,
         Err: CustomError + 'static,
         ValidationValue: Send + 'static,
@@ -314,24 +309,18 @@ pub mod socket_common {
         Err: CustomError + 'static,
     {
         let recv_fut = async move {
-            let val;
-            loop {
-                if let Some(message) = sock.receive_message().await? {
-                    let (_, headers, addr) = req.into_parts();
-                    let req = Request::from_parts((Some(message), headers, addr));
-                    match validator_func(req).await {
-                        Ok(vall) => {
-                            val = vall;
-                            break;
-                        }
-                        Err(err) => {
-                            error!("socket validation error: {}", err);
-                            return Err(SocketError::ClosedNormally);
-                        }
-                    }
+            let message = sock.receive_message().await?;
+
+            let (_, headers, addr) = req.into_parts();
+            let req = Request::from_parts((Some(message), headers, addr));
+
+            match validator_func(req).await {
+                Ok(val) => Ok(val),
+                Err(err) => {
+                    error!("socket validation error: {}", err);
+                    Err(SocketError::ClosedNormally)
                 }
             }
-            Ok(val)
         };
 
         tokio::time::timeout(Duration::from_secs(10), recv_fut)
@@ -343,273 +332,122 @@ pub mod socket_common {
     }
 }
 
-/// A cloneable web socket.
-#[derive(Debug, Clone)]
-pub struct SocketArc<Req: prost::Message + Default, Resp: prost::Message> {
-    read: ReadSocketArc<Req>,
-    write: WriteSocketArc<Resp>,
-}
-
-impl<Req: prost::Message + Default, Resp: prost::Message> SocketArc<Req, Resp> {
-    /// Combine read and write sockets into one.
-    pub fn combine(read: ReadSocketArc<Req>, write: WriteSocketArc<Resp>) -> Self {
-        Self { read, write }
-    }
-
-    /// Split this socket into read and write counterparts.
-    pub fn split(self) -> (ReadSocketArc<Req>, WriteSocketArc<Resp>) {
-        (self.read, self.write)
-    }
-
-    /// Receive a message from the socket.
-    ///
-    /// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.
-    pub async fn receive_message(&self) -> Result<Option<Req>, SocketError> {
-        self.read.receive_message().await
-    }
-
-    /// Send a message over the socket.
-    pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
-        self.write.send_message(resp).await
-    }
-
-    /// Close this socket.
-    pub async fn close(self) -> Result<(), SocketError> {
-        self.write.close().await
-    }
-
-    /// Is this socket closed?
-    pub async fn is_closed(&self) -> bool {
-        self.read.is_closed().await
-    }
-}
-
 /// A web socket.
-#[derive(Debug)]
-pub struct Socket<Req: prost::Message + Default, Resp: prost::Message> {
-    read: ReadSocket<Req>,
-    write: WriteSocket<Resp>,
-}
-
-impl<Req: prost::Message + Default, Resp: prost::Message> Socket<Req, Resp> {
-    pub fn new(ws: warp::ws::WebSocket) -> Self {
-        let (tx, rx) = ws.split();
-        Self {
-            read: ReadSocket::new(rx),
-            write: WriteSocket::new(tx),
-        }
-    }
-
-    /// Combine read and write sockets into one.
-    pub fn combine(read: ReadSocket<Req>, write: WriteSocket<Resp>) -> Self {
-        Self { read, write }
-    }
-
-    /// Split this socket into read and write counterparts.
-    pub fn split(self) -> (ReadSocket<Req>, WriteSocket<Resp>) {
-        (self.read, self.write)
-    }
-
-    /// Make a cloneable and shared version of this socket.
-    pub fn clonable(self) -> SocketArc<Req, Resp> {
-        SocketArc {
-            read: self.read.clonable(),
-            write: self.write.clonable(),
-        }
-    }
-
-    /// Receive a message from the socket.
-    ///
-    /// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.
-    pub async fn receive_message(&mut self) -> Result<Option<Req>, SocketError> {
-        self.read.receive_message().await
-    }
-
-    /// Send a message over the socket.
-    pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
-        self.write.send_message(resp).await
-    }
-
-    /// Close this socket.
-    pub async fn close(self) -> Result<(), SocketError> {
-        self.write.close().await
-    }
-
-    /// Is this socket closed?
-    pub fn is_closed(&self) -> bool {
-        self.read.is_closed()
-    }
-}
-
-/// A clonable read only socket.
 #[derive(Debug, Clone)]
-pub struct ReadSocketArc<Req: prost::Message + Default> {
-    inner: Arc<Mutex<ReadSocket<Req>>>,
+pub struct Socket<Req, Resp>
+where
+    Req: prost::Message + Default + 'static,
+    Resp: prost::Message + 'static,
+{
+    rx: flume::Receiver<Result<Req, SocketError>>,
+    tx: flume::Sender<Resp>,
+    close_chan: flume::Sender<()>,
 }
 
-impl<Req: prost::Message + Default> ReadSocketArc<Req> {
-    /// Receive a message from the socket.
-    ///
-    /// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.
-    pub async fn receive_message(&self) -> Result<Option<Req>, SocketError> {
-        self.inner.lock().await.receive_message().await
-    }
+impl<Req, Resp> Socket<Req, Resp>
+where
+    Req: prost::Message + Default + 'static,
+    Resp: prost::Message + 'static,
+{
+    pub fn new(mut ws: warp::ws::WebSocket) -> Self {
+        let (recv_msg_tx, recv_msg_rx) = flume::bounded(64);
+        let (send_msg_tx, send_msg_rx) = flume::bounded(64);
+        let (close_chan_tx, close_chan_rx) = flume::bounded(1);
+        tokio::spawn(async move {
+            let mut buf = BytesMut::new();
+            loop {
+                tokio::select! {
+                    Some(res_msg) = ws.next() => {
+                        let resp = match res_msg {
+                            Ok(msg) => {
+                                let res = if msg.is_binary() || msg.is_text() {
+                                    let msg_bin = Bytes::from(msg.into_bytes());
+                                    Req::decode(msg_bin)
+                                        .map_err(SocketError::MessageDecode)
+                                } else if msg.is_close() {
+                                    let _ = recv_msg_tx.send_async(Err(SocketError::ClosedNormally)).await;
+                                    let _ = ws.close().await;
+                                    break;
+                                } else {
+                                    unreachable!("we handled everything");
+                                };
+                                res
+                            }
+                            Err(err) => Err(SocketError::Other(err)),
+                        };
+                        if recv_msg_tx.send_async(resp).await.is_err() {
+                            let _ = ws.close().await;
+                            break;
+                        }
+                    }
+                    Ok(resp) = send_msg_rx.recv_async() => {
+                        let resp = {
+                            crate::encode_protobuf_message_to(&mut buf, resp);
+                            buf.to_vec()
+                        };
 
-    /// Is this socket closed?
-    pub async fn is_closed(&self) -> bool {
-        self.inner.lock().await.is_closed
-    }
-}
-
-/// A read only socket.
-#[derive(Debug)]
-pub struct ReadSocket<Req: prost::Message + Default> {
-    rx: SplitStream<WebSocket>,
-    _req: PhantomData<Req>,
-    is_closed: bool,
-}
-
-impl<Req: prost::Message + Default> ReadSocket<Req> {
-    pub fn new(rx: SplitStream<WebSocket>) -> Self {
-        Self {
-            rx,
-            _req: PhantomData,
-            is_closed: false,
-        }
-    }
-
-    /// Create a clonable and shared version of ReadSocket.
-    pub fn clonable(self) -> ReadSocketArc<Req> {
-        ReadSocketArc {
-            inner: Arc::new(Mutex::new(self)),
-        }
-    }
-
-    /// Receive a message from the socket.
-    ///
-    /// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.
-    pub async fn receive_message(&mut self) -> Result<Option<Req>, SocketError> {
-        let msg_maybe = self
-            .rx
-            .next()
-            .await
-            .transpose()
-            .map_err(SocketError::Other)?;
-
-        if let Some(msg) = msg_maybe {
-            if msg.is_binary() {
-                let msg_bin = Bytes::from(msg.into_bytes());
-                return Req::decode(msg_bin)
-                    .map(Some)
-                    .map_err(SocketError::MessageDecode);
-            } else if msg.is_close() {
-                self.is_closed = true;
-                return Err(SocketError::ClosedNormally);
+                        if let Err(e) = ws.send(WsMessage::binary(resp)).await {
+                            error!("socket send error: {}", e);
+                        } else {
+                            debug!("responded to client socket");
+                        }
+                    }
+                    // If we get *anything*, it means that either the channel is closed
+                    // or we got a close message
+                    _ = close_chan_rx.recv_async() => {
+                        if let Err(err) = ws.close().await {
+                            let _ = recv_msg_tx.send_async(Err(SocketError::Other(err))).await;
+                        }
+                        break;
+                    }
+                    else => std::hint::spin_loop(),
+                }
             }
-        }
-        Ok(None)
-    }
-
-    /// Is this socket closed?
-    pub fn is_closed(&self) -> bool {
-        self.is_closed
-    }
-}
-
-/// A clonable write only socket.
-#[derive(Debug)]
-pub struct WriteSocketArc<Resp: prost::Message> {
-    tx: Arc<Mutex<SplitSink<WebSocket, WsMessage>>>,
-    buf: BytesMut,
-    _resp: PhantomData<Resp>,
-}
-
-impl<Resp: prost::Message> WriteSocketArc<Resp> {
-    /// Send a message over the socket.
-    pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
-        internal_send_message(&mut self.buf, &mut *self.tx.lock().await, resp).await
-    }
-
-    /// Close this socket.
-    pub async fn close(self) -> Result<(), SocketError> {
-        self.tx
-            .lock()
-            .await
-            .close()
-            .await
-            .map_err(SocketError::Other)
-    }
-}
-
-impl<Resp: prost::Message> Clone for WriteSocketArc<Resp> {
-    fn clone(&self) -> Self {
-        Self {
-            tx: self.tx.clone(),
-            buf: BytesMut::with_capacity(self.buf.capacity()),
-            _resp: PhantomData,
-        }
-    }
-}
-
-/// A write only socket.
-#[derive(Debug)]
-pub struct WriteSocket<Resp: prost::Message> {
-    tx: SplitSink<WebSocket, WsMessage>,
-    buf: BytesMut,
-    _resp: PhantomData<Resp>,
-}
-
-impl<Resp: prost::Message> WriteSocket<Resp> {
-    pub fn new(tx: SplitSink<WebSocket, WsMessage>) -> Self {
-        Self {
-            tx,
-            buf: BytesMut::new(),
-            _resp: PhantomData,
-        }
-    }
-
-    /// Create a clonable and shared version of WriteSocket.
-    pub fn clonable(self) -> WriteSocketArc<Resp> {
-        WriteSocketArc {
-            tx: Arc::new(Mutex::new(self.tx)),
-            buf: self.buf,
-            _resp: self._resp,
-        }
-    }
-
-    /// Send a message over the socket.
-    pub async fn send_message(&mut self, resp: Resp) -> Result<(), SocketError> {
-        internal_send_message(&mut self.buf, &mut self.tx, resp).await
-    }
-
-    /// Close this socket.
-    pub async fn close(mut self) -> Result<(), SocketError> {
-        self.tx.close().await.map_err(SocketError::Other)
-    }
-}
-
-#[inline(always)]
-async fn internal_send_message<Resp: prost::Message>(
-    buf: &mut BytesMut,
-    tx: &mut SplitSink<WebSocket, WsMessage>,
-    resp: Resp,
-) -> Result<(), SocketError> {
-    let resp = {
-        crate::encode_protobuf_message_to(buf, resp);
-        buf.to_vec()
-    };
-
-    if let Err(e) = tx.send(WsMessage::binary(resp)).await {
-        return Err(if e.to_string().contains("closed normally") {
-            SocketError::ClosedNormally
-        } else {
-            SocketError::Other(e)
         });
-    } else {
-        debug!("responded to client socket");
+
+        Self {
+            rx: recv_msg_rx,
+            tx: send_msg_tx,
+            close_chan: close_chan_tx,
+        }
     }
 
-    Ok(())
+    /// Receive a message from the socket.
+    ///
+    /// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.
+    /// This will block until getting a message if the socket is not closed.
+    pub async fn receive_message(&self) -> Result<Req, SocketError> {
+        if self.is_closed() {
+            Err(SocketError::ClosedNormally)
+        } else {
+            self.rx
+                .recv_async()
+                .await
+                .unwrap_or(Err(SocketError::ClosedNormally))
+        }
+    }
+
+    /// Send a message over the socket.
+    ///
+    /// This will block if the inner send buffer is filled.
+    pub async fn send_message(&self, resp: Resp) -> Result<(), SocketError> {
+        if self.is_closed() || self.tx.send_async(resp).await.is_err() {
+            Err(SocketError::ClosedNormally)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Return whether the socket is closed or not.
+    pub fn is_closed(&self) -> bool {
+        self.close_chan.is_disconnected()
+    }
+
+    /// Close the socket.
+    pub async fn close(&self) {
+        // We don't care about the error, it's closed either way
+        let _ = self.close_chan.send_async(()).await;
+    }
 }
 
 /// Trait that needs to be implemented to use an error type with a generated service server.

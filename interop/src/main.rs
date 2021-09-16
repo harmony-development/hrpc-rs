@@ -45,7 +45,7 @@ async fn client() {
     let resp = client.mu(Ping { mu: "".to_string() }).await;
     println!("{:#?}", resp);
 
-    let mut socket = client.mu_mute(()).await.unwrap();
+    let socket = client.mu_mute(()).await.unwrap();
     let _ = client.mu_mu(Ping::default()).await.unwrap();
 
     tokio::spawn({
@@ -53,13 +53,12 @@ async fn client() {
         async move {
             loop {
                 let ins = Instant::now();
-                match socket.get_message().await {
-                    Some(Ok(msg)) => {
+                match socket.receive_message().await {
+                    Ok(msg) => {
                         println!("got in {}", ins.elapsed().as_secs_f64());
                         println!("{:#?}", msg);
                     }
-                    Some(Err(_)) => break,
-                    _ => {}
+                    Err(_) => break,
                 }
             }
         }
@@ -85,7 +84,7 @@ async fn client() {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    socket.close().await.unwrap();
+    socket.close().await;
 }
 
 async fn server() {
@@ -141,16 +140,14 @@ impl mu_server::Mu for Server {
         _validation_value: Self::MuMuteValidationType,
         sock: Socket<Ping, Pong>,
     ) {
-        let (mut rs, ws) = sock.split();
-        let mut ws = ws.clonable();
         let periodic_task = {
-            let mut ws = ws.clone();
+            let sock = sock.clone();
             async move {
                 let mut int = tokio::time::interval(Duration::from_secs(10));
                 loop {
                     int.tick().await;
                     return_print!(
-                        ws.send_message(Pong {
+                        sock.send_message(Pong {
                             mu: "been 10 seconds".to_string(),
                         })
                         .await
@@ -160,10 +157,8 @@ impl mu_server::Mu for Server {
         };
         let recv_task = async move {
             loop {
-                return_print!(rs.receive_message().await, |maybe_req| {
-                    if let Some(req) = maybe_req {
-                        return_print!(ws.send_message(Pong { mu: req.mu }).await);
-                    }
+                return_print!(sock.receive_message().await, |req| {
+                    return_print!(sock.send_message(Pong { mu: req.mu }).await);
                 });
             }
         };
