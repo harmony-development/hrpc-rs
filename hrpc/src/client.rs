@@ -239,7 +239,7 @@ where
         let (close_chan_tx, close_chan_rx) = flume::bounded(1);
         tokio::spawn(async move {
             let mut buf = BytesMut::new();
-            loop {
+            'outer: loop {
                 tokio::select! {
                     Some(res_msg) = ws.next() => {
                         let resp = match res_msg {
@@ -253,7 +253,7 @@ where
                                     Message::Close(_) => {
                                         let _ = recv_msg_tx.send_async(Err(tungstenite::Error::ConnectionClosed.into())).await;
                                         let _ = ws.close(None).await;
-                                        break;
+                                        break 'outer;
                                     },
                                     Message::Ping(data) => {
                                         let pong_res = ws
@@ -271,14 +271,14 @@ where
                             Err(err) => if let tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed = err {
                                 let _ = recv_msg_tx.send_async(Err(ClientError::SocketError(err))).await;
                                 let _ = ws.close(None).await;
-                                break;
+                                break 'outer;
                             } else {
                                 Err(ClientError::SocketError(err))
                             },
                         };
                         if recv_msg_tx.send_async(resp).await.is_err() {
                             let _ = ws.close(None).await;
-                            break;
+                            break 'outer;
                         }
                     }
                     Ok(resp) = send_msg_rx.recv_async() => {
@@ -292,7 +292,7 @@ where
                             if let tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed = e {
                                 let _ = recv_msg_tx.send_async(Err(ClientError::SocketError(e))).await;
                                 let _ = ws.close(None).await;
-                                break;
+                                break 'outer;
                             }
                         } else {
                             debug!("responded to server socket");
@@ -304,7 +304,7 @@ where
                         if let Err(err) = ws.close(None).await {
                             let _ = recv_msg_tx.send_async(Err(ClientError::SocketError(err))).await;
                         }
-                        break;
+                        break 'outer;
                     }
                     else => std::hint::spin_loop(),
                 }

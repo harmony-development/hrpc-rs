@@ -355,7 +355,7 @@ where
         let (close_chan_tx, close_chan_rx) = flume::bounded(1);
         tokio::spawn(async move {
             let mut buf = BytesMut::new();
-            loop {
+            'outer: loop {
                 tokio::select! {
                     Some(res_msg) = ws.next() => {
                         let resp = match res_msg {
@@ -367,7 +367,7 @@ where
                                 } else if msg.is_close() {
                                     let _ = recv_msg_tx.send_async(Err(SocketError::Closed)).await;
                                     let _ = ws.close().await;
-                                    break;
+                                    break 'outer;
                                 } else {
                                     unreachable!("we handled everything");
                                 };
@@ -376,14 +376,14 @@ where
                             Err(err) => if err.to_string().contains("Connection reset") {
                                 let _ = recv_msg_tx.send_async(Err(SocketError::Closed)).await;
                                 let _ = ws.close().await;
-                                break;
+                                break 'outer;
                             } else {
                                 Err(SocketError::Other(err))
                             },
                         };
                         if recv_msg_tx.send_async(resp).await.is_err() {
                             let _ = ws.close().await;
-                            break;
+                            break 'outer;
                         }
                     }
                     Ok(resp) = send_msg_rx.recv_async() => {
@@ -397,7 +397,7 @@ where
                             if e.to_string().contains("Connection reset") {
                                 let _ = recv_msg_tx.send_async(Err(SocketError::Closed)).await;
                                 let _ = ws.close().await;
-                                break;
+                                break 'outer;
                             }
                         } else {
                             debug!("responded to client socket");
@@ -409,7 +409,7 @@ where
                         if let Err(err) = ws.close().await {
                             let _ = recv_msg_tx.send_async(Err(SocketError::Other(err))).await;
                         }
-                        break;
+                        break 'outer;
                     }
                     else => std::hint::spin_loop(),
                 }
