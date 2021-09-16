@@ -793,7 +793,7 @@
                         }
                         <span class="kw">return</span>;
                     }
-                    <span class="kw">else</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">std::hint::spin_loop</span>(),
+                    <span class="kw">else</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tokio::task::yield_now</span>().<span class="kw">await</span>,
                 }
             }
         });

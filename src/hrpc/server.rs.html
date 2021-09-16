@@ -692,12 +692,6 @@
 <span id="692">692</span>
 <span id="693">693</span>
 <span id="694">694</span>
-<span id="695">695</span>
-<span id="696">696</span>
-<span id="697">697</span>
-<span id="698">698</span>
-<span id="699">699</span>
-<span id="700">700</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">prelude</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -1063,8 +1057,7 @@
                             <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) <span class="op">=</span><span class="op">&gt;</span> {
                                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">is_binary</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">msg</span>.<span class="ident">is_text</span>() {
                                     <span class="kw">let</span> <span class="ident">msg_bin</span> <span class="op">=</span> <span class="ident">Bytes::from</span>(<span class="ident">msg</span>.<span class="ident">into_bytes</span>());
-                                    <span class="ident">Req::decode</span>(<span class="ident">msg_bin</span>)
-                                        .<span class="ident">map_err</span>(<span class="ident">SocketError::MessageDecode</span>)
+                                    <span class="ident">Req::decode</span>(<span class="ident">msg_bin</span>).<span class="ident">map_err</span>(<span class="ident">SocketError::MessageDecode</span>)
                                 } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">is_close</span>() {
                                     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)).<span class="kw">await</span>;
                                     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
@@ -1074,13 +1067,11 @@
                                 };
                                 <span class="ident">res</span>
                             }
-                            <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">if</span> <span class="ident">err</span>.<span class="ident">to_string</span>().<span class="ident">contains</span>(<span class="string">&quot;Connection reset&quot;</span>) {
-                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)).<span class="kw">await</span>;
+                            <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Other</span>(<span class="ident">err</span>))).<span class="kw">await</span>;
                                 <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
                                 <span class="kw">return</span>;
-                            } <span class="kw">else</span> {
-                                <span class="prelude-val">Err</span>(<span class="ident">SocketError::Other</span>(<span class="ident">err</span>))
-                            },
+                            }
                         };
                         <span class="kw">if</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="ident">resp</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
                             <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
@@ -1095,11 +1086,8 @@
 
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">send</span>(<span class="ident">WsMessage::binary</span>(<span class="ident">resp</span>)).<span class="kw">await</span> {
                             <span class="macro">error!</span>(<span class="string">&quot;socket send error: {}&quot;</span>, <span class="ident">e</span>);
-                            <span class="kw">if</span> <span class="ident">e</span>.<span class="ident">to_string</span>().<span class="ident">contains</span>(<span class="string">&quot;Connection reset&quot;</span>) {
-                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>)).<span class="kw">await</span>;
-                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
-                                <span class="kw">return</span>;
-                            }
+                            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>().<span class="kw">await</span>;
+                            <span class="kw">return</span>;
                         } <span class="kw">else</span> {
                             <span class="macro">debug!</span>(<span class="string">&quot;responded to client socket&quot;</span>);
                         }
@@ -1112,7 +1100,7 @@
                         }
                         <span class="kw">return</span>;
                     }
-                    <span class="kw">else</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">std::hint::spin_loop</span>(),
+                    <span class="kw">else</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tokio::task::yield_now</span>().<span class="kw">await</span>,
                 }
             }
         });
