@@ -250,7 +250,11 @@ where
                                     Message::Binary(raw) => {
                                         Resp::decode(Bytes::from(raw)).map_err(Into::into)
                                     }
-                                    Message::Close(_) => Err(tungstenite::Error::ConnectionClosed.into()),
+                                    Message::Close(_) => {
+                                        let _ = recv_msg_tx.send_async(Err(tungstenite::Error::ConnectionClosed.into())).await;
+                                        let _ = ws.close(None).await;
+                                        break;
+                                    },
                                     Message::Ping(data) => {
                                         let pong_res = ws
                                             .send(tungstenite::Message::Pong(data))
@@ -264,7 +268,13 @@ where
                                     Message::Pong(_) | Message::Text(_) => continue,
                                 }
                             }
-                            Err(err) => Err(ClientError::SocketError(err)),
+                            Err(err) => if let tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed = err {
+                                let _ = recv_msg_tx.send_async(Err(ClientError::SocketError(err))).await;
+                                let _ = ws.close(None).await;
+                                break;
+                            } else {
+                                Err(ClientError::SocketError(err))
+                            },
                         };
                         if recv_msg_tx.send_async(resp).await.is_err() {
                             let _ = ws.close(None).await;
@@ -279,6 +289,11 @@ where
 
                         if let Err(e) = ws.send(tungstenite::Message::binary(resp)).await {
                             error!("socket send error: {}", e);
+                            if let tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed = e {
+                                let _ = recv_msg_tx.send_async(Err(ClientError::SocketError(e))).await;
+                                let _ = ws.close(None).await;
+                                break;
+                            }
                         } else {
                             debug!("responded to server socket");
                         }

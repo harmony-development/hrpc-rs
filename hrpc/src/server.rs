@@ -318,7 +318,7 @@ pub mod socket_common {
                 Ok(val) => Ok(val),
                 Err(err) => {
                     error!("socket validation error: {}", err);
-                    Err(SocketError::ClosedNormally)
+                    Err(SocketError::Closed)
                 }
             }
         };
@@ -327,7 +327,7 @@ pub mod socket_common {
             .await
             .map_err(|_| {
                 error!("socket validation request error: timeout");
-                SocketError::ClosedNormally
+                SocketError::Closed
             })?
     }
 }
@@ -365,7 +365,7 @@ where
                                     Req::decode(msg_bin)
                                         .map_err(SocketError::MessageDecode)
                                 } else if msg.is_close() {
-                                    let _ = recv_msg_tx.send_async(Err(SocketError::ClosedNormally)).await;
+                                    let _ = recv_msg_tx.send_async(Err(SocketError::Closed)).await;
                                     let _ = ws.close().await;
                                     break;
                                 } else {
@@ -373,7 +373,13 @@ where
                                 };
                                 res
                             }
-                            Err(err) => Err(SocketError::Other(err)),
+                            Err(err) => if err.to_string().contains("Connection reset") {
+                                let _ = recv_msg_tx.send_async(Err(SocketError::Closed)).await;
+                                let _ = ws.close().await;
+                                break;
+                            } else {
+                                Err(SocketError::Other(err))
+                            },
                         };
                         if recv_msg_tx.send_async(resp).await.is_err() {
                             let _ = ws.close().await;
@@ -388,6 +394,11 @@ where
 
                         if let Err(e) = ws.send(WsMessage::binary(resp)).await {
                             error!("socket send error: {}", e);
+                            if e.to_string().contains("Connection reset") {
+                                let _ = recv_msg_tx.send_async(Err(SocketError::Closed)).await;
+                                let _ = ws.close().await;
+                                break;
+                            }
                         } else {
                             debug!("responded to client socket");
                         }
@@ -418,12 +429,12 @@ where
     /// This will block until getting a message if the socket is not closed.
     pub async fn receive_message(&self) -> Result<Req, SocketError> {
         if self.is_closed() {
-            Err(SocketError::ClosedNormally)
+            Err(SocketError::Closed)
         } else {
             self.rx
                 .recv_async()
                 .await
-                .unwrap_or(Err(SocketError::ClosedNormally))
+                .unwrap_or(Err(SocketError::Closed))
         }
     }
 
@@ -432,7 +443,7 @@ where
     /// This will block if the inner send buffer is filled.
     pub async fn send_message(&self, resp: Resp) -> Result<(), SocketError> {
         if self.is_closed() || self.tx.send_async(resp).await.is_err() {
-            Err(SocketError::ClosedNormally)
+            Err(SocketError::Closed)
         } else {
             Ok(())
         }
@@ -494,7 +505,7 @@ impl CustomError for std::convert::Infallible {
 macro_rules! return_closed {
     ($result:expr) => {{
         let res = $result;
-        if matches!(res, Err($crate::server::SocketError::ClosedNormally)) {
+        if matches!(res, Err($crate::server::SocketError::Closed)) {
             return;
         } else {
             res
@@ -527,7 +538,7 @@ macro_rules! return_print {
 #[derive(Debug)]
 pub enum SocketError {
     /// The socket is closed normally. This is NOT an error.
-    ClosedNormally,
+    Closed,
     /// Error occured while decoding protobuf data.
     MessageDecode(prost::DecodeError),
     /// Some error occured in socket.
@@ -537,7 +548,7 @@ pub enum SocketError {
 impl Display for SocketError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            SocketError::ClosedNormally => write!(f, "socket closed normally"),
+            SocketError::Closed => write!(f, "socket closed normally"),
             SocketError::Other(err) => write!(f, "error occured in socket: {}", err),
             SocketError::MessageDecode(err) => write!(f, "invalid protobuf message: {}", err),
         }
@@ -547,7 +558,7 @@ impl Display for SocketError {
 impl StdError for SocketError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
-            SocketError::ClosedNormally => None,
+            SocketError::Closed => None,
             SocketError::Other(err) => Some(err),
             SocketError::MessageDecode(err) => Some(err),
         }
