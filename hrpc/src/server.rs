@@ -4,6 +4,7 @@ use std::{
     error::Error as StdError,
     fmt::{self, Debug, Display, Formatter},
 };
+use tokio::sync::{mpsc, oneshot};
 use warp::{reply::Response as WarpResponse, Rejection};
 
 /// Useful filters.
@@ -332,6 +333,8 @@ pub mod socket_common {
     }
 }
 
+type SenderChanWithReq<Resp> = (Resp, oneshot::Sender<Result<(), SocketError>>);
+
 /// A web socket.
 #[derive(Debug, Clone)]
 pub struct Socket<Req, Resp>
@@ -340,7 +343,7 @@ where
     Resp: prost::Message + 'static,
 {
     rx: flume::Receiver<Result<Req, SocketError>>,
-    tx: flume::Sender<Resp>,
+    tx: mpsc::Sender<SenderChanWithReq<Resp>>,
     close_chan: flume::Sender<()>,
 }
 
@@ -351,7 +354,10 @@ where
 {
     pub fn new(mut ws: warp::ws::WebSocket) -> Self {
         let (recv_msg_tx, recv_msg_rx) = flume::bounded(64);
-        let (send_msg_tx, send_msg_rx) = flume::bounded(64);
+        let (send_msg_tx, mut send_msg_rx): (
+            mpsc::Sender<SenderChanWithReq<Resp>>,
+            mpsc::Receiver<SenderChanWithReq<Resp>>,
+        ) = mpsc::channel(64);
         let (close_chan_tx, close_chan_rx) = flume::bounded(1);
         tokio::spawn(async move {
             let mut buf = BytesMut::new();
@@ -360,7 +366,7 @@ where
                     Some(res_msg) = ws.next() => {
                         let resp = match res_msg {
                             Ok(msg) => {
-                                let res = if msg.is_binary() || msg.is_text() {
+                                if msg.is_binary() || msg.is_text() {
                                     let msg_bin = Bytes::from(msg.into_bytes());
                                     Req::decode(msg_bin).map_err(SocketError::MessageDecode)
                                 } else if msg.is_close() {
@@ -368,14 +374,19 @@ where
                                     let _ = ws.close().await;
                                     return;
                                 } else {
-                                    unreachable!("we handled everything");
-                                };
-                                res
+                                    continue;
+                                }
                             }
                             Err(err) => {
-                                let _ = recv_msg_tx.send_async(Err(SocketError::Other(err))).await;
-                                let _ = ws.close().await;
-                                return;
+                                let is_capped = err.to_string().contains("Space limit exceeded");
+                                let res = Err(SocketError::from(err));
+                                if !is_capped {
+                                    let _ = recv_msg_tx.send_async(res).await;
+                                    let _ = ws.close().await;
+                                    return;
+                                } else {
+                                    res
+                                }
                             }
                         };
                         if recv_msg_tx.send_async(resp).await.is_err() {
@@ -383,25 +394,34 @@ where
                             return;
                         }
                     }
-                    Ok(resp) = send_msg_rx.recv_async() => {
+                    Some((resp, chan)) = send_msg_rx.recv() => {
                         let resp = {
                             crate::encode_protobuf_message_to(&mut buf, resp);
                             buf.to_vec()
                         };
 
                         if let Err(e) = ws.send(WsMessage::binary(resp)).await {
-                            error!("socket send error: {}", e);
-                            let _ = ws.close().await;
-                            return;
+                            debug!("socket send error: {}", e);
+                            let msg = e.to_string();
+                            let is_capped_or_queue_full = msg.contains("Space limit exceeded") || msg.contains("Send queue is full");
+                            let _ = chan.send(Err(SocketError::from(e)));
+                            if !is_capped_or_queue_full {
+                                let _ = ws.close().await;
+                                return;
+                            }
                         } else {
                             debug!("responded to client socket");
+                            if chan.send(Ok(())).is_err() {
+                                let _ = ws.close().await;
+                                return;
+                            }
                         }
                     }
                     // If we get *anything*, it means that either the channel is closed
                     // or we got a close message
                     _ = close_chan_rx.recv_async() => {
                         if let Err(err) = ws.close().await {
-                            let _ = recv_msg_tx.send_async(Err(SocketError::Other(err))).await;
+                            let _ = recv_msg_tx.send_async(Err(SocketError::from(err))).await;
                         }
                         return;
                     }
@@ -436,10 +456,11 @@ where
     ///
     /// This will block if the inner send buffer is filled.
     pub async fn send_message(&self, resp: Resp) -> Result<(), SocketError> {
-        if self.is_closed() || self.tx.send_async(resp).await.is_err() {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        if self.is_closed() || self.tx.send((resp, resp_tx)).await.is_err() {
             Err(SocketError::Closed)
         } else {
-            Ok(())
+            resp_rx.await.unwrap_or(Err(SocketError::Closed))
         }
     }
 
@@ -531,7 +552,7 @@ macro_rules! return_print {
 
 #[derive(Debug)]
 pub enum SocketError {
-    /// The socket is closed normally. This is NOT an error.
+    /// The socket is closed.
     Closed,
     /// Error occured while decoding protobuf data.
     MessageDecode(prost::DecodeError),
@@ -542,7 +563,7 @@ pub enum SocketError {
 impl Display for SocketError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            SocketError::Closed => write!(f, "socket closed normally"),
+            SocketError::Closed => write!(f, "socket is closed"),
             SocketError::Other(err) => write!(f, "error occured in socket: {}", err),
             SocketError::MessageDecode(err) => write!(f, "invalid protobuf message: {}", err),
         }
@@ -555,6 +576,20 @@ impl StdError for SocketError {
             SocketError::Closed => None,
             SocketError::Other(err) => Some(err),
             SocketError::MessageDecode(err) => Some(err),
+        }
+    }
+}
+
+impl From<warp::Error> for SocketError {
+    fn from(err: warp::Error) -> Self {
+        let msg = err.to_string();
+        if msg.contains("Connection reset")
+            || msg.contains("Connection closed")
+            || msg.contains("closed connection")
+        {
+            SocketError::Closed
+        } else {
+            SocketError::Other(err)
         }
     }
 }

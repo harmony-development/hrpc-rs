@@ -7,8 +7,9 @@ use super::*;
 
 use bytes::{Bytes, BytesMut};
 use futures_util::{SinkExt, StreamExt};
+use tokio::sync::{mpsc, oneshot};
 use tokio_rustls::webpki::DNSNameRef;
-use tracing::{debug, error};
+use tracing::debug;
 use url::Url;
 
 #[doc(inline)]
@@ -216,6 +217,8 @@ impl Client {
     }
 }
 
+type SenderChanWithReq<Req> = (Req, oneshot::Sender<Result<(), ClientError>>);
+
 /// A websocket, wrapped for ease of use with protobuf messages.
 #[derive(Debug, Clone)]
 pub struct Socket<Req, Resp>
@@ -224,7 +227,7 @@ where
     Resp: prost::Message + Default,
 {
     rx: flume::Receiver<Result<Resp, ClientError>>,
-    tx: flume::Sender<Req>,
+    tx: mpsc::Sender<SenderChanWithReq<Req>>,
     close_chan: flume::Sender<()>,
 }
 
@@ -235,7 +238,10 @@ where
 {
     pub(super) fn new(mut ws: WebSocketStream) -> Self {
         let (recv_msg_tx, recv_msg_rx) = flume::bounded(64);
-        let (send_msg_tx, send_msg_rx) = flume::bounded(64);
+        let (send_msg_tx, mut send_msg_rx): (
+            mpsc::Sender<SenderChanWithReq<Req>>,
+            mpsc::Receiver<SenderChanWithReq<Req>>,
+        ) = mpsc::channel(64);
         let (close_chan_tx, close_chan_rx) = flume::bounded(1);
         tokio::spawn(async move {
             let mut buf = BytesMut::new();
@@ -268,12 +274,16 @@ where
                                     Message::Pong(_) | Message::Text(_) => continue,
                                 }
                             }
-                            Err(err) => if let tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed = err {
-                                let _ = recv_msg_tx.send_async(Err(ClientError::SocketError(err))).await;
-                                let _ = ws.close(None).await;
-                                return;
-                            } else {
-                                Err(ClientError::SocketError(err))
+                            Err(err) => {
+                                let is_capped = matches!(err, tungstenite::Error::Capacity(_));
+                                let res = Err(ClientError::SocketError(err));
+                                if !is_capped {
+                                    let _ = recv_msg_tx.send_async(res).await;
+                                    let _ = ws.close(None).await;
+                                    return;
+                                } else {
+                                    res
+                                }
                             },
                         };
                         if recv_msg_tx.send_async(resp).await.is_err() {
@@ -281,21 +291,28 @@ where
                             return;
                         }
                     }
-                    Ok(resp) = send_msg_rx.recv_async() => {
-                        let resp = {
-                            crate::encode_protobuf_message_to(&mut buf, resp);
+                    Some((req, chan)) = send_msg_rx.recv() => {
+                        let req = {
+                            crate::encode_protobuf_message_to(&mut buf, req);
                             buf.to_vec()
                         };
 
-                        if let Err(e) = ws.send(tungstenite::Message::binary(resp)).await {
-                            error!("socket send error: {}", e);
-                            if let tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed = e {
-                                let _ = recv_msg_tx.send_async(Err(ClientError::SocketError(e))).await;
+                        if let Err(e) = ws.send(tungstenite::Message::binary(req)).await {
+                            debug!("socket send error: {}", e);
+                            let is_capped_or_queue_full = matches!(e, tungstenite::Error::SendQueueFull(_) | tungstenite::Error::Capacity(_));
+                            let _ = chan.send(Err(ClientError::SocketError(e)));
+                            // Don't close socket if only the send queue is full
+                            // or our message is bigger than the default max capacity
+                            if !is_capped_or_queue_full {
                                 let _ = ws.close(None).await;
                                 return;
                             }
                         } else {
                             debug!("responded to server socket");
+                            if chan.send(Ok(())).is_err() {
+                                let _ = ws.close(None).await;
+                                return;
+                            }
                         }
                     }
                     // If we get *anything*, it means that either the channel is closed
@@ -341,12 +358,15 @@ where
     ///
     /// This will block if the inner send buffer is filled.
     pub async fn send_message(&self, req: Req) -> ClientResult<()> {
-        if self.is_closed() || self.tx.send_async(req).await.is_err() {
+        let (req_tx, req_rx) = oneshot::channel();
+        if self.is_closed() || self.tx.send((req, req_tx)).await.is_err() {
             Err(ClientError::SocketError(
                 tungstenite::Error::ConnectionClosed,
             ))
         } else {
-            Ok(())
+            req_rx.await.unwrap_or(Err(ClientError::SocketError(
+                tungstenite::Error::ConnectionClosed,
+            )))
         }
     }
 
