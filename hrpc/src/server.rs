@@ -755,7 +755,7 @@ macro_rules! balanced_or_tree {
 #[macro_export]
 macro_rules! debug_boxed {
     ($x:expr) => {
-        ::warp::Filter::boxed($x)
+        hrpc::warp::Filter::boxed($x)
     };
 }
 
