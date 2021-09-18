@@ -16,8 +16,7 @@ quote = "1.0"
 proc-macro2 = "1.0"
 
 [features]
-default = ["rustfmt", "client", "server", "boxed"]
-boxed = []
+default = ["rustfmt", "client", "server"]
 rustfmt = []
 server = []
 client = []
