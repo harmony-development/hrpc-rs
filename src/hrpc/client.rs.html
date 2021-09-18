@@ -735,7 +735,7 @@
 {
     <span class="ident">rx</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Resp</span>, <span class="ident">ClientError</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">tx</span>: <span class="ident">mpsc::Sender</span><span class="op">&lt;</span><span class="ident">SenderChanWithReq</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">close_chan</span>: <span class="ident">flume::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
+    <span class="ident">close_chan</span>: <span class="ident">mpsc::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>
@@ -749,7 +749,7 @@
             <span class="ident">mpsc::Sender</span><span class="op">&lt;</span><span class="ident">SenderChanWithReq</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span><span class="op">&gt;</span>,
             <span class="ident">mpsc::Receiver</span><span class="op">&lt;</span><span class="ident">SenderChanWithReq</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         ) <span class="op">=</span> <span class="ident">mpsc::channel</span>(<span class="number">64</span>);
-        <span class="kw">let</span> (<span class="ident">close_chan_tx</span>, <span class="ident">close_chan_rx</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">1</span>);
+        <span class="kw">let</span> (<span class="ident">close_chan_tx</span>, <span class="kw-2">mut</span> <span class="ident">close_chan_rx</span>) <span class="op">=</span> <span class="ident">mpsc::channel</span>(<span class="number">1</span>);
         <span class="ident">tokio::spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">BytesMut::new</span>();
             <span class="kw">loop</span> {
@@ -824,7 +824,7 @@
                     }
                     <span class="comment">// If we get *anything*, it means that either the channel is closed</span>
                     <span class="comment">// or we got a close message</span>
-                    <span class="kw">_</span> <span class="op">=</span> <span class="ident">close_chan_rx</span>.<span class="ident">recv_async</span>() <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">_</span> <span class="op">=</span> <span class="ident">close_chan_rx</span>.<span class="ident">recv</span>() <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span> {
                             <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">err</span>))).<span class="kw">await</span>;
                         }
@@ -879,13 +879,13 @@
 
     <span class="doccomment">/// Return whether the socket is closed or not.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_closed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">close_chan</span>.<span class="ident">is_disconnected</span>()
+        <span class="self">self</span>.<span class="ident">close_chan</span>.<span class="ident">is_closed</span>()
     }
 
     <span class="doccomment">/// Close the socket.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">close</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="comment">// We don&#39;t care about the error, it&#39;s closed either way</span>
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">close_chan</span>.<span class="ident">send_async</span>(()).<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">close_chan</span>.<span class="ident">send</span>(()).<span class="kw">await</span>;
     }
 }
 
