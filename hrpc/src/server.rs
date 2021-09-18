@@ -127,7 +127,7 @@ pub mod filters {
 #[doc(hidden)]
 pub mod prelude {
     pub use super::{socket_common, unary_common, CustomError, ServerError, Socket};
-    pub use crate::{IntoRequest, Request};
+    pub use crate::{balanced_or_tree, debug_boxed, IntoRequest, Request};
     pub use bytes::{Bytes, BytesMut};
     pub use futures_util::{FutureExt, SinkExt, StreamExt};
     pub use http::HeaderMap;
@@ -685,13 +685,13 @@ macro_rules! serve_multiple {
     {
         addr: $address:expr,
         err: $err:ty,
-        filters: $first:expr, $( $filter:expr, )+
+        filters: $( $filter:expr, )+
     } => {
         async move {
             use $crate::warp::Filter;
 
             $crate::warp::serve(
-                $first $( .or($filter) )+
+                balanced_or_tree!( $( $filter:expr ),+ )
                     .with($crate::warp::filters::trace::request())
                     .recover($crate::server::handle_rejection::<$err>)
             )
@@ -709,13 +709,13 @@ macro_rules! serve_multiple_tls {
         err: $err:ty,
         key_file: $key_file:expr,
         cert_file: $cert_file:expr,
-        filters: $first:expr, $( $filter:expr, )+
+        filters: $( $filter:expr, )+
     } => {
         async move {
             use $crate::warp::Filter;
 
             $crate::warp::serve(
-                $first $( .or($filter) )+
+                balanced_or_tree!( $( $filter:expr ),+ )
                     .with($crate::warp::filters::trace::request())
                     .recover($crate::server::handle_rejection::<$err>)
             )
@@ -725,5 +725,45 @@ macro_rules! serve_multiple_tls {
             .run($address)
             .await
         }
+    };
+}
+
+// Thanks to https://github.com/seanmonstar/warp/issues/619#issuecomment-662716377
+/// Takes a list of handler expressions and `or`s them together
+/// in a balanced tree. That is, instead of `a.or(b).or(c).or(d)`,
+/// it produces `(a.or(b)).or(c.or(d))`, thus nesting the types
+/// less deeply, which provides improvements in compile time.
+///
+/// It also applies `::warp::Filter::boxed` to each handler expression
+/// when in `debug_assertions` mode, improving compile time further.
+#[macro_export]
+macro_rules! balanced_or_tree {
+    ($x:expr $(,)?) => { debug_boxed!($x) };
+    ($($x:expr),+ $(,)?) => {
+        balanced_or_tree!(@internal ; $($x),+; $($x),+)
+    };
+    (@internal $($left:expr),*; $head:expr, $($tail:expr),+; $a:expr $(,$b:expr)?) => {
+        (balanced_or_tree!($($left,)* $head)).or(balanced_or_tree!($($tail),+))
+    };
+    (@internal $($left:expr),*; $head:expr, $($tail:expr),+; $a:expr, $b:expr, $($more:expr),+) => {
+        balanced_or_tree!(@internal $($left,)* $head; $($tail),+; $($more),+)
+    };
+}
+
+#[cfg(debug_assertions)]
+#[allow(unused_macros)]
+#[macro_export]
+macro_rules! debug_boxed {
+    ($x:expr) => {
+        ::warp::Filter::boxed($x)
+    };
+}
+
+#[cfg(not(debug_assertions))]
+#[allow(unused_macros)]
+#[macro_export]
+macro_rules! debug_boxed {
+    ($x:expr) => {
+        $x
     };
 }

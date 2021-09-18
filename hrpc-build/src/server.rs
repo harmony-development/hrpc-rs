@@ -27,7 +27,8 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 let server = self.inner;
 
                 #serve_filters
-                #serve_combined_filters.boxed()
+
+                balanced_or_tree!(#serve_combined_filters).boxed()
             }
         }
         #[cfg(not(feature = "boxed"))]
@@ -40,7 +41,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 let server = self.inner;
 
                 #serve_filters
-                #serve_combined_filters
+                balanced_or_tree!(#serve_combined_filters)
             }
         }
     };
@@ -177,7 +178,7 @@ fn generate_filters<T: Service>(service: &T, _proto_path: &str) -> (TokenStream,
     let mut stream = TokenStream::new();
     let mut comb_stream = TokenStream::new();
 
-    for (index, method) in service.methods().iter().enumerate() {
+    for method in service.methods().iter() {
         let name = quote::format_ident!("{}", method.name());
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
         let pre_name = quote::format_ident!("{}_middleware", name);
@@ -246,33 +247,7 @@ fn generate_filters<T: Service>(service: &T, _proto_path: &str) -> (TokenStream,
             };
         };
 
-        comb_stream.extend(if index > 0 {
-            #[cfg(feature = "boxed")]
-            {
-                quote! {
-                    .or(#name.boxed())
-                }
-            }
-            #[cfg(not(feature = "boxed"))]
-            {
-                quote! {
-                    .or(#name)
-                }
-            }
-        } else {
-            #[cfg(feature = "boxed")]
-            {
-                quote! {
-                    #name.boxed()
-                }
-            }
-            #[cfg(not(feature = "boxed"))]
-            {
-                quote! {
-                    #name
-                }
-            }
-        });
+        comb_stream.extend(quote! { #name, });
 
         stream.extend(apply_middleware);
     }
