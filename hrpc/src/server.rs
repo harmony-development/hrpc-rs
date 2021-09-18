@@ -738,7 +738,7 @@ macro_rules! serve_multiple_tls {
 /// when in `debug_assertions` mode, improving compile time further.
 #[macro_export]
 macro_rules! balanced_or_tree {
-    ($x:expr $(,)?) => { debug_boxed!($x) };
+    ($x:expr $(,)?) => { $crate::debug_boxed!($x) };
     ($($x:expr),+ $(,)?) => {
         balanced_or_tree!(@internal ; $($x),+; $($x),+)
     };
@@ -755,7 +755,7 @@ macro_rules! balanced_or_tree {
 #[macro_export]
 macro_rules! debug_boxed {
     ($x:expr) => {
-        hrpc::warp::Filter::boxed($x)
+        $crate::warp::Filter::boxed($x)
     };
 }
 
