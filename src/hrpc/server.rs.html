@@ -1508,7 +1508,7 @@
 <span class="doccomment">/// when in `debug_assertions` mode, improving compile time further.</span>
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules!</span> <span class="ident">balanced_or_tree</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span> $(,)<span class="question-mark">?</span>) <span class="op">=</span><span class="op">&gt;</span> { <span class="macro">debug_boxed!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>) };
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span> $(,)<span class="question-mark">?</span>) <span class="op">=</span><span class="op">&gt;</span> { <span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro">::debug_boxed!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>) };
     ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span>),<span class="op">+</span> $(,)<span class="question-mark">?</span>) <span class="op">=</span><span class="op">&gt;</span> {
         <span class="macro">balanced_or_tree!</span>(@<span class="ident">internal</span> ; $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>),<span class="op">+</span>; $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>),<span class="op">+</span>)
     };
@@ -1525,7 +1525,7 @@
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules!</span> <span class="ident">debug_boxed</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {
-        <span class="ident">hrpc::warp::Filter::boxed</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>)
+        <span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::warp::Filter::boxed</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>)
     };
 }
 
