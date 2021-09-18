@@ -344,7 +344,7 @@ where
 {
     rx: flume::Receiver<Result<Req, SocketError>>,
     tx: mpsc::Sender<SenderChanWithReq<Resp>>,
-    close_chan: flume::Sender<()>,
+    close_chan: mpsc::Sender<()>,
 }
 
 impl<Req, Resp> Socket<Req, Resp>
@@ -358,7 +358,7 @@ where
             mpsc::Sender<SenderChanWithReq<Resp>>,
             mpsc::Receiver<SenderChanWithReq<Resp>>,
         ) = mpsc::channel(64);
-        let (close_chan_tx, close_chan_rx) = flume::bounded(1);
+        let (close_chan_tx, mut close_chan_rx) = mpsc::channel(1);
         tokio::spawn(async move {
             let mut buf = BytesMut::new();
             loop {
@@ -419,7 +419,7 @@ where
                     }
                     // If we get *anything*, it means that either the channel is closed
                     // or we got a close message
-                    _ = close_chan_rx.recv_async() => {
+                    _ = close_chan_rx.recv() => {
                         if let Err(err) = ws.close().await {
                             let _ = recv_msg_tx.send_async(Err(SocketError::from(err))).await;
                         }
@@ -466,13 +466,13 @@ where
 
     /// Return whether the socket is closed or not.
     pub fn is_closed(&self) -> bool {
-        self.close_chan.is_disconnected()
+        self.close_chan.is_closed()
     }
 
     /// Close the socket.
     pub async fn close(&self) {
         // We don't care about the error, it's closed either way
-        let _ = self.close_chan.send_async(()).await;
+        let _ = self.close_chan.send(()).await;
     }
 }
 
