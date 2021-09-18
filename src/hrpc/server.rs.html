@@ -727,6 +727,46 @@
 <span id="727">727</span>
 <span id="728">728</span>
 <span id="729">729</span>
+<span id="730">730</span>
+<span id="731">731</span>
+<span id="732">732</span>
+<span id="733">733</span>
+<span id="734">734</span>
+<span id="735">735</span>
+<span id="736">736</span>
+<span id="737">737</span>
+<span id="738">738</span>
+<span id="739">739</span>
+<span id="740">740</span>
+<span id="741">741</span>
+<span id="742">742</span>
+<span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
+<span id="747">747</span>
+<span id="748">748</span>
+<span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
+<span id="755">755</span>
+<span id="756">756</span>
+<span id="757">757</span>
+<span id="758">758</span>
+<span id="759">759</span>
+<span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">prelude</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -857,7 +897,7 @@
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">prelude</span> {
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">socket_common</span>, <span class="ident">unary_common</span>, <span class="ident">CustomError</span>, <span class="ident">ServerError</span>, <span class="ident">Socket</span>};
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">IntoRequest</span>, <span class="ident">Request</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">balanced_or_tree</span>, <span class="ident">debug_boxed</span>, <span class="ident">IntoRequest</span>, <span class="ident">Request</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">FutureExt</span>, <span class="ident">SinkExt</span>, <span class="ident">StreamExt</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http::HeaderMap</span>;
@@ -1415,13 +1455,13 @@
     {
         <span class="ident">addr</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">address</span>:<span class="ident">expr</span>,
         <span class="ident">err</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">err</span>:<span class="ident">ty</span>,
-        <span class="ident">filters</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">first</span>:<span class="ident">expr</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">filter</span>:<span class="ident">expr</span>, )<span class="op">+</span>
+        <span class="ident">filters</span>: $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">filter</span>:<span class="ident">expr</span>, )<span class="op">+</span>
     } <span class="op">=</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">use</span> <span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::warp::Filter</span>;
 
             <span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::warp::serve</span>(
-                <span class="macro-nonterminal">$</span><span class="macro-nonterminal">first</span> $( .<span class="ident">or</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">filter</span>) )<span class="op">+</span>
+                <span class="macro">balanced_or_tree!</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">filter</span>:<span class="ident">expr</span> ),<span class="op">+</span> )
                     .<span class="ident">with</span>(<span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::warp::filters::trace::request</span>())
                     .<span class="ident">recover</span>(<span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::server::handle_rejection</span>::<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">err</span><span class="op">&gt;</span>)
             )
@@ -1439,13 +1479,13 @@
         <span class="ident">err</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">err</span>:<span class="ident">ty</span>,
         <span class="ident">key_file</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">key_file</span>:<span class="ident">expr</span>,
         <span class="ident">cert_file</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">cert_file</span>:<span class="ident">expr</span>,
-        <span class="ident">filters</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">first</span>:<span class="ident">expr</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">filter</span>:<span class="ident">expr</span>, )<span class="op">+</span>
+        <span class="ident">filters</span>: $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">filter</span>:<span class="ident">expr</span>, )<span class="op">+</span>
     } <span class="op">=</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">use</span> <span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::warp::Filter</span>;
 
             <span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::warp::serve</span>(
-                <span class="macro-nonterminal">$</span><span class="macro-nonterminal">first</span> $( .<span class="ident">or</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">filter</span>) )<span class="op">+</span>
+                <span class="macro">balanced_or_tree!</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">filter</span>:<span class="ident">expr</span> ),<span class="op">+</span> )
                     .<span class="ident">with</span>(<span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::warp::filters::trace::request</span>())
                     .<span class="ident">recover</span>(<span class="macro-nonterminal">$</span><span class="kw">crate</span><span class="macro-nonterminal">::server::handle_rejection</span>::<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">err</span><span class="op">&gt;</span>)
             )
@@ -1455,6 +1495,46 @@
             .<span class="ident">run</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">address</span>)
             .<span class="kw">await</span>
         }
+    };
+}
+
+<span class="comment">// Thanks to https://github.com/seanmonstar/warp/issues/619#issuecomment-662716377</span>
+<span class="doccomment">/// Takes a list of handler expressions and `or`s them together</span>
+<span class="doccomment">/// in a balanced tree. That is, instead of `a.or(b).or(c).or(d)`,</span>
+<span class="doccomment">/// it produces `(a.or(b)).or(c.or(d))`, thus nesting the types</span>
+<span class="doccomment">/// less deeply, which provides improvements in compile time.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// It also applies `::warp::Filter::boxed` to each handler expression</span>
+<span class="doccomment">/// when in `debug_assertions` mode, improving compile time further.</span>
+<span class="attribute">#[<span class="ident">macro_export</span>]</span>
+<span class="macro">macro_rules!</span> <span class="ident">balanced_or_tree</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span> $(,)<span class="question-mark">?</span>) <span class="op">=</span><span class="op">&gt;</span> { <span class="macro">debug_boxed!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>) };
+    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span>),<span class="op">+</span> $(,)<span class="question-mark">?</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="macro">balanced_or_tree!</span>(@<span class="ident">internal</span> ; $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>),<span class="op">+</span>; $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>),<span class="op">+</span>)
+    };
+    (@<span class="ident">internal</span> $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">left</span>:<span class="ident">expr</span>),<span class="kw-2">*</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">head</span>:<span class="ident">expr</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">tail</span>:<span class="ident">expr</span>),<span class="op">+</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">a</span>:<span class="ident">expr</span> $(,<span class="macro-nonterminal">$</span><span class="macro-nonterminal">b</span>:<span class="ident">expr</span>)<span class="question-mark">?</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        (<span class="macro">balanced_or_tree!</span>($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">left</span>,)<span class="op">*</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">head</span>)).<span class="ident">or</span>(<span class="macro">balanced_or_tree!</span>($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">tail</span>),<span class="op">+</span>))
+    };
+    (@<span class="ident">internal</span> $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">left</span>:<span class="ident">expr</span>),<span class="kw-2">*</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">head</span>:<span class="ident">expr</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">tail</span>:<span class="ident">expr</span>),<span class="op">+</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">a</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">b</span>:<span class="ident">expr</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">more</span>:<span class="ident">expr</span>),<span class="op">+</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="macro">balanced_or_tree!</span>(@<span class="ident">internal</span> $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">left</span>,)<span class="op">*</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">head</span>; $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">tail</span>),<span class="op">+</span>; $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">more</span>),<span class="op">+</span>)
+    };
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">debug_assertions</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_macros</span>)]</span>
+<span class="attribute">#[<span class="ident">macro_export</span>]</span>
+<span class="macro">macro_rules!</span> <span class="ident">debug_boxed</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">::warp::Filter::boxed</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>)
+    };
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">debug_assertions</span>))]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_macros</span>)]</span>
+<span class="attribute">#[<span class="ident">macro_export</span>]</span>
+<span class="macro">macro_rules!</span> <span class="ident">debug_boxed</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>
     };
 }
 </pre></div>
