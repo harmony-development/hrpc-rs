@@ -693,6 +693,7 @@ macro_rules! serve_multiple {
             $crate::warp::serve(
                 balanced_or_tree!( $( $filter:expr ),+ )
                     .with($crate::warp::filters::trace::request())
+                    .with(warp::compression::gzip())
                     .recover($crate::server::handle_rejection::<$err>)
             )
             .run($address)
@@ -717,6 +718,7 @@ macro_rules! serve_multiple_tls {
             $crate::warp::serve(
                 balanced_or_tree!( $( $filter:expr ),+ )
                     .with($crate::warp::filters::trace::request())
+                    .with(warp::compression::gzip())
                     .recover($crate::server::handle_rejection::<$err>)
             )
             .tls()

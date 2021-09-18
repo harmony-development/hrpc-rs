@@ -62,9 +62,12 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 }
 
                 /// Start serving.
+                ///
+                /// Note: this enables gzip compression and request tracing.
                 pub async fn serve<Err: CustomError + 'static, A: Into<std::net::SocketAddr>>(self, address: A) {
                     let filters = self.filters()
                         .with(warp::filters::trace::request())
+                        .with(warp::compression::gzip())
                         .recover(hrpc::server::handle_rejection::<Err>);
 
                     warp::serve(filters).run(address).await
