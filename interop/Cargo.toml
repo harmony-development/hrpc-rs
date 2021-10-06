@@ -9,7 +9,6 @@ license = "MIT"
 prost = "0.8"
 hrpc = { path = "../hrpc" }
 tokio = { version = "1.8", features = ["rt", "macros", "fs"] }
-warp = "0.3"
 futures = "0.3"
 tracing-subscriber = "0.2"
 

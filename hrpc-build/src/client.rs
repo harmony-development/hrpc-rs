@@ -18,14 +18,14 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
         /// Generated client implementations.
         #[allow(dead_code, unused_imports)]
         pub mod #client_mod {
-            use prost::Message;
             use hrpc::{
                 IntoRequest, Request,
                 client::{
-                    Client, ClientResult, Socket
+                    Client,
+                    error::ClientResult,
+                    socket::Socket
                 },
-                reqwest::Client as ReqwestClient,
-                url::Url,
+                exports::http::Uri,
             };
 
             #service_doc
@@ -35,13 +35,9 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             }
 
             impl #service_ident {
-                pub fn new_inner(inner: Client) -> Self {
-                    Self { inner }
-                }
-
-                pub fn new(inner: ReqwestClient, host_url: Url) -> ClientResult<Self> {
+                pub fn new(host_url: Uri) -> ClientResult<Self> {
                     Ok(Self {
-                        inner: Client::new(inner, host_url)?,
+                        inner: Client::new(host_url)?,
                     })
                 }
 

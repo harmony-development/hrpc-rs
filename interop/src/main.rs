@@ -1,13 +1,12 @@
 use hrpc::{
-    return_print,
+    exports::http,
     server::{
-        filters::rate::{rate_limit, Rate},
-        json_err_bytes, Socket, StatusCode,
+        error::{json_err_bytes, CustomError, ServerError as HrpcServerError},
+        socket::Socket,
+        BoxBody, StatusCode,
     },
-    warp::reply::Response,
-    Request,
+    IntoResponse, Request, Response,
 };
-use warp::{filters::BoxedFilter, Filter};
 
 use std::{
     fmt::{self, Display, Formatter},
@@ -29,11 +28,7 @@ async fn main() {
 }
 
 async fn client() {
-    let mut client = mu_client::MuClient::new(
-        hrpc::reqwest::Client::new(),
-        "http://localhost:2289".parse().unwrap(),
-    )
-    .unwrap();
+    let mut client = mu_client::MuClient::new("http://localhost:2289".parse().unwrap()).unwrap();
 
     let resp = client
         .mu(Ping {
@@ -89,93 +84,66 @@ async fn client() {
 
 async fn server() {
     mu_server::MuServer::new(Server)
-        .serve::<ServerError, _>(([127, 0, 0, 1], 2289))
+        .serve(([127, 0, 0, 1], 2289))
         .await
 }
 
 #[derive(Debug)]
 struct Server;
 
-#[hrpc::async_trait]
+#[hrpc::exports::async_trait]
 impl mu_server::Mu for Server {
-    type Error = ServerError;
-
-    fn middleware(&self, endpoint: &'static str) -> BoxedFilter<()> {
-        warp::any()
-            .map(move || {
-                println!("got {} request", endpoint);
-            })
-            .untuple_one()
-            .boxed()
-    }
-
-    fn mu_middleware(&self, _endpoint: &'static str) -> BoxedFilter<()> {
-        rate_limit(Rate::new(1, Duration::from_secs(5)), ServerError::TooFast).boxed()
-    }
-
-    async fn mu(&self, request: Request<Ping>) -> Result<Pong, Self::Error> {
-        if request.get_message().mu.is_empty() {
-            return Err(ServerError::PingEmpty);
+    async fn mu(&self, request: Request<Ping>) -> Result<Response<Pong>, HrpcServerError> {
+        let msg = request.into_message().await?;
+        if msg.mu.is_empty() {
+            return Err(ServerError::PingEmpty.into());
         }
-        Ok(Pong {
-            mu: request.into_parts().0.mu,
-        })
+        Ok((Pong { mu: msg.mu }).into_response())
     }
 
-    fn mu_mute_on_upgrade(&self, response: Response) -> Response {
+    fn mu_mute_on_upgrade(&self, response: http::Response<BoxBody>) -> http::Response<BoxBody> {
         response
-    }
-
-    type MuMuteValidationType = ();
-
-    async fn mu_mute_validation(
-        &self,
-        _request: Request<Option<Ping>>,
-    ) -> Result<Self::MuMuteValidationType, Self::Error> {
-        Ok(())
     }
 
     async fn mu_mute(
         &self,
-        _validation_value: Self::MuMuteValidationType,
+        request: Request<()>,
         sock: Socket<Ping, Pong>,
-    ) {
+    ) -> Result<(), HrpcServerError> {
         let periodic_task = {
             let sock = sock.clone();
             async move {
                 let mut int = tokio::time::interval(Duration::from_secs(10));
                 loop {
                     int.tick().await;
-                    return_print!(
-                        sock.send_message(Pong {
-                            mu: "been 10 seconds".to_string(),
-                        })
-                        .await
-                    );
+                    sock.send_message(Pong {
+                        mu: "been 10 seconds".to_string(),
+                    })
+                    .await?;
                 }
+                Result::<_, HrpcServerError>::Ok(())
             }
         };
         let recv_task = async move {
             loop {
-                return_print!(sock.receive_message().await, |req| {
-                    return_print!(sock.send_message(Pong { mu: req.mu }).await);
-                });
+                let message = sock.receive_message().await?;
+                sock.send_message(Pong { mu: message.mu }).await?;
             }
+            Result::<_, HrpcServerError>::Ok(())
         };
-        tokio::join!(periodic_task, recv_task);
+        let (res, res2) = tokio::join!(periodic_task, recv_task);
+        res?;
+        res2?;
+        Ok(())
     }
 
-    type MuMuValidationType = Ping;
-
-    async fn mu_mu_validation(
+    async fn mu_mu(
         &self,
-        request: Request<Option<Ping>>,
-    ) -> Result<Self::MuMuValidationType, Self::Error> {
-        Ok(request.into_parts().0.unwrap_or_default())
-    }
-
-    async fn mu_mu(&self, validation_value: Self::MuMuValidationType, _socket: Socket<Ping, Pong>) {
-        println!("mu_mu: {:?}", validation_value);
+        request: Request<()>,
+        _socket: Socket<Ping, Pong>,
+    ) -> Result<(), HrpcServerError> {
+        println!("mu_mu: {:?}", request);
+        Ok(())
     }
 }
 
@@ -196,7 +164,9 @@ impl Display for ServerError {
     }
 }
 
-impl hrpc::server::CustomError for ServerError {
+impl std::error::Error for ServerError {}
+
+impl CustomError for ServerError {
     fn code(&self) -> StatusCode {
         match self {
             ServerError::PingEmpty => StatusCode::BAD_REQUEST,
