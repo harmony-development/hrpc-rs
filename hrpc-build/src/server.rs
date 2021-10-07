@@ -14,28 +14,22 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let server_mod = quote::format_ident!("{}_server", naive_snake_case(service.name()));
     let generated_trait = generate_trait(service, proto_path, server_trait.clone());
     let service_doc = generate_doc_comments(service.comment());
-    let (serve_filters, serve_combined_filters) = generate_filters(service, proto_path);
+    let (routes, router) = generate_routes(service, proto_path);
 
     let filters_method = quote! {
-        /// Convert this service to `warp` `Filter`s.
+        /// Convert this service to an `IntoMakeService`.
         ///
         /// This can be used to compose multiple services. See `serve_multiple` macro in `hrpc`.
-        #[allow(clippy::redundant_clone)]
-        #[cfg(not(debug_assertions))]
-        pub fn filters(self) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
+        pub fn into_make_service(self) -> IntoMakeService<BoxRoute<Body, Infallible>> {
             let server = self.inner;
 
-            #serve_filters
-            balanced_or_tree!(#serve_combined_filters)
-        }
+            #routes
 
-        #[allow(clippy::redundant_clone)]
-        #[cfg(debug_assertions)]
-        pub fn filters(self) -> BoxedFilter<(impl Reply,)> {
-            let server = self.inner;
-
-            #serve_filters
-            balanced_or_tree!(#serve_combined_filters).boxed()
+            let router = Router::handle_error(#router, |err: ServerError| Result::<_, Infallible>::Ok(err.into_response()));
+            let router = Router::boxed(router);
+            let router = Router::layer(router, server.middleware());
+            let router = Router::boxed(router);
+            router.into_make_service()
         }
     };
 
@@ -64,13 +58,13 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 /// Start serving.
                 ///
                 /// Note: this enables gzip compression and request tracing.
-                pub async fn serve<Err: CustomError + 'static, A: Into<std::net::SocketAddr>>(self, address: A) {
-                    let filters = self.filters()
-                        .with(warp::filters::trace::request())
-                        .with(warp::compression::gzip())
-                        .recover(hrpc::server::handle_rejection::<Err>);
+                pub async fn serve<A: Into<std::net::SocketAddr>>(self, address: A) {
+                    let make_service = self.into_make_service();
+                    let addr = address.into();
 
-                    warp::serve(filters).run(address).await
+                    let server = axum::Server::bind(&addr).serve(make_service);
+                    info!("serving at {}", addr);
+                    server.await.unwrap()
                 }
 
                 #filters_method
@@ -88,15 +82,17 @@ fn generate_trait<T: Service>(service: &T, proto_path: &str, server_trait: Ident
 
     quote! {
         #trait_doc
-        #[hrpc::async_trait]
+        #[hrpc::exports::async_trait]
         pub trait #server_trait : Send + Sync + 'static {
-            type Error: CustomError + Send + Sync + 'static;
-
             /// Filter to be run before all API operations but after API path is matched,
             /// for all endpoints.
-            #[allow(unused_variables)]
-            fn middleware(&self, endpoint: &'static str) -> BoxedFilter<()> {
-                warp::any().boxed()
+            fn middleware(&self) -> HrpcRouteLayer {
+                HrpcRouteLayer::new(
+                    ServiceBuilder::new()
+                        .layer(MapResponseBodyLayer::new(box_body))
+                        .layer(TraceLayer::new_for_http())
+                        .into_inner(),
+                )
             }
 
             #methods
@@ -113,55 +109,39 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
         let name = quote::format_ident!("{}", method.name());
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
         let pre_name = quote::format_ident!("{}_middleware", name);
-        let validation_name = quote::format_ident!("{}_validation", name);
-        let validation_value = quote::format_ident!("{}ValidationType", method.identifier());
 
         let (req_message, res_message) = method.request_response_name(proto_path);
 
         let method_doc = generate_doc_comments(method.comment());
         let on_upgrade_method = quote! {
             /// Method that can be used to modify the response sent when the WebSocket is upgraded.
-            fn #on_upgrade_response_name(&self, response: Response) -> Response {
+            fn #on_upgrade_response_name(&self, response: http::Response<BoxBody>) -> http::Response<BoxBody> {
                 response
             }
         };
         let middleware_methods = quote! {
             /// Filter to be run before all API operations but after API path is matched.
             #[allow(unused_variables)]
-            fn #pre_name(&self, endpoint: &'static str) -> BoxedFilter<()> {
-                warp::any().boxed()
+            fn #pre_name(&self, endpoint: &'static str) -> HrpcLayer {
+                HrpcLayer::new(Identity::new())
             }
         };
 
         let method = match streaming {
             (false, false) => quote! {
                 #middleware_methods
+
                 #method_doc
-                async fn #name(&self, request: Request<#req_message>) -> Result<#res_message, Self::Error>;
+                async fn #name(&self, request: Request<#req_message>) -> Result<Response<#res_message>, ServerError>;
             },
-            (false, true) => quote! {
+            (true, true) | (false, true) => quote! {
                 #middleware_methods
                 #on_upgrade_method
 
-                type #validation_value: Send + Sync;
-                /// The message may be `None` or `Some`.
-                async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, Self::Error>;
-
                 #method_doc
-                async fn #name(&self, validation_value: Self::#validation_value, socket: Socket<#req_message, #res_message>);
+                async fn #name(&self, request: Request<()>, socket: Socket<#req_message, #res_message>) -> Result<(), ServerError>;
             },
             (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
-            (true, true) => quote! {
-                #middleware_methods
-                #on_upgrade_method
-
-                type #validation_value: Send + Sync;
-                /// The message will always be `None`.
-                async fn #validation_name(&self, request: Request<Option<#req_message>>) -> Result<Self::#validation_value, Self::Error>;
-
-                #method_doc
-                async fn #name(&self, validation_value: Self::#validation_value, socket: Socket<#req_message, #res_message>);
-            },
         };
 
         stream.extend(method);
@@ -170,15 +150,14 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
     stream
 }
 
-fn generate_filters<T: Service>(service: &T, _proto_path: &str) -> (TokenStream, TokenStream) {
+fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, TokenStream) {
     let mut stream = TokenStream::new();
-    let mut comb_stream = TokenStream::new();
+    let mut comb_stream = quote! { Router::new() };
 
     for method in service.methods().iter() {
         let name = quote::format_ident!("{}", method.name());
         let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
         let pre_name = quote::format_ident!("{}_middleware", name);
-        let validation_name = quote::format_ident!("{}_validation", name);
 
         let package_name = format!(
             "{}{}{}",
@@ -191,60 +170,45 @@ fn generate_filters<T: Service>(service: &T, _proto_path: &str) -> (TokenStream,
             service.identifier(),
         );
         let method_name = method.identifier();
+        let (req_message, res_message) = method.request_response_name(proto_path);
 
         let streaming = (method.client_streaming(), method.server_streaming());
         let endpoint = format!("/{}/{}", package_name, method_name);
 
-        let wrap_stream_handler = |code| {
-            quote! {
-                let svr = server.clone();
-                let svr2 = server.clone();
-                let svr3 = server.clone();
-                #[allow(unused_mut)]
-                socket_common::base_filter(
-                    #package_name, #method_name,
-                    svr.middleware(#endpoint).and(svr.#pre_name(#endpoint)),
-                    move |req| async move { svr2. #validation_name (req) .await },
-                    move |reply| svr3. #on_upgrade_response_name (reply),
-                    move |_val, _req, mut sock| async move { #code },
-                )
-            }
-        };
-
-        let unary = quote! {
-            let svr = server.clone();
-            unary_common::base_filter(
-                #package_name, #method_name,
-                svr.middleware(#endpoint).and(svr.#pre_name(#endpoint)).boxed(),
-                move |request| async move { svr. #name (request).await },
-            )
-        };
-
         let method = match streaming {
-            (false, false) => unary,
-            (false, true) => wrap_stream_handler(quote! {
-                hrpc::return_print!(
-                    socket_common::validator(_req, &mut sock, |req| svr. #validation_name (req)).await,
-                    |val| svr. #name (val, sock).await
-                );
-            }),
+            (false, false) => quote! {
+                let svr = server.clone();
+
+                let handler = move |request: Request<#req_message>| async move { svr. #name (request) .await };
+                handler_service(handler)
+            },
             (true, false) => panic!(
                 "{}.{}: Client streaming server unary method is invalid.",
                 package_name, method_name
             ),
-            (true, true) => wrap_stream_handler(quote! {
-                svr. #name (_val, sock).await
-            }),
+            (true, true) | (false, true) => quote! {
+                let svr = server.clone();
+
+                let handler = {
+                    let svr = svr.clone();
+                    move |request: Request<()>, socket: Socket<#req_message, #res_message>| async move { svr. #name (request, socket) .await }
+                };
+                let on_upgrade = move |response: http::Response<BoxBody>| svr. #on_upgrade_response_name (response);
+                ws_handler_service(handler, on_upgrade)
+            },
         };
 
         let apply_middleware = quote! {
             let #name = {
                 #method
             };
+            let #name = ServiceBuilder::new()
+                .layer(server. #pre_name (#endpoint))
+                .service(#name)
+                .map_response(|r| r.map(box_body));
         };
 
-        comb_stream.extend(quote! { #name, });
-
+        comb_stream.extend(quote! { .route(#endpoint, #name) });
         stream.extend(apply_middleware);
     }
 
