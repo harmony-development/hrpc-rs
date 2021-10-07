@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Socket","A websocket, wrapped for ease of use with protobuf messages."]]});

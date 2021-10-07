@@ -122,10 +122,6 @@
 <span id="122">122</span>
 <span id="123">123</span>
 <span id="124">124</span>
-<span id="125">125</span>
-<span id="126">126</span>
-<span id="127">127</span>
-<span id="128">128</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Method</span>, <span class="ident">Service</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">generate_doc_comments</span>, <span class="ident">naive_snake_case</span>};
@@ -147,14 +143,14 @@
         <span class="doccomment">/// Generated client implementations.</span>
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">unused_imports</span>)]</span>
         <span class="kw">pub</span> <span class="kw">mod</span> #<span class="ident">client_mod</span> {
-            <span class="kw">use</span> <span class="ident">prost::Message</span>;
             <span class="kw">use</span> <span class="ident">hrpc</span>::{
                 <span class="ident">IntoRequest</span>, <span class="ident">Request</span>,
                 <span class="ident">client</span>::{
-                    <span class="ident">Client</span>, <span class="ident">ClientResult</span>, <span class="ident">Socket</span>
+                    <span class="ident">Client</span>,
+                    <span class="ident">error::ClientResult</span>,
+                    <span class="ident">socket::Socket</span>
                 },
-                <span class="ident">reqwest::Client</span> <span class="kw">as</span> <span class="ident">ReqwestClient</span>,
-                <span class="ident">url::Url</span>,
+                <span class="ident">exports::http::Uri</span>,
             };
 
             #<span class="ident">service_doc</span>
@@ -164,13 +160,9 @@
             }
 
             <span class="kw">impl</span> #<span class="ident">service_ident</span> {
-                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_inner</span>(<span class="ident">inner</span>: <span class="ident">Client</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-                    <span class="self">Self</span> { <span class="ident">inner</span> }
-                }
-
-                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">inner</span>: <span class="ident">ReqwestClient</span>, <span class="ident">host_url</span>: <span class="ident">Url</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">host_url</span>: <span class="ident">Uri</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
                     <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-                        <span class="ident">inner</span>: <span class="ident">Client::new</span>(<span class="ident">inner</span>, <span class="ident">host_url</span>)<span class="question-mark">?</span>,
+                        <span class="ident">inner</span>: <span class="ident">Client::new</span>(<span class="ident">host_url</span>)<span class="question-mark">?</span>,
                     })
                 }
 

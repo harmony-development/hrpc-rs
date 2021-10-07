@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["hrpc"] = [{"text":"impl&lt;T, U, E&gt; <a class=\"trait\" href=\"https://docs.rs/tower-service/0.3.1/tower_service/trait.Service.html\" title=\"trait tower_service::Service\">Service</a>&lt;T&gt; for <a class=\"struct\" href=\"hrpc/server/clone_box/struct.CloneBoxService.html\" title=\"struct hrpc::server::clone_box::CloneBoxService\">CloneBoxService</a>&lt;T, U, E&gt;","synthetic":false,"types":["hrpc::server::clone_box::CloneBoxService"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["json_err_bytes","Creates a JSON error response from a message."]],"trait":[["CustomError","Trait that needs to be implemented to use an error type with a generated service server."]],"type":[["BodyError","Body error."],["ServerResult","Shorthand type for `Result<T, ServerError>."],["SocketError","Socket error."]]});
