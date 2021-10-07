@@ -17,15 +17,19 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let (routes, router) = generate_routes(service, proto_path);
 
     let filters_method = quote! {
-        /// Convert this service to `axum` `Router`.
+        /// Convert this service to an `IntoMakeService`.
         ///
         /// This can be used to compose multiple services. See `serve_multiple` macro in `hrpc`.
-        pub fn into_make_service(self) -> IntoMakeService<BoxRoute> {
+        pub fn into_make_service(self) -> IntoMakeService<BoxRoute<Body, Infallible>> {
             let server = self.inner;
 
             #routes
 
-            #router.into_make_service()
+            let router = Router::handle_error(#router, |err: ServerError| Result::<_, Infallible>::Ok(err.into_response()));
+            let router = Router::boxed(router);
+            let router = Router::layer(router, server.middleware());
+            let router = Router::boxed(router);
+            router.into_make_service()
         }
     };
 
@@ -58,10 +62,9 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                     let make_service = self.into_make_service();
                     let addr = address.into();
 
-                    axum::Server::bind(&addr)
-                        .serve(make_service)
-                        .await
-                        .unwrap()
+                    let server = axum::Server::bind(&addr).serve(make_service);
+                    info!("serving at {}", addr);
+                    server.await.unwrap()
                 }
 
                 #filters_method
@@ -83,9 +86,13 @@ fn generate_trait<T: Service>(service: &T, proto_path: &str, server_trait: Ident
         pub trait #server_trait : Send + Sync + 'static {
             /// Filter to be run before all API operations but after API path is matched,
             /// for all endpoints.
-            #[allow(unused_variables)]
-            fn middleware(&self, endpoint: &'static str) -> HrpcLayer {
-                BoxLayer::new(Identity::new())
+            fn middleware(&self) -> HrpcRouteLayer {
+                HrpcRouteLayer::new(
+                    ServiceBuilder::new()
+                        .layer(MapResponseBodyLayer::new(box_body))
+                        .layer(TraceLayer::new_for_http())
+                        .into_inner(),
+                )
             }
 
             #methods
@@ -116,7 +123,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
             /// Filter to be run before all API operations but after API path is matched.
             #[allow(unused_variables)]
             fn #pre_name(&self, endpoint: &'static str) -> HrpcLayer {
-                BoxLayer::new(Identity::new())
+                HrpcLayer::new(Identity::new())
             }
         };
 
@@ -145,8 +152,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
 fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, TokenStream) {
     let mut stream = TokenStream::new();
-    let mut comb_stream = TokenStream::new();
-    comb_stream.extend(quote! { Router::new() });
+    let mut comb_stream = quote! { Router::new() };
 
     for method in service.methods().iter() {
         let name = quote::format_ident!("{}", method.name());
@@ -173,7 +179,7 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
             (false, false) => quote! {
                 let svr = server.clone();
 
-                let handler = move |request: Request<#req_message>| async { svr. #name (request) .await };
+                let handler = move |request: Request<#req_message>| async move { svr. #name (request) .await };
                 handler_service(handler)
             },
             (true, false) => panic!(
@@ -185,7 +191,7 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
 
                 let handler = {
                     let svr = svr.clone();
-                    move |request: Request<()>, socket: Socket<#req_message, #res_message>| async { svr. #name (request, socket) .await }
+                    move |request: Request<()>, socket: Socket<#req_message, #res_message>| async move { svr. #name (request, socket) .await }
                 };
                 let on_upgrade = move |response: http::Response<BoxBody>| svr. #on_upgrade_response_name (response);
                 ws_handler_service(handler, on_upgrade)
@@ -198,11 +204,11 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
             };
             let #name = ServiceBuilder::new()
                 .layer(server. #pre_name (#endpoint))
-                .layer(server.middleware(#endpoint))
-                .service(#name);
+                .service(#name)
+                .map_response(|r| r.map(box_body));
         };
 
-        comb_stream.extend(quote! { .route(#endpoint, #name).boxed() });
+        comb_stream.extend(quote! { .route(#endpoint, #name) });
         stream.extend(apply_middleware);
     }
 

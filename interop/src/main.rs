@@ -1,5 +1,6 @@
 use hrpc::{
     exports::http,
+    return_error,
     server::{
         error::{json_err_bytes, CustomError, ServerError as HrpcServerError},
         socket::Socket,
@@ -107,7 +108,7 @@ impl mu_server::Mu for Server {
 
     async fn mu_mute(
         &self,
-        request: Request<()>,
+        _request: Request<()>,
         sock: Socket<Ping, Pong>,
     ) -> Result<(), HrpcServerError> {
         let periodic_task = {
@@ -116,20 +117,20 @@ impl mu_server::Mu for Server {
                 let mut int = tokio::time::interval(Duration::from_secs(10));
                 loop {
                     int.tick().await;
-                    sock.send_message(Pong {
-                        mu: "been 10 seconds".to_string(),
-                    })
-                    .await?;
+                    return_error!(
+                        sock.send_message(Pong {
+                            mu: "been 10 seconds".to_string(),
+                        })
+                        .await
+                    );
                 }
-                Result::<_, HrpcServerError>::Ok(())
             }
         };
         let recv_task = async move {
             loop {
-                let message = sock.receive_message().await?;
-                sock.send_message(Pong { mu: message.mu }).await?;
+                let message = return_error!(sock.receive_message().await);
+                return_error!(sock.send_message(Pong { mu: message.mu }).await);
             }
-            Result::<_, HrpcServerError>::Ok(())
         };
         let (res, res2) = tokio::join!(periodic_task, recv_task);
         res?;
@@ -150,16 +151,12 @@ impl mu_server::Mu for Server {
 #[derive(Debug)]
 enum ServerError {
     PingEmpty,
-    TooFast(Duration),
 }
 
 impl Display for ServerError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ServerError::PingEmpty => write!(f, "sent empty ping"),
-            ServerError::TooFast(try_again) => {
-                write!(f, "too fast, try again in {}", try_again.as_secs_f64())
-            }
         }
     }
 }
@@ -170,7 +167,6 @@ impl CustomError for ServerError {
     fn code(&self) -> StatusCode {
         match self {
             ServerError::PingEmpty => StatusCode::BAD_REQUEST,
-            ServerError::TooFast(_) => StatusCode::TOO_MANY_REQUESTS,
         }
     }
 

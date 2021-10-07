@@ -12,7 +12,7 @@ pub struct CloneBoxService<T, U, E>(
 );
 
 impl<T, U, E> CloneBoxService<T, U, E> {
-    pub(crate) fn new<S>(inner: S) -> Self
+    pub fn new<S>(inner: S) -> Self
     where
         S: Service<T, Response = U, Error = E> + Clone + Send + Sync + 'static,
         S::Future: Send + 'static,
@@ -64,5 +64,53 @@ where
             + Sync,
     > {
         Box::new(self.clone())
+    }
+}
+
+use std::{fmt, sync::Arc};
+use tower::{layer::layer_fn, Layer};
+
+pub struct CloneBoxLayer<In, T, U, E> {
+    boxed: Arc<dyn Layer<In, Service = CloneBoxService<T, U, E>> + Send + Sync + 'static>,
+}
+
+impl<In, T, U, E> CloneBoxLayer<In, T, U, E> {
+    /// Create a new [`CloneBoxLayer`].
+    pub fn new<L>(inner_layer: L) -> Self
+    where
+        L: Layer<In> + Send + Sync + 'static,
+        L::Service: Service<T, Response = U, Error = E> + Clone + Sync + Send + 'static,
+        <L::Service as Service<T>>::Future: Send + 'static,
+    {
+        let layer = layer_fn(move |inner: In| {
+            let out = inner_layer.layer(inner);
+            CloneBoxService::new(out)
+        });
+
+        Self {
+            boxed: Arc::new(layer),
+        }
+    }
+}
+
+impl<In, T, U, E> Layer<In> for CloneBoxLayer<In, T, U, E> {
+    type Service = CloneBoxService<T, U, E>;
+
+    fn layer(&self, inner: In) -> Self::Service {
+        self.boxed.layer(inner)
+    }
+}
+
+impl<In, T, U, E> Clone for CloneBoxLayer<In, T, U, E> {
+    fn clone(&self) -> Self {
+        Self {
+            boxed: Arc::clone(&self.boxed),
+        }
+    }
+}
+
+impl<In, T, U, E> fmt::Debug for CloneBoxLayer<In, T, U, E> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("BoxLayer").finish()
     }
 }

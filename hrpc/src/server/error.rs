@@ -33,8 +33,13 @@ impl CustomError for std::convert::Infallible {
     }
 }
 
+/// Body error.
 pub type BodyError = hyper::Error;
+/// Socket error.
 pub type SocketError = tokio_tungstenite::tungstenite::Error;
+
+/// Shorthand type for `Result<T, ServerError>.
+pub type ServerResult<T> = Result<T, ServerError>;
 
 #[doc(hidden)]
 #[derive(Debug)]

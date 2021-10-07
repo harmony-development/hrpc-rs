@@ -30,6 +30,10 @@ pub mod exports {
     pub use axum_server;
     #[cfg(feature = "server")]
     pub use http;
+    #[cfg(feature = "server")]
+    pub use tower;
+    #[cfg(feature = "server")]
+    pub use tower_http;
 }
 
 /// Common client types and functions.
@@ -69,6 +73,7 @@ impl Request<()> {
 }
 
 impl<T> Request<T> {
+    /// Create a new request with the specified body.
     pub fn new_body(body: Body) -> Self {
         Self {
             body,
@@ -146,15 +151,18 @@ pub(crate) async fn decode_body<T: PbMsg + Default>(body: Body) -> Result<T, Dec
     Ok(decoded)
 }
 
+/// hRPC response type.
 pub struct Response<T> {
     data: T,
 }
 
 impl<T> Response<T> {
+    /// Create a new hRPC response.
     pub fn new(data: T) -> Response<T> {
         Self { data }
     }
 
+    /// Extract the message this response contains.
     pub fn into_message(self) -> T {
         self.data
     }
@@ -184,6 +192,7 @@ impl<T> IntoRequest<T> for Request<T> {
     }
 }
 
+/// Trait used for converting any type to a Response type.
 pub trait IntoResponse<T> {
     /// Convert this to a hRPC response.
     fn into_response(self) -> Response<T>;
