@@ -267,6 +267,9 @@
 <span id="267">267</span>
 <span id="268">268</span>
 <span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Formatter</span>},
@@ -354,12 +357,15 @@
         }
     }
 
+    <span class="doccomment">/// Creates a new HttpClient that you can use with `new_inner`.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_http_client</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HttpClient</span> {
+        <span class="kw">let</span> <span class="ident">connector</span> <span class="op">=</span> <span class="ident">hyper_rustls::HttpsConnector::with_native_roots</span>();
+        <span class="ident">hyper::Client::builder</span>().<span class="ident">build</span>(<span class="ident">connector</span>)
+    }
+
     <span class="doccomment">/// Creates a new client.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">server</span>: <span class="ident">Uri</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">connector</span> <span class="op">=</span> <span class="ident">hyper_rustls::HttpsConnector::with_native_roots</span>();
-        <span class="kw">let</span> <span class="ident">http_client</span> <span class="op">=</span> <span class="ident">hyper::Client::builder</span>().<span class="ident">build</span>(<span class="ident">connector</span>);
-
-        <span class="self">Self</span><span class="ident">::new_inner</span>(<span class="ident">http_client</span>, <span class="ident">server</span>)
+        <span class="self">Self</span><span class="ident">::new_inner</span>(<span class="self">Self</span><span class="ident">::new_http_client</span>(), <span class="ident">server</span>)
     }
 
     <span class="doccomment">/// Creates a new client using the provided HttpClient.</span>
