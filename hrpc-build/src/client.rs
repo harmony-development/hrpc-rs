@@ -41,6 +41,10 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                     })
                 }
 
+                pub fn new_inner(inner: Client) -> Self {
+                    Self { inner }
+                }
+
                 pub fn inner(&self) -> &Client {
                     &self.inner
                 }
