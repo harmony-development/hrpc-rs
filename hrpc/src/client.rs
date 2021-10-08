@@ -84,12 +84,15 @@ impl Client {
         }
     }
 
+    /// Creates a new HttpClient that you can use with `new_inner`.
+    pub fn new_http_client() -> HttpClient {
+        let connector = hyper_rustls::HttpsConnector::with_native_roots();
+        hyper::Client::builder().build(connector)
+    }
+
     /// Creates a new client.
     pub fn new(server: Uri) -> ClientResult<Self> {
-        let connector = hyper_rustls::HttpsConnector::with_native_roots();
-        let http_client = hyper::Client::builder().build(connector);
-
-        Self::new_inner(http_client, server)
+        Self::new_inner(Self::new_http_client(), server)
     }
 
     /// Creates a new client using the provided HttpClient.
