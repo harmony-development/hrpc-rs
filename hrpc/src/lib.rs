@@ -18,6 +18,7 @@ pub mod exports {
     pub use tracing;
 
     pub use hyper;
+    pub use http;
 
     #[cfg(feature = "client")]
     pub use rustls_native_certs;
@@ -28,8 +29,6 @@ pub mod exports {
     pub use axum;
     #[cfg(feature = "server")]
     pub use axum_server;
-    #[cfg(feature = "server")]
-    pub use http;
     #[cfg(feature = "server")]
     pub use tower;
     #[cfg(feature = "server")]
