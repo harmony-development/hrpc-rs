@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["error",""],["socket",""]],"struct":[["Client","Generic client implementation with common methods."]]});
+initSidebarItems({"fn":[["http_client","Creates a new HttpClient that you can use."]],"mod":[["error",""],["socket",""]],"struct":[["Client","Generic client implementation with common methods."]],"type":[["HttpClient","A `hyper` HTTP client that supports HTTPS."]]});
