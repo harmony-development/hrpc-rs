@@ -28,8 +28,16 @@ use tower_http::{
 pub mod error;
 pub mod socket;
 
+/// A `hyper` HTTP client that supports HTTPS.
+pub type HttpClient = hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>;
+
+/// Creates a new HttpClient that you can use.
+pub fn http_client() -> HttpClient {
+    let connector = hyper_rustls::HttpsConnector::with_native_roots();
+    hyper::Client::builder().build(connector)
+}
+
 type SocketRequest = tungstenite::handshake::client::Request;
-type HttpClient = hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>;
 type ClientService = Trace<Decompression<HttpClient>, SharedClassifier<StatusInRangeAsFailures>>;
 
 /// Generic client implementation with common methods.
@@ -84,15 +92,9 @@ impl Client {
         }
     }
 
-    /// Creates a new HttpClient that you can use with `new_inner`.
-    pub fn new_http_client() -> HttpClient {
-        let connector = hyper_rustls::HttpsConnector::with_native_roots();
-        hyper::Client::builder().build(connector)
-    }
-
     /// Creates a new client.
     pub fn new(server: Uri) -> ClientResult<Self> {
-        Self::new_inner(Self::new_http_client(), server)
+        Self::new_inner(http_client(), server)
     }
 
     /// Creates a new client using the provided HttpClient.

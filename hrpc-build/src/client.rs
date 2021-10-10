@@ -21,7 +21,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             use hrpc::{
                 IntoRequest, Request,
                 client::{
-                    Client,
+                    Client, HttpClient,
                     error::ClientResult,
                     socket::Socket
                 },
@@ -43,6 +43,12 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
                 pub fn new_inner(inner: Client) -> Self {
                     Self { inner }
+                }
+
+                pub fn new_http(http: HttpClient, host_url: Uri) -> ClientResult<Self> {
+                    Ok(Self {
+                        inner: Client::new_inner(http, host_url)?,
+                    })
                 }
 
                 pub fn inner(&self) -> &Client {
