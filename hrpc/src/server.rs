@@ -18,8 +18,6 @@ use tower::{
 
 pub use super::{HrpcLayer, HrpcService, HttpRequest, HttpResponse};
 
-#[doc(hidden)]
-pub mod clone_box;
 pub mod error;
 pub mod macros;
 pub mod socket;

@@ -44,21 +44,6 @@ impl CustomError for (StatusCode, &'static str) {
     }
 }
 
-/*impl<Err: StdError> CustomError for Err {
-    fn into_status_message(self) -> (StatusCode, Bytes) {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            json_err_bytes(self.to_string()).into(),
-        )
-    }
-}
-
-impl<Err: StdError> CustomError for (StatusCode, Err) {
-    fn into_status_message(self) -> (StatusCode, Bytes) {
-        (self.0, json_err_bytes(self.1.to_string()).into())
-    }
-}*/
-
 /// Socket error.
 pub type SocketError = tokio_tungstenite::tungstenite::Error;
 
