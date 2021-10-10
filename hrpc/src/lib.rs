@@ -1,13 +1,16 @@
 //! Common code used in hRPC code generation.
 use std::{
+    convert::Infallible,
     error::Error as StdError,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
 };
 
+use body::{box_body, BoxBody, HyperBody};
 use bytes::BytesMut;
-use http::HeaderValue;
+use http::{HeaderMap, HeaderValue};
 use prost::Message as PbMsg;
+use tower::util::{BoxLayer, BoxService};
 
 /// Some re-exported crates that might be useful while writing software with `hrpc`.
 pub mod exports {
@@ -15,24 +18,18 @@ pub mod exports {
     pub use async_trait::async_trait;
     pub use bytes;
     pub use futures_util;
+    pub use prost;
     pub use tracing;
 
-    pub use hyper;
     pub use http;
+    pub use http_body;
+    pub use hyper;
+    pub use tower;
+    pub use tower_http;
 
     #[cfg(feature = "client")]
     pub use rustls_native_certs;
-    #[cfg(feature = "client")]
     pub use tokio_tungstenite::{self, tungstenite};
-
-    #[cfg(feature = "server")]
-    pub use axum;
-    #[cfg(feature = "server")]
-    pub use axum_server;
-    #[cfg(feature = "server")]
-    pub use tower;
-    #[cfg(feature = "server")]
-    pub use tower_http;
 }
 
 /// Common client types and functions.
@@ -42,8 +39,19 @@ pub mod client;
 #[cfg(feature = "server")]
 pub mod server;
 
-use http::HeaderMap;
-use hyper::Body;
+/// Body type.
+pub mod body;
+
+/// Alias for a type-erased error type.
+pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
+/// HTTP request used by hRPC.
+pub type HttpRequest = http::Request<HyperBody>;
+/// HTTP response used by hRPC.
+pub type HttpResponse = http::Response<BoxBody>;
+/// hRPC service type.
+pub type HrpcService = BoxService<HttpRequest, HttpResponse, Infallible>;
+/// hRPC layer type.
+pub type HrpcLayer = BoxLayer<HrpcService, HttpRequest, HttpResponse, Infallible>;
 
 /// The hRPC protobuf mimetype.
 pub const HRPC_HEADER: &[u8] = b"application/hrpc";
@@ -57,7 +65,7 @@ pub(crate) fn hrpc_header_value() -> HeaderValue {
 #[derive(Debug)]
 /// A hRPC request.
 pub struct Request<T> {
-    body: Body,
+    body: HyperBody,
     header_map: HeaderMap,
     message: PhantomData<T>,
 }
@@ -67,13 +75,13 @@ impl Request<()> {
     ///
     /// This is useful for hRPC socket requests, since they don't send any messages.
     pub fn empty() -> Request<()> {
-        Self::new_body(Body::empty())
+        Self::new_body(HyperBody::empty())
     }
 }
 
 impl<T> Request<T> {
     /// Create a new request with the specified body.
-    pub fn new_body(body: Body) -> Self {
+    pub fn new_body(body: HyperBody) -> Self {
         Self {
             body,
             message: PhantomData,
@@ -103,14 +111,14 @@ impl<T: PbMsg> Request<T> {
     /// This adds the default "content-type" header used for hRPC unary requests.
     pub fn new(msg: T) -> Self {
         let encoded = encode_protobuf_message(msg).freeze();
-        Self::new_body(Body::from(encoded))
+        Self::new_body(HyperBody::from(encoded))
     }
 }
 
 #[derive(Debug)]
 pub enum DecodeBodyError {
     InvalidProtoMessage(prost::DecodeError),
-    InvalidBody(hyper::Error),
+    InvalidBody(BoxError),
 }
 
 impl Display for DecodeBodyError {
@@ -130,7 +138,7 @@ impl StdError for DecodeBodyError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             Self::InvalidProtoMessage(err) => Some(err),
-            Self::InvalidBody(err) => Some(err),
+            Self::InvalidBody(err) => err.source(),
         }
     }
 }
@@ -138,11 +146,11 @@ impl StdError for DecodeBodyError {
 impl<T: PbMsg + Default> Request<T> {
     #[inline]
     pub async fn into_message(self) -> Result<T, DecodeBodyError> {
-        decode_body(self.body).await
+        decode_body(box_body(self.body)).await
     }
 }
 
-pub(crate) async fn decode_body<T: PbMsg + Default>(body: Body) -> Result<T, DecodeBodyError> {
+pub(crate) async fn decode_body<T: PbMsg + Default>(body: BoxBody) -> Result<T, DecodeBodyError> {
     let buf = hyper::body::aggregate(body)
         .await
         .map_err(DecodeBodyError::InvalidBody)?;

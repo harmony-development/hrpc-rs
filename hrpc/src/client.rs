@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{decode_body, DecodeBodyError};
+use crate::{body::box_body, decode_body, DecodeBodyError};
 
 use super::Request;
 
@@ -264,7 +264,7 @@ impl Client {
                 },
             )
             .await?;
-        let message = decode_body(body).await?;
+        let message = decode_body(box_body(body)).await?;
         socket.send_message(message).await?;
 
         Ok(socket)

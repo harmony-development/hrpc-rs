@@ -1,13 +1,13 @@
 use hrpc::{
-    exports::http,
     return_error,
     server::{
         error::{json_err_bytes, CustomError, ServerError as HrpcServerError},
         socket::Socket,
-        BoxBody, StatusCode,
+        HrpcLayer, HttpResponse, StatusCode,
     },
     IntoResponse, Request, Response,
 };
+use tower::limit::RateLimitLayer;
 
 use std::{
     fmt::{self, Display, Formatter},
@@ -18,7 +18,12 @@ hrpc::include_proto!("test");
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive("hyper=error".parse().unwrap()),
+        )
+        .init();
 
     let is_server = std::env::args().nth(1).map_or(false, |t| t == "server");
     if is_server {
@@ -102,8 +107,12 @@ impl mu_server::Mu for Server {
         Ok((Pong { mu: msg.mu }).into_response())
     }
 
-    fn mu_mute_on_upgrade(&self, response: http::Response<BoxBody>) -> http::Response<BoxBody> {
+    fn mu_mute_on_upgrade(&self, response: HttpResponse) -> HttpResponse {
         response
+    }
+
+    fn mu_mute_middleware(&self, _endpoint: &'static str) -> HrpcLayer {
+        HrpcLayer::new(RateLimitLayer::new(1, Duration::from_secs(5)))
     }
 
     async fn mu_mute(
@@ -164,13 +173,10 @@ impl Display for ServerError {
 impl std::error::Error for ServerError {}
 
 impl CustomError for ServerError {
-    fn code(&self) -> StatusCode {
+    fn as_status_message(&self) -> (StatusCode, prost::bytes::Bytes) {
+        let body = json_err_bytes(self.to_string()).into();
         match self {
-            ServerError::PingEmpty => StatusCode::BAD_REQUEST,
+            ServerError::PingEmpty => (StatusCode::BAD_REQUEST, body),
         }
-    }
-
-    fn message(&self) -> Vec<u8> {
-        json_err_bytes(&self.to_string())
     }
 }

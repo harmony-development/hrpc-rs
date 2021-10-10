@@ -1,51 +1,44 @@
-use super::{Request, HRPC_HEADER};
-use crate::{encode_protobuf_message, hrpc_header_value, Response};
-use clone_box::{CloneBoxLayer, CloneBoxService};
-use error::ServerError;
+use self::{prelude::CustomError, ws::WebSocketUpgrade};
+
+use super::{
+    body::{full_box_body, HyperBody},
+    encode_protobuf_message, hrpc_header_value, Request as HrpcRequest, Response as HrpcResponse,
+    HRPC_HEADER,
+};
+use error::{ServerError, ServerResult};
 use socket::Socket;
 
-use async_trait::async_trait;
-use axum::{
-    body::HttpBody,
-    extract::{FromRequest, RequestParts, WebSocketUpgrade},
-    response::IntoResponse,
-    routing::BoxRoute,
-};
 use bytes::Bytes;
-use http::Method;
-use std::{convert::Infallible, future::Future, marker::PhantomData};
-use tower::{service_fn, util::BoxLayer};
+use http::{header::HeaderName, HeaderMap, Method};
+use std::{convert::Infallible, future::Future, marker::PhantomData, sync::Arc};
+use tower::{
+    layer::util::{Identity, Stack},
+    service_fn, Layer, Service,
+};
 
+pub use super::{HrpcLayer, HrpcService, HttpRequest, HttpResponse};
+
+#[doc(hidden)]
 pub mod clone_box;
 pub mod error;
 pub mod macros;
 pub mod socket;
+pub(crate) mod ws;
 
-#[doc(inline)]
-pub use axum::body::{box_body, Body, BoxBody};
 #[doc(inline)]
 pub use http::StatusCode;
 
 #[doc(hidden)]
 pub mod prelude {
     pub use super::{
-        error::*, handler_service, socket::*, ws_handler_service, HrpcLayer, HrpcRoute,
-        HrpcRouteLayer, HrpcService,
+        error::*, not_found_service, socket::*, unary_handler, ws_handler, HrpcLayer,
+        HrpcMakeService, HrpcService, HttpRequest, HttpResponse, MakeHrpcService,
     };
-    pub use crate::{Request, Response};
-    pub use axum::{
-        self,
-        body::{box_body, BoxBody},
-        response::IntoResponse,
-        routing::BoxRoute,
-        routing::IntoMakeService,
-        Router,
-    };
-    pub use axum_server::{self, Server};
+    pub use crate::{body::box_body, Request as HrpcRequest, Response as HrpcResponse};
     pub use bytes::{Bytes, BytesMut};
     pub use futures_util::{FutureExt, SinkExt, StreamExt};
     pub use http::{self, HeaderMap};
-    pub use hyper::{server::conn::AddrStream, service::make_service_fn, Body};
+    pub use hyper::{server::conn::AddrStream, service::make_service_fn, Server as HttpServer};
     pub use std::{
         collections::HashMap,
         convert::Infallible,
@@ -62,91 +55,154 @@ pub mod prelude {
         Layer, Service, ServiceBuilder, ServiceExt,
     };
     pub use tower_http::{
-        compression::CompressionLayer, decompression::DecompressionLayer,
+        classify::StatusInRangeAsFailures, map_request_body::MapRequestBodyLayer,
         map_response_body::MapResponseBodyLayer, trace::TraceLayer,
     };
     pub use tracing::{debug, error, info, info_span, trace, warn};
 }
 
-#[async_trait]
-impl<Msg: prost::Message + Default + 'static> FromRequest for Request<Msg> {
-    type Rejection = ServerError;
+#[derive(Debug, Clone)]
+pub struct HrpcMakeService<Producer: MakeHrpcService> {
+    producers: Arc<Vec<Producer>>,
+    middleware: HrpcLayer,
+}
 
-    async fn from_request(
-        req: &mut axum::extract::RequestParts<Body>,
-    ) -> Result<Self, Self::Rejection> {
-        if req.method() != Method::POST {
-            return Err(ServerError::MethodNotPost);
+impl<Producer: MakeHrpcService> HrpcMakeService<Producer> {
+    pub fn new(producers: Vec<Producer>) -> Self {
+        Self {
+            producers: Arc::new(producers),
+            middleware: HrpcLayer::new(Identity::new()),
         }
+    }
 
-        let header_map = req.headers().cloned().ok_or(ServerError::EmptyHeaders)?;
+    pub fn new_single(producer: Producer) -> Self {
+        Self::new(vec![producer])
+    }
 
-        if let Some(header) = header_map
-            .get(http::header::CONTENT_TYPE)
-            .map(|h| Bytes::copy_from_slice(h.as_bytes()))
-        {
-            if !header.eq_ignore_ascii_case(HRPC_HEADER) {
-                return Err(ServerError::UnsupportedRequestType(header));
+    pub fn layer(mut self, layer: HrpcLayer) -> Self {
+        self.middleware = HrpcLayer::new(Stack::new(self.middleware, layer));
+        self
+    }
+}
+
+impl<Producer: MakeHrpcService, T> Service<T> for HrpcMakeService<Producer> {
+    type Response = HrpcService;
+
+    type Error = Infallible;
+
+    type Future = std::future::Ready<Result<HrpcService, Infallible>>;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, _req: T) -> Self::Future {
+        let this = self.clone();
+        let service = HrpcService::new(service_fn(move |request: HttpRequest| {
+            let endpoint = request.uri().path();
+
+            let service = this
+                .make_hrpc_service(endpoint)
+                .unwrap_or_else(not_found_service);
+            let mut service = this.middleware.layer(service);
+
+            async move { Result::<_, Infallible>::Ok(service.call(request).await.unwrap()) }
+        }));
+        std::future::ready(Ok(service))
+    }
+}
+
+impl<Producer: MakeHrpcService> MakeHrpcService for HrpcMakeService<Producer> {
+    fn make_hrpc_service(&self, endpoint: &str) -> Option<HrpcService> {
+        let mut service = None;
+        for producer in self.producers.iter() {
+            if let Some(svc) = producer.make_hrpc_service(endpoint) {
+                service = Some(svc);
+                break;
             }
         }
-
-        let body = if std::any::TypeId::of::<()>() == std::any::TypeId::of::<Msg>() {
-            Body::empty()
-        } else {
-            req.take_body().ok_or(ServerError::EmptyBody)?
-        };
-
-        Ok(Request {
-            body,
-            header_map,
-            message: std::marker::PhantomData,
-        })
+        service
     }
 }
 
-impl<Msg: prost::Message> IntoResponse for Response<Msg> {
-    type Body = Body;
-
-    type BodyError = <Self::Body as HttpBody>::Error;
-
-    fn into_response(self) -> http::Response<Self::Body> {
-        let encoded = encode_protobuf_message(self.data).freeze();
-        http::Response::builder()
-            .header(http::header::CONTENT_TYPE, hrpc_header_value())
-            .header(http::header::ACCEPT, hrpc_header_value())
-            .body(Body::from(encoded))
-            .unwrap()
-    }
+#[doc(hidden)]
+pub trait MakeHrpcService: Clone + Send + Sync + 'static {
+    fn make_hrpc_service(&self, endpoint: &str) -> Option<HrpcService>;
 }
 
-pub type HrpcService = CloneBoxService<http::Request<Body>, http::Response<BoxBody>, ServerError>;
-pub type HrpcLayer =
-    CloneBoxLayer<HrpcService, http::Request<Body>, http::Response<BoxBody>, ServerError>;
-pub type HrpcRoute = BoxRoute<Body, Infallible>;
-pub type HrpcRouteLayer =
-    BoxLayer<HrpcRoute, http::Request<Body>, http::Response<BoxBody>, Infallible>;
+#[doc(hidden)]
+pub fn from_http_request<Msg: prost::Message + Default + 'static>(
+    req: HttpRequest,
+) -> ServerResult<HrpcRequest<Msg>> {
+    let (parts, body) = req.into_parts();
 
-pub fn handler_service<Req, Resp, HandlerFn, HandlerFut>(handler: HandlerFn) -> HrpcService
+    if parts.method != Method::POST {
+        return Err(ServerError::MethodNotPost);
+    }
+
+    if let Some(header) = parts
+        .headers
+        .get(http::header::CONTENT_TYPE)
+        .map(|h| Bytes::copy_from_slice(h.as_bytes()))
+    {
+        if !header.eq_ignore_ascii_case(HRPC_HEADER) {
+            return Err(ServerError::UnsupportedRequestType(header));
+        }
+    }
+
+    Ok(HrpcRequest {
+        body,
+        header_map: parts.headers,
+        message: std::marker::PhantomData,
+    })
+}
+
+#[doc(hidden)]
+pub fn into_http_request<Msg: prost::Message>(resp: HrpcResponse<Msg>) -> HttpResponse {
+    let encoded = encode_protobuf_message(resp.data).freeze();
+    http::Response::builder()
+        .header(http::header::CONTENT_TYPE, hrpc_header_value())
+        .header(http::header::ACCEPT, hrpc_header_value())
+        .body(full_box_body(encoded))
+        .unwrap()
+}
+
+#[doc(hidden)]
+pub fn unary_handler<Req, Resp, HandlerFn, HandlerFut>(handler: HandlerFn) -> HrpcService
 where
     Req: prost::Message + Default + 'static,
     Resp: prost::Message,
-    HandlerFut: Future<Output = Result<Response<Resp>, ServerError>> + Send,
-    HandlerFn: FnOnce(Request<Req>) -> HandlerFut + Clone + Send + Sync + 'static,
+    HandlerFut: Future<Output = Result<HrpcResponse<Resp>, ServerError>> + Send,
+    HandlerFn: FnOnce(HrpcRequest<Req>) -> HandlerFut + Clone + Send + 'static,
 {
-    let service = service_fn(move |request: http::Request<Body>| {
+    let service = service_fn(move |req: HttpRequest| {
         let handler = handler.clone();
         async move {
-            let mut req_parts = RequestParts::new(request);
-            let request = Request::<Req>::from_request(&mut req_parts).await?;
-
-            let response = handler(request).await?;
-            Ok(response.into_response().map(box_body))
+            let request = match from_http_request(req) {
+                Ok(request) => request,
+                Err(err) => {
+                    tracing::error!("{}", err);
+                    return Ok(err.into_response());
+                }
+            };
+            let response = match handler(request).await {
+                Ok(response) => response,
+                Err(err) => {
+                    tracing::error!("{}", err);
+                    return Ok(err.into_response());
+                }
+            };
+            Ok(into_http_request(response))
         }
     });
-    CloneBoxService::new(service)
+    HrpcService::new(service)
 }
 
-pub fn ws_handler_service<Req, Resp, HandlerFn, HandlerFut, OnUpgradeFn>(
+#[doc(hidden)]
+pub fn ws_handler<Req, Resp, HandlerFn, HandlerFut, OnUpgradeFn>(
     handler: HandlerFn,
     on_upgrade: OnUpgradeFn,
 ) -> HrpcService
@@ -154,20 +210,24 @@ where
     Req: prost::Message + Default + 'static,
     Resp: prost::Message + 'static,
     HandlerFut: Future<Output = Result<(), ServerError>> + Send,
-    HandlerFn: FnOnce(Request<()>, Socket<Req, Resp>) -> HandlerFut + Clone + Sync + Send + 'static,
-    OnUpgradeFn:
-        FnOnce(http::Response<BoxBody>) -> http::Response<BoxBody> + Clone + Sync + Send + 'static,
+    HandlerFn: FnOnce(HrpcRequest<()>, Socket<Req, Resp>) -> HandlerFut + Clone + Send + 'static,
+    OnUpgradeFn: FnOnce(HttpResponse) -> HttpResponse + Clone + Send + 'static,
 {
-    let service = service_fn(move |request: http::Request<Body>| {
+    let service = service_fn(move |req: HttpRequest| {
         let handler = handler.clone();
         let on_upgrade = on_upgrade.clone();
         async move {
-            let mut req_parts = RequestParts::new(request);
-            let websocket_upgrade = WebSocketUpgrade::from_request(&mut req_parts).await?;
-            let request = Request {
-                body: Body::empty(),
-                header_map: req_parts.headers().cloned().unwrap_or_default(),
+            let request = HrpcRequest {
+                body: HyperBody::empty(),
+                header_map: req.headers().clone(),
                 message: PhantomData,
+            };
+            let websocket_upgrade = match WebSocketUpgrade::from_request(req) {
+                Ok(upgrade) => upgrade,
+                Err(err) => {
+                    tracing::error!("web socket upgrade error: {}", err);
+                    return Ok(err.as_error_response());
+                }
             };
 
             let response = websocket_upgrade
@@ -179,13 +239,43 @@ where
                     }
                     socket.close().await;
                 })
-                .into_response()
-                .map(box_body);
+                .into_response();
 
-            let response = on_upgrade(response);
-
-            Ok(response)
+            Ok(on_upgrade(response))
         }
     });
-    CloneBoxService::new(service)
+
+    HrpcService::new(service)
+}
+
+#[doc(hidden)]
+pub fn not_found_service() -> HrpcService {
+    let service = service_fn(|_: HttpRequest| async {
+        Ok((StatusCode::NOT_FOUND, "not found").as_error_response())
+    });
+    HrpcService::new(service)
+}
+
+/// Helper methods for working with `HeaderMap`.
+pub trait HeaderMapExt {
+    /// Check if a header is equal to a bytes array.
+    fn header_eq(&self, key: &HeaderName, value: &[u8]) -> bool;
+    /// Check if a header contains a string.
+    fn header_contains_str(&self, key: &HeaderName, value: &str) -> bool;
+}
+
+impl HeaderMapExt for HeaderMap {
+    fn header_eq(&self, key: &HeaderName, value: &[u8]) -> bool {
+        self.get(key).map_or(false, |header| {
+            header.as_bytes().eq_ignore_ascii_case(value)
+        })
+    }
+
+    fn header_contains_str(&self, key: &HeaderName, pat: &str) -> bool {
+        self.get(key).map_or(false, |header| {
+            header
+                .to_str()
+                .map_or(false, |value| value.to_ascii_lowercase().contains(pat))
+        })
+    }
 }

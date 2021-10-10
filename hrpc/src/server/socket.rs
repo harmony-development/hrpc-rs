@@ -1,12 +1,14 @@
-use std::error::Error as StdError;
+use std::time::Duration;
 
-use axum::extract::ws::{Message as WsMessage, WebSocket};
 use bytes::BytesMut;
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::tungstenite::Error as SocketError;
 use tracing::{debug, error};
 
-use super::prelude::ServerError;
+use super::{
+    prelude::ServerError,
+    ws::{WebSocket, WsMessage},
+};
 
 type SenderChanWithReq<Resp> = (Resp, oneshot::Sender<Result<(), ServerError>>);
 
@@ -36,6 +38,8 @@ where
         let (close_chan_tx, mut close_chan_rx) = mpsc::channel(1);
         tokio::spawn(async move {
             let mut buf = BytesMut::new();
+            // Send a ping every 5 seconds
+            let mut ping_interval = tokio::time::interval(Duration::from_secs(5));
             loop {
                 tokio::select! {
                     Some(res_msg) = ws.recv() => {
@@ -59,9 +63,8 @@ where
                                     _ => continue,
                                 }
                             }
-                            Err(_) => {
-                                // TODO(yusdacra): send actual ws errors
-                                let _ = recv_msg_tx.send_async(Err(SocketError::ConnectionClosed.into())).await;
+                            Err(err) => {
+                                let _ = recv_msg_tx.send_async(Err(err)).await;
                                 let _ = ws.close().await;
                                 return;
                             }
@@ -79,11 +82,9 @@ where
 
                         if let Err(err) = ws.send(WsMessage::Binary(resp)).await {
                             debug!("socket send error: {}", err);
-                            let sock_err = downcast_to_socket_error(&err);
-                            let is_capped_or_queue_full = matches!(sock_err, Some(SocketError::Capacity(_) | SocketError::SendQueueFull(_)));
-                            // TODO(yusdacra): wait for axum::Error to expose `downcast` method to be able to send actual ws errors
+                            let is_capped_or_queue_full = matches!(err, ServerError::SocketError(SocketError::Capacity(_) | SocketError::SendQueueFull(_)));
                             if !is_capped_or_queue_full {
-                                let _ = chan.send(Err(SocketError::ConnectionClosed.into()));
+                                let _ = chan.send(Err(err));
                                 let _ = ws.close().await;
                                 return;
                             }
@@ -98,11 +99,16 @@ where
                     // If we get *anything*, it means that either the channel is closed
                     // or we got a close message
                     _ = close_chan_rx.recv() => {
-                        if ws.close().await.is_err() {
-                            // TODO(yusdacra): send actual ws errors
-                            let _ = recv_msg_tx.send_async(Err(SocketError::ConnectionClosed.into())).await;
+                        if let Err(err) = ws.close().await {
+                            let _ = recv_msg_tx.send_async(Err(err)).await;
                         }
                         return;
+                    }
+                    _ = ping_interval.tick() => {
+                        if let Err(err) = ws.send(WsMessage::Ping(Vec::new())).await {
+                            let _ = recv_msg_tx.send_async(Err(err)).await;
+                            return;
+                        }
                     }
                     // TODO(yusdacra): we can just use std::hint::spin_loop() here?
                     else => tokio::task::yield_now().await,
@@ -170,9 +176,4 @@ where
             tx: self.tx.clone(),
         }
     }
-}
-
-fn downcast_to_socket_error(err: &axum::Error) -> Option<&SocketError> {
-    err.source()
-        .and_then(|err| err.downcast_ref::<SocketError>())
 }

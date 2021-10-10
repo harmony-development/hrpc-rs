@@ -12,8 +12,6 @@ keywords = ["hrpc", "harmony", "rpc"]
 [features]
 default = ["server", "client"]
 server = [
-    "axum",
-    "axum-server",
     "tokio",
     "ahash",
     "dashmap",
@@ -21,6 +19,9 @@ server = [
     "hyper/server",
     "tower-http",
     "tower",
+    "tokio-tungstenite",
+    "sha-1",
+    "base64"
 ]
 client = [
     "rustls-native-certs",
@@ -30,6 +31,7 @@ client = [
     "hyper/client",
     "hyper-rustls",
     "tower-http",
+    "tower-http/decompression-gzip",
     "tower",
 ]
 
@@ -40,26 +42,24 @@ bytes = "1.0"
 futures-util = "0.3"
 tracing = "0.1"
 http = "0.2"
+http-body = "0.4"
 
 dashmap = { version = "4.0", optional = true }
 ahash = { version = "0.7", optional = true, default-features = false }
-axum = { version = "0.2", default-features = false, features = [
-    "http2",
-    "ws",
-], optional = true }
-axum-server = { version = "0.2", features = ["tls-rustls"], optional = true }
 hyper = { version = "0.14", features = ["http1", "http2", "runtime"] }
 hyper-rustls = { version = "0.22", default-features = false, features = [
     "native-tokio",
 ], optional = true }
 tower-http = { version = "0.1", default-features = false, features = [
-    "compression-gzip",
-    "decompression-gzip",
     "trace",
+    "map-request-body",
+    "map-response-body",
 ], optional = true }
 tower = { version = "0.4", default-features = false, features = [
     "util",
 ], optional = true }
+sha-1 = { version = "0.9", optional = true }
+base64 = { version = "*", optional = true }
 
 rustls-native-certs = { version = "0.5", optional = true }
 tokio-tungstenite = { version = "0.15", features = [
