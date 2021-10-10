@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["box_body","Convert a [`http_body::Body`] into a [`BoxBody`]."],["empty_box_body",""],["full_box_body",""]],"type":[["BoxBody","A boxed [`Body`] trait object."],["HyperBody","A `hyper::Body`, mainly used for `Request` types."]]});

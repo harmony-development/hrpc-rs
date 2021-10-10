@@ -259,17 +259,28 @@
 <span id="259">259</span>
 <span id="260">260</span>
 <span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
 </pre><pre class="rust">
 <span class="doccomment">//! Common code used in hRPC code generation.</span>
 <span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">convert::Infallible</span>,
     <span class="ident">error::Error</span> <span class="kw">as</span> <span class="ident">StdError</span>,
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>},
     <span class="ident">marker::PhantomData</span>,
 };
 
+<span class="kw">use</span> <span class="ident">body</span>::{<span class="ident">box_body</span>, <span class="ident">BoxBody</span>, <span class="ident">HyperBody</span>};
 <span class="kw">use</span> <span class="ident">bytes::BytesMut</span>;
-<span class="kw">use</span> <span class="ident">http::HeaderValue</span>;
+<span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">HeaderMap</span>, <span class="ident">HeaderValue</span>};
 <span class="kw">use</span> <span class="ident">prost::Message</span> <span class="kw">as</span> <span class="ident">PbMsg</span>;
+<span class="kw">use</span> <span class="ident">tower::util</span>::{<span class="ident">BoxLayer</span>, <span class="ident">BoxService</span>};
 
 <span class="doccomment">/// Some re-exported crates that might be useful while writing software with `hrpc`.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">exports</span> {
@@ -277,24 +288,18 @@
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">bytes</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">futures_util</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">prost</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tracing</span>;
 
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">hyper</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http_body</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">hyper</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower_http</span>;
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">rustls_native_certs</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tokio_tungstenite</span>::{<span class="self">self</span>, <span class="ident">tungstenite</span>};
-
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">axum</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">axum_server</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower_http</span>;
 }
 
 <span class="doccomment">/// Common client types and functions.</span>
@@ -304,8 +309,19 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">server</span>;
 
-<span class="kw">use</span> <span class="ident">http::HeaderMap</span>;
-<span class="kw">use</span> <span class="ident">hyper::Body</span>;
+<span class="doccomment">/// Body type.</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">body</span>;
+
+<span class="doccomment">/// Alias for a type-erased error type.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">BoxError</span> <span class="op">=</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>;
+<span class="doccomment">/// HTTP request used by hRPC.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HttpRequest</span> <span class="op">=</span> <span class="ident">http::Request</span><span class="op">&lt;</span><span class="ident">HyperBody</span><span class="op">&gt;</span>;
+<span class="doccomment">/// HTTP response used by hRPC.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HttpResponse</span> <span class="op">=</span> <span class="ident">http::Response</span><span class="op">&lt;</span><span class="ident">BoxBody</span><span class="op">&gt;</span>;
+<span class="doccomment">/// hRPC service type.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HrpcService</span> <span class="op">=</span> <span class="ident">BoxService</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>, <span class="ident">Infallible</span><span class="op">&gt;</span>;
+<span class="doccomment">/// hRPC layer type.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HrpcLayer</span> <span class="op">=</span> <span class="ident">BoxLayer</span><span class="op">&lt;</span><span class="ident">HrpcService</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>, <span class="ident">Infallible</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// The hRPC protobuf mimetype.</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">HRPC_HEADER</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="string">b&quot;application/hrpc&quot;</span>;
@@ -319,7 +335,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="doccomment">/// A hRPC request.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="ident">body</span>: <span class="ident">Body</span>,
+    <span class="ident">body</span>: <span class="ident">HyperBody</span>,
     <span class="ident">header_map</span>: <span class="ident">HeaderMap</span>,
     <span class="ident">message</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
 }
@@ -329,13 +345,13 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This is useful for hRPC socket requests, since they don&#39;t send any messages.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">empty</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">Self</span><span class="ident">::new_body</span>(<span class="ident">Body::empty</span>())
+        <span class="self">Self</span><span class="ident">::new_body</span>(<span class="ident">HyperBody::empty</span>())
     }
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Create a new request with the specified body.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_body</span>(<span class="ident">body</span>: <span class="ident">Body</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_body</span>(<span class="ident">body</span>: <span class="ident">HyperBody</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">body</span>,
             <span class="ident">message</span>: <span class="ident">PhantomData</span>,
@@ -365,14 +381,14 @@
     <span class="doccomment">/// This adds the default &quot;content-type&quot; header used for hRPC unary requests.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">msg</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">encoded</span> <span class="op">=</span> <span class="ident">encode_protobuf_message</span>(<span class="ident">msg</span>).<span class="ident">freeze</span>();
-        <span class="self">Self</span><span class="ident">::new_body</span>(<span class="ident">Body::from</span>(<span class="ident">encoded</span>))
+        <span class="self">Self</span><span class="ident">::new_body</span>(<span class="ident">HyperBody::from</span>(<span class="ident">encoded</span>))
     }
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">DecodeBodyError</span> {
     <span class="ident">InvalidProtoMessage</span>(<span class="ident">prost::DecodeError</span>),
-    <span class="ident">InvalidBody</span>(<span class="ident">hyper::Error</span>),
+    <span class="ident">InvalidBody</span>(<span class="ident">BoxError</span>),
 }
 
 <span class="kw">impl</span> <span class="ident">Display</span> <span class="kw">for</span> <span class="ident">DecodeBodyError</span> {
@@ -392,7 +408,7 @@
     <span class="kw">fn</span> <span class="ident">source</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">StdError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>)<span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="self">Self</span><span class="ident">::InvalidProtoMessage</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
-            <span class="self">Self</span><span class="ident">::InvalidBody</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
+            <span class="self">Self</span><span class="ident">::InvalidBody</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">err</span>.<span class="ident">source</span>(),
         }
     }
 }
@@ -400,11 +416,11 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">PbMsg</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">into_message</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">DecodeBodyError</span><span class="op">&gt;</span> {
-        <span class="ident">decode_body</span>(<span class="self">self</span>.<span class="ident">body</span>).<span class="kw">await</span>
+        <span class="ident">decode_body</span>(<span class="ident">box_body</span>(<span class="self">self</span>.<span class="ident">body</span>)).<span class="kw">await</span>
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">decode_body</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">PbMsg</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span>(<span class="ident">body</span>: <span class="ident">Body</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">DecodeBodyError</span><span class="op">&gt;</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">decode_body</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">PbMsg</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span>(<span class="ident">body</span>: <span class="ident">BoxBody</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">DecodeBodyError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">hyper::body::aggregate</span>(<span class="ident">body</span>)
         .<span class="kw">await</span>
         .<span class="ident">map_err</span>(<span class="ident">DecodeBodyError::InvalidBody</span>)<span class="question-mark">?</span>;

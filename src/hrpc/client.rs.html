@@ -278,7 +278,7 @@
     <span class="ident">sync::Arc</span>,
 };
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">decode_body</span>, <span class="ident">DecodeBodyError</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">body::box_body</span>, <span class="ident">decode_body</span>, <span class="ident">DecodeBodyError</span>};
 
 <span class="kw">use</span> <span class="kw">super</span><span class="ident">::Request</span>;
 
@@ -537,7 +537,7 @@
                 },
             )
             .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">decode_body</span>(<span class="ident">body</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">decode_body</span>(<span class="ident">box_body</span>(<span class="ident">body</span>)).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="ident">socket</span>.<span class="ident">send_message</span>(<span class="ident">message</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(<span class="ident">socket</span>)
