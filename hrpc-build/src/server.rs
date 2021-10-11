@@ -37,10 +37,12 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             }
 
             impl<T: #server_trait> MakeHrpcService for #server_service<T> {
-                fn make_hrpc_service(&self, endpoint: &str) -> Option<HrpcService> {
+                fn make_hrpc_service(&self, request: &HttpRequest) -> Option<HrpcService> {
                     let server = self.inner.clone();
 
                     #services
+
+                    let endpoint = request.uri().path();
 
                     #endpoints
                 }

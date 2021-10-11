@@ -100,10 +100,8 @@ impl<T> Service<T> for HrpcMakeService {
     fn call(&mut self, _req: T) -> Self::Future {
         let this = self.clone();
         let service = HrpcService::new(service_fn(move |request: HttpRequest| {
-            let endpoint = request.uri().path();
-
             let service = this
-                .make_hrpc_service(endpoint)
+                .make_hrpc_service(&request)
                 .unwrap_or_else(not_found_service);
             let mut service = this.middleware.layer(service);
 
@@ -114,10 +112,10 @@ impl<T> Service<T> for HrpcMakeService {
 }
 
 impl MakeHrpcService for HrpcMakeService {
-    fn make_hrpc_service(&self, endpoint: &str) -> Option<HrpcService> {
+    fn make_hrpc_service(&self, request: &HttpRequest) -> Option<HrpcService> {
         let mut service = None;
         for producer in self.producers.iter() {
-            if let Some(svc) = producer.make_hrpc_service(endpoint) {
+            if let Some(svc) = producer.make_hrpc_service(request) {
                 service = Some(svc);
                 break;
             }
@@ -127,7 +125,7 @@ impl MakeHrpcService for HrpcMakeService {
 }
 
 pub trait MakeHrpcService: Send + Sync + 'static {
-    fn make_hrpc_service(&self, endpoint: &str) -> Option<HrpcService>;
+    fn make_hrpc_service(&self, request: &HttpRequest) -> Option<HrpcService>;
 }
 
 pub type BoxedMakeHrpcService = Box<dyn MakeHrpcService>;
