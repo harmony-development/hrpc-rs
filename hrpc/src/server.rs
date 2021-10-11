@@ -59,21 +59,21 @@ pub mod prelude {
     pub use tracing::{debug, error, info, info_span, trace, warn};
 }
 
-#[derive(Debug, Clone)]
-pub struct HrpcMakeService<Producer: MakeHrpcService> {
-    producers: Arc<Vec<Producer>>,
+#[derive(Clone)]
+pub struct HrpcMakeService {
+    producers: Arc<Vec<BoxedMakeHrpcService>>,
     middleware: HrpcLayer,
 }
 
-impl<Producer: MakeHrpcService> HrpcMakeService<Producer> {
-    pub fn new(producers: Vec<Producer>) -> Self {
+impl HrpcMakeService {
+    pub fn new(producers: Vec<BoxedMakeHrpcService>) -> Self {
         Self {
             producers: Arc::new(producers),
             middleware: HrpcLayer::new(Identity::new()),
         }
     }
 
-    pub fn new_single(producer: Producer) -> Self {
+    pub fn new_single(producer: BoxedMakeHrpcService) -> Self {
         Self::new(vec![producer])
     }
 
@@ -83,7 +83,7 @@ impl<Producer: MakeHrpcService> HrpcMakeService<Producer> {
     }
 }
 
-impl<Producer: MakeHrpcService, T> Service<T> for HrpcMakeService<Producer> {
+impl<T> Service<T> for HrpcMakeService {
     type Response = HrpcService;
 
     type Error = Infallible;
@@ -113,7 +113,7 @@ impl<Producer: MakeHrpcService, T> Service<T> for HrpcMakeService<Producer> {
     }
 }
 
-impl<Producer: MakeHrpcService> MakeHrpcService for HrpcMakeService<Producer> {
+impl MakeHrpcService for HrpcMakeService {
     fn make_hrpc_service(&self, endpoint: &str) -> Option<HrpcService> {
         let mut service = None;
         for producer in self.producers.iter() {
@@ -126,10 +126,11 @@ impl<Producer: MakeHrpcService> MakeHrpcService for HrpcMakeService<Producer> {
     }
 }
 
-#[doc(hidden)]
-pub trait MakeHrpcService: Clone + Send + Sync + 'static {
+pub trait MakeHrpcService: Send + Sync + 'static {
     fn make_hrpc_service(&self, endpoint: &str) -> Option<HrpcService>;
 }
+
+pub type BoxedMakeHrpcService = Box<dyn MakeHrpcService>;
 
 #[doc(hidden)]
 pub fn from_http_request<Msg: prost::Message + Default + 'static>(

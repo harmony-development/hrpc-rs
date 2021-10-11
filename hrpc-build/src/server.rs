@@ -58,8 +58,8 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 /// used with `hyper`. This type will not contain the middleware
                 /// from the `middleware` method of the service trait, you can
                 /// add it using `.layer(middleware)`.
-                pub fn into_make_service(self) -> HrpcMakeService<Self> {
-                    HrpcMakeService::new_single(self)
+                pub fn into_make_service(self) -> HrpcMakeService {
+                    HrpcMakeService::new_single(Box::new(self))
                 }
 
                 /// Start serving.
