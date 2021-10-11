@@ -290,8 +290,8 @@
                 <span class="doccomment">/// used with `hyper`. This type will not contain the middleware</span>
                 <span class="doccomment">/// from the `middleware` method of the service trait, you can</span>
                 <span class="doccomment">/// add it using `.layer(middleware)`.</span>
-                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_make_service</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HrpcMakeService</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-                    <span class="ident">HrpcMakeService::new_single</span>(<span class="self">self</span>)
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_make_service</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HrpcMakeService</span> {
+                    <span class="ident">HrpcMakeService::new_single</span>(<span class="ident">Box::new</span>(<span class="self">self</span>))
                 }
 
                 <span class="doccomment">/// Start serving.</span>
