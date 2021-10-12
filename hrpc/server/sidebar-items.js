@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["error",""],["macros",""],["socket",""]],"struct":[["HrpcMakeService",""],["StatusCode","An HTTP status code (`status-code` in RFC 7230 et al.)."]],"trait":[["HeaderMapExt","Helper methods for working with `HeaderMap`."],["MakeHrpcService",""]],"type":[["BoxedMakeHrpcService",""]]});
+initSidebarItems({"mod":[["error",""],["macros",""],["service",""],["socket",""]],"struct":[["StatusCode","An HTTP status code (`status-code` in RFC 7230 et al.)."]],"trait":[["HeaderMapExt","Helper methods for working with `HeaderMap`."]]});
