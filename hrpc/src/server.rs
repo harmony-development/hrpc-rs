@@ -10,16 +10,15 @@ use socket::Socket;
 
 use bytes::Bytes;
 use http::{header::HeaderName, HeaderMap, Method};
-use std::{convert::Infallible, future::Future, marker::PhantomData, sync::Arc};
-use tower::{
-    layer::util::{Identity, Stack},
-    service_fn, Layer, Service,
-};
+use std::{future::Future, marker::PhantomData};
+use tower::service_fn;
 
 pub use super::{HrpcLayer, HrpcService, HttpRequest, HttpResponse};
+pub use service::{BoxedMakeHrpcService, HrpcMakeService, MakeHrpcService};
 
 pub mod error;
 pub mod macros;
+pub mod service;
 pub mod socket;
 pub(crate) mod ws;
 
@@ -58,77 +57,6 @@ pub mod prelude {
     };
     pub use tracing::{debug, error, info, info_span, trace, warn};
 }
-
-#[derive(Clone)]
-pub struct HrpcMakeService {
-    producers: Arc<Vec<BoxedMakeHrpcService>>,
-    middleware: HrpcLayer,
-}
-
-impl HrpcMakeService {
-    pub fn new(producers: Vec<BoxedMakeHrpcService>) -> Self {
-        Self {
-            producers: Arc::new(producers),
-            middleware: HrpcLayer::new(Identity::new()),
-        }
-    }
-
-    pub fn new_single(producer: BoxedMakeHrpcService) -> Self {
-        Self::new(vec![producer])
-    }
-
-    pub fn layer(mut self, layer: HrpcLayer) -> Self {
-        self.middleware = HrpcLayer::new(Stack::new(self.middleware, layer));
-        self
-    }
-}
-
-impl<T> Service<T> for HrpcMakeService {
-    type Response = HrpcService;
-
-    type Error = Infallible;
-
-    type Future = std::future::Ready<Result<HrpcService, Infallible>>;
-
-    fn poll_ready(
-        &mut self,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        std::task::Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, _req: T) -> Self::Future {
-        let this = self.clone();
-        let service = HrpcService::new(service_fn(move |request: HttpRequest| {
-            let service = this
-                .make_hrpc_service(&request)
-                .unwrap_or_else(not_found_service);
-            let mut service = this.middleware.layer(service);
-
-            async move { Result::<_, Infallible>::Ok(service.call(request).await.unwrap()) }
-        }));
-        std::future::ready(Ok(service))
-    }
-}
-
-impl MakeHrpcService for HrpcMakeService {
-    fn make_hrpc_service(&self, request: &HttpRequest) -> Option<HrpcService> {
-        let mut service = None;
-        for producer in self.producers.iter() {
-            if let Some(svc) = producer.make_hrpc_service(request) {
-                service = Some(svc);
-                break;
-            }
-        }
-        service
-    }
-}
-
-pub trait MakeHrpcService: Send + Sync + 'static {
-    fn make_hrpc_service(&self, request: &HttpRequest) -> Option<HrpcService>;
-}
-
-pub type BoxedMakeHrpcService = Box<dyn MakeHrpcService>;
 
 #[doc(hidden)]
 pub fn from_http_request<Msg: prost::Message + Default + 'static>(

@@ -57,11 +57,10 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 }
 
                 /// Converts this service into a hRPC make service that can be
-                /// used with `hyper`. This type will not contain the middleware
-                /// from the `middleware` method of the service trait, you can
-                /// add it using `.layer(middleware)`.
+                /// used with `hyper`.
                 pub fn into_make_service(self) -> HrpcMakeService {
-                    HrpcMakeService::new_single(Box::new(self))
+                    let middleware = self.inner.middleware();
+                    HrpcMakeService::new(self).layer(middleware)
                 }
 
                 /// Start serving.
@@ -69,8 +68,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 /// Note: this enables gzip compression and request tracing.
                 pub async fn serve<A: Into<std::net::SocketAddr>>(self, address: A) {
                     let addr = address.into();
-                    let middleware = self.inner.middleware();
-                    let make_service = self.into_make_service().layer(middleware);
+                    let make_service = self.into_make_service();
 
                     let server = HttpServer::bind(&addr).serve(make_service);
                     info!("serving at {}", addr);
