@@ -417,6 +417,7 @@ dependencies = [
  "http-body",
  "hyper",
  "hyper-rustls",
+ "matchit",
  "parking_lot",
  "prost",
  "rustls-native-certs",
@@ -625,6 +626,12 @@ name = "matches"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
+
+[[package]]
+name = "matchit"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96eb506a2b58cf156e8ea212ec185d0e3a24014d8381c9f73cca8fe3d6e86546"
 
 [[package]]
 name = "memchr"

@@ -12,64 +12,77 @@ keywords = ["hrpc", "harmony", "rpc"]
 [features]
 default = ["server", "client"]
 server = [
-    "tokio",
     "ahash",
     "dashmap",
     "tokio/macros",
     "hyper/server",
-    "tower-http",
-    "tower",
-    "tokio-tungstenite",
     "sha-1",
-    "base64"
+    "base64",
+    "matchit",
+    "tower-http/map-response-body",
 ]
 client = [
     "rustls-native-certs",
-    "tokio-tungstenite",
-    "tokio",
     "tokio-rustls",
     "hyper/client",
-    "hyper-rustls",
-    "tower-http",
     "tower-http/decompression-gzip",
-    "tower",
 ]
 
 [dependencies]
+# Core types, traits and utilities
 async-trait = "0.1"
 prost = "0.8"
 bytes = "1.0"
-futures-util = "0.3"
-tracing = "0.1"
 http = "0.2"
 http-body = "0.4"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 
-dashmap = { version = "4.0", optional = true }
-ahash = { version = "0.7", optional = true, default-features = false }
-hyper = { version = "0.14", features = ["http1", "http2", "runtime"] }
+# Logging
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+# Our async runtime
+tokio = { version = "1.8", default-features = false, features = [
+    "parking_lot",
+] }
+
+# Networking!
+hyper = { version = "0.14", default-features = false, features = [
+    "http1",
+    "http2",
+    "runtime",
+] }
 hyper-rustls = { version = "0.22", default-features = false, features = [
     "native-tokio",
-], optional = true }
-tower-http = { version = "0.1", default-features = false, features = [
-    "trace",
-    "map-request-body",
-    "map-response-body",
-], optional = true }
-tower = { version = "0.4", default-features = false, features = [
-    "util",
-], optional = true }
-sha-1 = { version = "0.9", optional = true }
-base64 = { version = "0.13", optional = true }
-
-rustls-native-certs = { version = "0.5", optional = true }
-tokio-tungstenite = { version = "0.15", features = [
+] }
+tower-http = { version = "0.1", default-features = false, features = ["trace"] }
+tower = { version = "0.4", default-features = false, features = ["util"] }
+tokio-tungstenite = { version = "0.15", default-features = false, features = [
     "rustls-tls",
-], optional = true }
-tokio = { version = "1.8", features = ["parking_lot"], optional = true }
-tokio-rustls = { version = "0.22", optional = true }
+] }
 
-parking_lot = "0.11"
-flume = "0.10"
+# Only used by client to discover certs for WS
+rustls-native-certs = { version = "0.5", default-features = false, optional = true }
+# Used by client to connect with TLS
+tokio-rustls = { version = "0.22", default-features = false, optional = true }
+
+dashmap = { version = "4.0", default-features = false, optional = true }
+ahash = { version = "0.7", default-features = false, optional = true }
+
+# Used by server for routing
+matchit = { version = "0.4", default-features = false, optional = true }
+
+# Used by server to implement WS request handling
+sha-1 = { version = "0.9", default-features = false, optional = true }
+base64 = { version = "0.13", default-features = false, optional = true }
+
+# Overall better locks
+parking_lot = { version = "0.11", default-features = false }
+# Used in socket impls
+flume = { version = "0.10", default-features = false, features = [
+    "async",
+    # TODO(yusdacra): Do we need eventual fairness?
+    "eventual-fairness",
+] }
 
 [package.metadata.nix]
 build = true

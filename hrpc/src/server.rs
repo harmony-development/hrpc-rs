@@ -10,11 +10,13 @@ use socket::Socket;
 
 use bytes::Bytes;
 use http::{header::HeaderName, HeaderMap, Method};
-use std::{future::Future, marker::PhantomData};
-use tower::service_fn;
+use std::{convert::Infallible, future::Future, marker::PhantomData};
+use tower::{service_fn, util::BoxLayer};
 
-pub use super::{HrpcLayer, HrpcService, HttpRequest, HttpResponse};
-pub use service::{BoxedMakeHrpcService, HrpcMakeService, MakeHrpcService};
+pub use super::{HttpRequest, HttpResponse};
+pub use service::{Handler, MakeRouter, Router, RouterBuilder};
+
+pub type HrpcLayer = BoxLayer<Handler, HttpRequest, HttpResponse, Infallible>;
 
 pub mod error;
 pub mod macros;
@@ -28,34 +30,24 @@ pub use http::StatusCode;
 #[doc(hidden)]
 pub mod prelude {
     pub use super::{
-        error::*, not_found_service, socket::*, unary_handler, ws_handler, HrpcLayer,
-        HrpcMakeService, HrpcService, HttpRequest, HttpResponse, MakeHrpcService,
+        error::*, serve, socket::*, unary_handler, ws_handler, Handler, HrpcLayer, HttpRequest,
+        HttpResponse, MakeRouter, RouterBuilder,
     };
     pub use crate::{body::box_body, Request as HrpcRequest, Response as HrpcResponse};
-    pub use bytes::{Bytes, BytesMut};
-    pub use futures_util::{FutureExt, SinkExt, StreamExt};
-    pub use http::{self, HeaderMap};
-    pub use hyper::{server::conn::AddrStream, service::make_service_fn, Server as HttpServer};
-    pub use std::{
-        collections::HashMap,
-        convert::Infallible,
-        time::{Duration, Instant},
-    };
-    pub use tokio::{self, sync::Mutex, try_join};
-    pub use tower::{
-        layer::{
-            layer_fn,
-            util::{Identity, Stack},
-        },
-        service_fn,
-        util::{BoxLayer, BoxService},
-        Layer, Service, ServiceBuilder, ServiceExt,
-    };
-    pub use tower_http::{
-        classify::StatusInRangeAsFailures, map_request_body::MapRequestBodyLayer,
-        map_response_body::MapResponseBodyLayer, trace::TraceLayer,
-    };
-    pub use tracing::{debug, error, info, info_span, trace, warn};
+    pub use tower::{layer::util::Identity, ServiceBuilder, ServiceExt};
+}
+
+/// Start serving.
+pub async fn serve<A, S>(mk_service: S, address: A)
+where
+    A: Into<std::net::SocketAddr>,
+    S: MakeRouter,
+{
+    let addr = address.into();
+
+    let server = hyper::Server::bind(&addr).serve(mk_service.into_make_service());
+    tracing::info!("serving at {}", addr);
+    server.await.unwrap()
 }
 
 #[doc(hidden)]
@@ -96,7 +88,7 @@ pub fn into_http_request<Msg: prost::Message>(resp: HrpcResponse<Msg>) -> HttpRe
 }
 
 #[doc(hidden)]
-pub fn unary_handler<Req, Resp, HandlerFn, HandlerFut>(handler: HandlerFn) -> HrpcService
+pub fn unary_handler<Req, Resp, HandlerFn, HandlerFut>(handler: HandlerFn) -> Handler
 where
     Req: prost::Message + Default + 'static,
     Resp: prost::Message,
@@ -123,14 +115,14 @@ where
             Ok(into_http_request(response))
         }
     });
-    HrpcService::new(service)
+    Handler::new(service)
 }
 
 #[doc(hidden)]
 pub fn ws_handler<Req, Resp, HandlerFn, HandlerFut, OnUpgradeFn>(
     handler: HandlerFn,
     on_upgrade: OnUpgradeFn,
-) -> HrpcService
+) -> Handler
 where
     Req: prost::Message + Default + 'static,
     Resp: prost::Message + 'static,
@@ -170,15 +162,7 @@ where
         }
     });
 
-    HrpcService::new(service)
-}
-
-#[doc(hidden)]
-pub fn not_found_service() -> HrpcService {
-    let service = service_fn(|_: HttpRequest| async {
-        Ok((StatusCode::NOT_FOUND, "not found").as_error_response())
-    });
-    HrpcService::new(service)
+    Handler::new(service)
 }
 
 /// Helper methods for working with `HeaderMap`.

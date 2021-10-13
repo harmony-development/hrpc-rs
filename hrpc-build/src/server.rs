@@ -19,7 +19,6 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     quote! {
         /// Generated server implementations.
         pub mod #server_mod {
-            use std::sync::Arc;
             use hrpc::server::prelude::*;
 
             #generated_trait
@@ -27,7 +26,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             #service_doc
             #[derive(Debug)]
             pub struct #server_service<T: #server_trait> {
-                inner: Arc<T>,
+                inner: T,
             }
 
             impl<T: #server_trait> Clone for #server_service<T> {
@@ -36,13 +35,11 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 }
             }
 
-            impl<T: #server_trait> MakeHrpcService for #server_service<T> {
-                fn make_hrpc_service(&self, request: &HttpRequest) -> Option<HrpcService> {
+            impl<T: #server_trait> MakeRouter for #server_service<T> {
+                fn make_router(&self) -> RouterBuilder {
                     let server = self.inner.clone();
 
                     #services
-
-                    let endpoint = request.uri().path();
 
                     #endpoints
                 }
@@ -51,28 +48,12 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             impl<T: #server_trait> #server_service<T> {
                 /// Create a new service server.
                 pub fn new(inner: T) -> Self {
-                    Self {
-                        inner: Arc::new(inner),
-                    }
-                }
-
-                /// Converts this service into a hRPC make service that can be
-                /// used with `hyper`.
-                pub fn into_make_service(self) -> HrpcMakeService {
-                    let middleware = self.inner.middleware();
-                    HrpcMakeService::new(self).layer(middleware)
+                    Self { inner }
                 }
 
                 /// Start serving.
-                ///
-                /// Note: this enables gzip compression and request tracing.
                 pub async fn serve<A: Into<std::net::SocketAddr>>(self, address: A) {
-                    let addr = address.into();
-                    let make_service = self.into_make_service();
-
-                    let server = HttpServer::bind(&addr).serve(make_service);
-                    info!("serving at {}", addr);
-                    server.await.unwrap()
+                    serve(self, address).await
                 }
             }
         }
@@ -89,18 +70,7 @@ fn generate_trait<T: Service>(service: &T, proto_path: &str, server_trait: Ident
     quote! {
         #trait_doc
         #[hrpc::exports::async_trait]
-        pub trait #server_trait : Send + Sync + 'static {
-            /// Filter to be run before all API operations but after API path is matched,
-            /// for all endpoints.
-            fn middleware(&self) -> HrpcLayer {
-                HrpcLayer::new(
-                    ServiceBuilder::new()
-                        .layer(MapResponseBodyLayer::new(box_body))
-                        .layer(TraceLayer::new(StatusInRangeAsFailures::new(400..=599).into_make_classifier()))
-                        .into_inner(),
-                )
-            }
-
+        pub trait #server_trait : Clone + Send + Sized + 'static {
             #methods
         }
     }
@@ -121,7 +91,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
         let method_doc = generate_doc_comments(method.comment());
         let on_upgrade_method = quote! {
             /// Method that can be used to modify the response sent when the WebSocket is upgraded.
-            fn #on_upgrade_response_name(&self, response: HttpResponse) -> HttpResponse {
+            fn #on_upgrade_response_name(&mut self, response: HttpResponse) -> HttpResponse {
                 response
             }
         };
@@ -138,14 +108,14 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 #middleware_methods
 
                 #method_doc
-                async fn #name(&self, request: HrpcRequest<#req_message>) -> ServerResult<HrpcResponse<#res_message>>;
+                async fn #name(&mut self, request: HrpcRequest<#req_message>) -> ServerResult<HrpcResponse<#res_message>>;
             },
             (true, true) | (false, true) => quote! {
                 #middleware_methods
                 #on_upgrade_method
 
                 #method_doc
-                async fn #name(&self, request: HrpcRequest<()>, socket: Socket<#req_message, #res_message>) -> ServerResult<()>;
+                async fn #name(&mut self, request: HrpcRequest<()>, socket: Socket<#req_message, #res_message>) -> ServerResult<()>;
             },
             (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
         };
@@ -158,7 +128,9 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 
 fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, TokenStream) {
     let mut stream = TokenStream::new();
-    let mut comb_stream = TokenStream::new();
+    let mut comb_stream = quote! {
+        RouterBuilder::new()
+    };
 
     for method in service.methods().iter() {
         let name = quote::format_ident!("{}", method.name());
@@ -183,7 +155,7 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
 
         let method = match streaming {
             (false, false) => quote! {
-                let svr = server.clone();
+                let mut svr = server.clone();
 
                 let handler = move |request: HrpcRequest<#req_message>| async move { svr. #name (request) .await };
                 unary_handler(handler)
@@ -193,10 +165,10 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
                 package_name, method_name
             ),
             (true, true) | (false, true) => quote! {
-                let svr = server.clone();
+                let mut svr = server.clone();
 
                 let handler = {
-                    let svr = svr.clone();
+                    let mut svr = svr.clone();
                     move |request: HrpcRequest<()>, socket: Socket<#req_message, #res_message>| async move { svr. #name (request, socket) .await }
                 };
                 let on_upgrade = move |response: HttpResponse| svr. #on_upgrade_response_name (response);
@@ -208,24 +180,15 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
             let #name = {
                 #method
             };
-            let #name = HrpcService::new(
-                ServiceBuilder::new()
-                    .layer(server. #pre_name (#endpoint))
-                    .service(#name)
-                    .map_response(|r| r.map(box_body))
-            );
+            let #name = ServiceBuilder::new()
+                .layer(server. #pre_name (#endpoint))
+                .service(#name)
+                .map_response(|r| r.map(box_body));
         };
 
-        comb_stream.extend(quote! { #endpoint => Some(#name), });
+        comb_stream.extend(quote! { .route(#endpoint, #name) });
         stream.extend(apply_middleware);
     }
-
-    comb_stream = quote! {
-        match endpoint {
-            #comb_stream
-            _ => None,
-        }
-    };
 
     (stream, comb_stream)
 }

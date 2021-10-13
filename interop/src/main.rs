@@ -94,12 +94,12 @@ async fn server() {
         .await
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Server;
 
 #[hrpc::exports::async_trait]
 impl mu_server::Mu for Server {
-    async fn mu(&self, request: Request<Ping>) -> Result<Response<Pong>, HrpcServerError> {
+    async fn mu(&mut self, request: Request<Ping>) -> Result<Response<Pong>, HrpcServerError> {
         let msg = request.into_message().await?;
         if msg.mu.is_empty() {
             return Err(ServerError::PingEmpty.into());
@@ -107,7 +107,7 @@ impl mu_server::Mu for Server {
         Ok((Pong { mu: msg.mu }).into_response())
     }
 
-    fn mu_mute_on_upgrade(&self, response: HttpResponse) -> HttpResponse {
+    fn mu_mute_on_upgrade(&mut self, response: HttpResponse) -> HttpResponse {
         response
     }
 
@@ -116,7 +116,7 @@ impl mu_server::Mu for Server {
     }
 
     async fn mu_mute(
-        &self,
+        &mut self,
         _request: Request<()>,
         sock: Socket<Ping, Pong>,
     ) -> Result<(), HrpcServerError> {
@@ -148,7 +148,7 @@ impl mu_server::Mu for Server {
     }
 
     async fn mu_mu(
-        &self,
+        &mut self,
         request: Request<()>,
         _socket: Socket<Ping, Pong>,
     ) -> Result<(), HrpcServerError> {

@@ -1,6 +1,5 @@
 //! Common code used in hRPC code generation.
 use std::{
-    convert::Infallible,
     error::Error as StdError,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
@@ -10,7 +9,6 @@ use body::{box_body, BoxBody, HyperBody};
 use bytes::BytesMut;
 use http::{HeaderMap, HeaderValue};
 use prost::Message as PbMsg;
-use tower::util::{BoxLayer, BoxService};
 
 /// Some re-exported crates that might be useful while writing software with `hrpc`.
 pub mod exports {
@@ -48,10 +46,6 @@ pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 pub type HttpRequest = http::Request<HyperBody>;
 /// HTTP response used by hRPC.
 pub type HttpResponse = http::Response<BoxBody>;
-/// hRPC service type.
-pub type HrpcService = BoxService<HttpRequest, HttpResponse, Infallible>;
-/// hRPC layer type.
-pub type HrpcLayer = BoxLayer<HrpcService, HttpRequest, HttpResponse, Infallible>;
 
 /// The hRPC protobuf mimetype.
 pub const HRPC_HEADER: &[u8] = b"application/hrpc";
