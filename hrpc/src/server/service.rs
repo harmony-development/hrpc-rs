@@ -204,6 +204,19 @@ where
     layer: L,
 }
 
+impl<L, MkRouter> Clone for LayeredMakeRouter<L, MkRouter>
+where
+    L: Layer<Handler, Service = BoxedHandlerService> + Clone + Send + 'static,
+    MkRouter: MakeRouter + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            layer: self.layer.clone(),
+        }
+    }
+}
+
 impl<L, MkRouter> MakeRouter for LayeredMakeRouter<L, MkRouter>
 where
     L: Layer<Handler, Service = BoxedHandlerService> + Send + 'static,
@@ -224,6 +237,19 @@ where
     inner: Inner,
 }
 
+impl<Outer, Inner> Clone for MakeRouterStack<Outer, Inner>
+where
+    Outer: MakeRouter + Clone,
+    Inner: MakeRouter + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            outer: self.outer.clone(),
+            inner: self.inner.clone(),
+        }
+    }
+}
+
 impl<Outer, Inner> MakeRouter for MakeRouterStack<Outer, Inner>
 where
     Outer: MakeRouter,
@@ -238,6 +264,14 @@ where
 
 pub struct IntoMakeService<MkRouter: MakeRouter> {
     mk_router: MkRouter,
+}
+
+impl<MkRouter: MakeRouter + Clone> Clone for IntoMakeService<MkRouter> {
+    fn clone(&self) -> Self {
+        Self {
+            mk_router: self.mk_router.clone(),
+        }
+    }
 }
 
 impl<T, MkRouter: MakeRouter> Service<T> for IntoMakeService<MkRouter> {
