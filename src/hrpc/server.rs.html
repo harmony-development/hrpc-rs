@@ -187,9 +187,10 @@
 <span id="187">187</span>
 <span id="188">188</span>
 <span id="189">189</span>
-<span id="190">190</span>
 </pre><pre class="rust">
-<span class="kw">use</span> <span class="self">self</span>::{<span class="ident">prelude::CustomError</span>, <span class="ident">ws::WebSocketUpgrade</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::return_err_as_resp</span>;
+
+<span class="kw">use</span> <span class="self">self</span><span class="ident">::ws::WebSocketUpgrade</span>;
 
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">body</span>::{<span class="ident">full_box_body</span>, <span class="ident">HyperBody</span>},
@@ -330,13 +331,10 @@
                 <span class="ident">header_map</span>: <span class="ident">req</span>.<span class="ident">headers</span>().<span class="ident">clone</span>(),
                 <span class="ident">message</span>: <span class="ident">PhantomData</span>,
             };
-            <span class="kw">let</span> <span class="ident">websocket_upgrade</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">WebSocketUpgrade::from_request</span>(<span class="ident">req</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">upgrade</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">upgrade</span>,
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">let</span> <span class="ident">websocket_upgrade</span> <span class="op">=</span>
+                <span class="macro">return_err_as_resp!</span>(<span class="ident">WebSocketUpgrade::from_request</span>(<span class="ident">req</span>), <span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
                     <span class="macro">tracing::error!</span>(<span class="string">&quot;web socket upgrade error: {}&quot;</span>, <span class="ident">err</span>);
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">err</span>.<span class="ident">as_error_response</span>());
-                }
-            };
+                });
 
             <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">websocket_upgrade</span>
                 .<span class="ident">on_upgrade</span>(<span class="op">|</span><span class="ident">ws</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> {
