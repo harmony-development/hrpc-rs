@@ -259,6 +259,40 @@
 <span id="259">259</span>
 <span id="260">260</span>
 <span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">futures_util::future::BoxFuture</span>;
 <span class="kw">use</span> <span class="ident">http::StatusCode</span>;
@@ -466,6 +500,19 @@
     <span class="ident">layer</span>: <span class="ident">L</span>,
 }
 
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">MkRouter</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">LayeredMakeRouter</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">MkRouter</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">BoxedHandlerService</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">MkRouter</span>: <span class="ident">MakeRouter</span> <span class="op">+</span> <span class="ident">Clone</span>,
+{
+    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+            <span class="ident">layer</span>: <span class="self">self</span>.<span class="ident">layer</span>.<span class="ident">clone</span>(),
+        }
+    }
+}
+
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">MkRouter</span><span class="op">&gt;</span> <span class="ident">MakeRouter</span> <span class="kw">for</span> <span class="ident">LayeredMakeRouter</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">MkRouter</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">BoxedHandlerService</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
@@ -486,6 +533,19 @@
     <span class="ident">inner</span>: <span class="ident">Inner</span>,
 }
 
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Outer</span>, <span class="ident">Inner</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">MakeRouterStack</span><span class="op">&lt;</span><span class="ident">Outer</span>, <span class="ident">Inner</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">Outer</span>: <span class="ident">MakeRouter</span> <span class="op">+</span> <span class="ident">Clone</span>,
+    <span class="ident">Inner</span>: <span class="ident">MakeRouter</span> <span class="op">+</span> <span class="ident">Clone</span>,
+{
+    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">outer</span>: <span class="self">self</span>.<span class="ident">outer</span>.<span class="ident">clone</span>(),
+            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+        }
+    }
+}
+
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Outer</span>, <span class="ident">Inner</span><span class="op">&gt;</span> <span class="ident">MakeRouter</span> <span class="kw">for</span> <span class="ident">MakeRouterStack</span><span class="op">&lt;</span><span class="ident">Outer</span>, <span class="ident">Inner</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">Outer</span>: <span class="ident">MakeRouter</span>,
@@ -500,6 +560,14 @@
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">IntoMakeService</span><span class="op">&lt;</span><span class="ident">MkRouter</span>: <span class="ident">MakeRouter</span><span class="op">&gt;</span> {
     <span class="ident">mk_router</span>: <span class="ident">MkRouter</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">MkRouter</span>: <span class="ident">MakeRouter</span> <span class="op">+</span> <span class="ident">Clone</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">IntoMakeService</span><span class="op">&lt;</span><span class="ident">MkRouter</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">mk_router</span>: <span class="self">self</span>.<span class="ident">mk_router</span>.<span class="ident">clone</span>(),
+        }
+    }
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">MkRouter</span>: <span class="ident">MakeRouter</span><span class="op">&gt;</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">IntoMakeService</span><span class="op">&lt;</span><span class="ident">MkRouter</span><span class="op">&gt;</span> {
