@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["CloneMakeService",""],["HrpcMakeService",""]],"trait":[["MakeHrpcService",""]],"type":[["BoxedMakeHrpcService",""]]});
+initSidebarItems({"fn":[["not_found",""]],"struct":[["Handler","hRPC handler service type."],["IntoMakeService",""],["LayeredMakeRouter",""],["MakeRouterStack",""],["Router",""],["RouterBuilder",""]],"trait":[["MakeRouter",""]],"type":[["BoxedHandlerService",""],["BoxedMakeRouterService",""],["CallFuture","Call future used by Handler."]]});
