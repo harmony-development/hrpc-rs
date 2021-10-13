@@ -1,4 +1,6 @@
-use self::{prelude::CustomError, ws::WebSocketUpgrade};
+use crate::return_err_as_resp;
+
+use self::ws::WebSocketUpgrade;
 
 use super::{
     body::{full_box_body, HyperBody},
@@ -139,13 +141,10 @@ where
                 header_map: req.headers().clone(),
                 message: PhantomData,
             };
-            let websocket_upgrade = match WebSocketUpgrade::from_request(req) {
-                Ok(upgrade) => upgrade,
-                Err(err) => {
+            let websocket_upgrade =
+                return_err_as_resp!(WebSocketUpgrade::from_request(req), |err| {
                     tracing::error!("web socket upgrade error: {}", err);
-                    return Ok(err.as_error_response());
-                }
-            };
+                });
 
             let response = websocket_upgrade
                 .on_upgrade(|ws| async move {

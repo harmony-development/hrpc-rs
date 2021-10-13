@@ -91,7 +91,7 @@ async fn client() {
 async fn server() {
     mu_server::MuServer::new(Server)
         .serve(([127, 0, 0, 1], 2289))
-        .await
+        .await;
 }
 
 #[derive(Debug, Clone)]
