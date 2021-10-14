@@ -40,7 +40,7 @@ pub mod prelude {
 }
 
 /// Start serving.
-pub async fn serve<A, S>(mk_service: S, address: A)
+pub async fn serve<A, S>(mk_service: S, address: A) -> Result<(), hyper::Error>
 where
     A: Into<std::net::SocketAddr>,
     S: MakeRouter,
@@ -49,7 +49,7 @@ where
 
     let server = hyper::Server::bind(&addr).serve(mk_service.into_make_service());
     tracing::info!("serving at {}", addr);
-    server.await.unwrap()
+    server.await
 }
 
 #[doc(hidden)]

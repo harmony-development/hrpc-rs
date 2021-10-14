@@ -50,11 +50,6 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 pub fn new(inner: T) -> Self {
                     Self { inner }
                 }
-
-                /// Start serving.
-                pub async fn serve<A: Into<std::net::SocketAddr>>(self, address: A) {
-                    serve(self, address).await
-                }
             }
         }
     }

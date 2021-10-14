@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use http::StatusCode;
 use matchit::Node as Matcher;
@@ -165,6 +166,7 @@ impl Service<HttpRequest> for Router {
     }
 }
 
+#[async_trait]
 pub trait MakeRouter: Send + 'static {
     fn make_router(&self) -> RouterBuilder;
 
@@ -192,6 +194,14 @@ pub trait MakeRouter: Send + 'static {
         Self: Sized,
     {
         LayeredMakeRouter { inner: self, layer }
+    }
+
+    async fn serve<A>(self, address: A) -> Result<(), hyper::Error>
+    where
+        A: Into<std::net::SocketAddr> + Send,
+        Self: Sized,
+    {
+        super::serve(self, address).await
     }
 }
 

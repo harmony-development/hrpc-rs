@@ -3,7 +3,7 @@ use hrpc::{
     server::{
         error::{json_err_bytes, CustomError, ServerError as HrpcServerError},
         socket::Socket,
-        HrpcLayer, HttpResponse, StatusCode,
+        HrpcLayer, HttpResponse, MakeRouter, StatusCode,
     },
     IntoResponse, Request, Response,
 };
@@ -91,7 +91,8 @@ async fn client() {
 async fn server() {
     mu_server::MuServer::new(Server)
         .serve(([127, 0, 0, 1], 2289))
-        .await;
+        .await
+        .unwrap();
 }
 
 #[derive(Debug, Clone)]
