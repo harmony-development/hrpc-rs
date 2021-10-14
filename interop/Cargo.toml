@@ -6,7 +6,7 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-prost = "0.8"
+prost = "0.9"
 hrpc = { path = "../hrpc" }
 tokio = { version = "1.8", features = ["rt", "macros", "fs"] }
 futures = "0.3"

@@ -31,7 +31,7 @@ client = [
 [dependencies]
 # Core types, traits and utilities
 async-trait = "0.1"
-prost = "0.8"
+prost = "0.9"
 bytes = "1.0"
 http = "0.2"
 http-body = "0.4"
