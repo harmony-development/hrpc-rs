@@ -180,13 +180,14 @@
 <span id="180">180</span>
 <span id="181">181</span>
 <span id="182">182</span>
+<span id="183">183</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">hrpc</span>::{
     <span class="ident">return_error</span>,
     <span class="ident">server</span>::{
         <span class="ident">error</span>::{<span class="ident">json_err_bytes</span>, <span class="ident">CustomError</span>, <span class="ident">ServerError</span> <span class="kw">as</span> <span class="ident">HrpcServerError</span>},
         <span class="ident">socket::Socket</span>,
-        <span class="ident">HrpcLayer</span>, <span class="ident">HttpResponse</span>, <span class="ident">StatusCode</span>,
+        <span class="ident">HrpcLayer</span>, <span class="ident">HttpResponse</span>, <span class="ident">Server</span>, <span class="ident">StatusCode</span>,
     },
     <span class="ident">IntoResponse</span>, <span class="ident">Request</span>, <span class="ident">Response</span>,
 };
@@ -272,16 +273,17 @@
 }
 
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">server</span>() {
-    <span class="ident">mu_server::MuServer::new</span>(<span class="ident">Server</span>)
+    <span class="ident">mu_server::MuServer::new</span>(<span class="ident">MuService</span>)
         .<span class="ident">serve</span>(([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">2289</span>))
-        .<span class="kw">await</span>;
+        .<span class="kw">await</span>
+        .<span class="ident">unwrap</span>();
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">struct</span> <span class="ident">Server</span>;
+<span class="kw">struct</span> <span class="ident">MuService</span>;
 
 <span class="attribute">#[<span class="ident">hrpc::exports::async_trait</span>]</span>
-<span class="kw">impl</span> <span class="ident">mu_server::Mu</span> <span class="kw">for</span> <span class="ident">Server</span> {
+<span class="kw">impl</span> <span class="ident">mu_server::Mu</span> <span class="kw">for</span> <span class="ident">MuService</span> {
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Ping</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Pong</span><span class="op">&gt;</span>, <span class="ident">HrpcServerError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">into_message</span>().<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">mu</span>.<span class="ident">is_empty</span>() {
