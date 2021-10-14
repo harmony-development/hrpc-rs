@@ -16,7 +16,7 @@ use std::{convert::Infallible, future::Future, marker::PhantomData};
 use tower::{service_fn, util::BoxLayer};
 
 pub use super::{HttpRequest, HttpResponse};
-pub use service::{Handler, MakeRouter, Router, RouterBuilder};
+pub use service::{Handler, Router, RouterBuilder, Server};
 
 pub type HrpcLayer = BoxLayer<Handler, HttpRequest, HttpResponse, Infallible>;
 
@@ -33,7 +33,7 @@ pub use http::StatusCode;
 pub mod prelude {
     pub use super::{
         error::*, serve, socket::*, unary_handler, ws_handler, Handler, HrpcLayer, HttpRequest,
-        HttpResponse, MakeRouter, RouterBuilder,
+        HttpResponse, RouterBuilder, Server,
     };
     pub use crate::{body::box_body, Request as HrpcRequest, Response as HrpcResponse};
     pub use tower::{layer::util::Identity, ServiceBuilder, ServiceExt};
@@ -43,7 +43,7 @@ pub mod prelude {
 pub async fn serve<A, S>(mk_service: S, address: A) -> Result<(), hyper::Error>
 where
     A: Into<std::net::SocketAddr>,
-    S: MakeRouter,
+    S: Server,
 {
     let addr = address.into();
 

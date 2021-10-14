@@ -167,15 +167,15 @@ impl Service<HttpRequest> for Router {
 }
 
 #[async_trait]
-pub trait MakeRouter: Send + 'static {
+pub trait Server: Send + 'static {
     fn make_router(&self) -> RouterBuilder;
 
-    fn combine_with<Other>(self, other: Other) -> MakeRouterStack<Other, Self>
+    fn combine_with<Other>(self, other: Other) -> ServerStack<Other, Self>
     where
-        Other: MakeRouter,
+        Other: Server,
         Self: Sized,
     {
-        MakeRouterStack {
+        ServerStack {
             outer: other,
             inner: self,
         }
@@ -208,7 +208,7 @@ pub trait MakeRouter: Send + 'static {
 pub struct LayeredMakeRouter<L, MkRouter>
 where
     L: Layer<Handler, Service = BoxedHandlerService> + Send + 'static,
-    MkRouter: MakeRouter,
+    MkRouter: Server,
 {
     inner: MkRouter,
     layer: L,
@@ -217,7 +217,7 @@ where
 impl<L, MkRouter> Clone for LayeredMakeRouter<L, MkRouter>
 where
     L: Layer<Handler, Service = BoxedHandlerService> + Clone + Send + 'static,
-    MkRouter: MakeRouter + Clone,
+    MkRouter: Server + Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -227,10 +227,10 @@ where
     }
 }
 
-impl<L, MkRouter> MakeRouter for LayeredMakeRouter<L, MkRouter>
+impl<L, MkRouter> Server for LayeredMakeRouter<L, MkRouter>
 where
     L: Layer<Handler, Service = BoxedHandlerService> + Send + 'static,
-    MkRouter: MakeRouter,
+    MkRouter: Server,
 {
     fn make_router(&self) -> RouterBuilder {
         let rb = MkRouter::make_router(&self.inner);
@@ -238,19 +238,19 @@ where
     }
 }
 
-pub struct MakeRouterStack<Outer, Inner>
+pub struct ServerStack<Outer, Inner>
 where
-    Outer: MakeRouter,
-    Inner: MakeRouter,
+    Outer: Server,
+    Inner: Server,
 {
     outer: Outer,
     inner: Inner,
 }
 
-impl<Outer, Inner> Clone for MakeRouterStack<Outer, Inner>
+impl<Outer, Inner> Clone for ServerStack<Outer, Inner>
 where
-    Outer: MakeRouter + Clone,
-    Inner: MakeRouter + Clone,
+    Outer: Server + Clone,
+    Inner: Server + Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -260,23 +260,23 @@ where
     }
 }
 
-impl<Outer, Inner> MakeRouter for MakeRouterStack<Outer, Inner>
+impl<Outer, Inner> Server for ServerStack<Outer, Inner>
 where
-    Outer: MakeRouter,
-    Inner: MakeRouter,
+    Outer: Server,
+    Inner: Server,
 {
     fn make_router(&self) -> RouterBuilder {
-        let outer_rb = MakeRouter::make_router(&self.outer);
-        let inner_rb = MakeRouter::make_router(&self.inner);
+        let outer_rb = Server::make_router(&self.outer);
+        let inner_rb = Server::make_router(&self.inner);
         outer_rb.combine_with(inner_rb)
     }
 }
 
-pub struct IntoMakeService<MkRouter: MakeRouter> {
+pub struct IntoMakeService<MkRouter: Server> {
     mk_router: MkRouter,
 }
 
-impl<MkRouter: MakeRouter + Clone> Clone for IntoMakeService<MkRouter> {
+impl<MkRouter: Server + Clone> Clone for IntoMakeService<MkRouter> {
     fn clone(&self) -> Self {
         Self {
             mk_router: self.mk_router.clone(),
@@ -284,7 +284,7 @@ impl<MkRouter: MakeRouter + Clone> Clone for IntoMakeService<MkRouter> {
     }
 }
 
-impl<T, MkRouter: MakeRouter> Service<T> for IntoMakeService<MkRouter> {
+impl<T, MkRouter: Server> Service<T> for IntoMakeService<MkRouter> {
     type Response = Router;
 
     type Error = Infallible;
@@ -299,7 +299,7 @@ impl<T, MkRouter: MakeRouter> Service<T> for IntoMakeService<MkRouter> {
     }
 
     fn call(&mut self, _req: T) -> Self::Future {
-        let router = MakeRouter::make_router(&self.mk_router).build();
+        let router = Server::make_router(&self.mk_router).build();
         future::ready(Ok(router))
     }
 }

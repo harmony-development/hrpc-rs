@@ -35,7 +35,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 }
             }
 
-            impl<T: #server_trait> MakeRouter for #server_service<T> {
+            impl<T: #server_trait> Server for #server_service<T> {
                 fn make_router(&self) -> RouterBuilder {
                     let server = self.inner.clone();
 
