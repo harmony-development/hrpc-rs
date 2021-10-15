@@ -238,6 +238,14 @@ where
     }
 }
 
+impl<T, L, MkRouter> Service<T> for LayeredMakeRouter<L, MkRouter>
+where
+    L: Layer<Handler, Service = BoxedHandlerService> + Send + 'static,
+    MkRouter: Server,
+{
+    macros::impl_make_service!();
+}
+
 pub struct ServerStack<Outer, Inner>
 where
     Outer: Server,
@@ -272,6 +280,14 @@ where
     }
 }
 
+impl<T, Outer, Inner> Service<T> for ServerStack<Outer, Inner>
+where
+    Outer: Server,
+    Inner: Server,
+{
+    macros::impl_make_service!();
+}
+
 pub struct IntoMakeService<MkRouter: Server> {
     mk_router: MkRouter,
 }
@@ -285,21 +301,50 @@ impl<MkRouter: Server + Clone> Clone for IntoMakeService<MkRouter> {
 }
 
 impl<T, MkRouter: Server> Service<T> for IntoMakeService<MkRouter> {
-    type Response = Router;
+    macros::impl_make_service!(mk_router);
+}
 
-    type Error = Infallible;
+mod macros {
+    macro_rules! impl_make_service {
+        ($field:ident) => {
+            type Response = Router;
 
-    type Future = future::Ready<Result<Router, Infallible>>;
+            type Error = Infallible;
 
-    fn poll_ready(
-        &mut self,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        Ok(()).into()
+            type Future = future::Ready<Result<Router, Infallible>>;
+
+            fn poll_ready(
+                &mut self,
+                _cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Result<(), Self::Error>> {
+                Ok(()).into()
+            }
+
+            fn call(&mut self, _req: T) -> Self::Future {
+                let router = Server::make_router(&self.$field).build();
+                future::ready(Ok(router))
+            }
+        };
+        () => {
+            type Response = Router;
+
+            type Error = Infallible;
+
+            type Future = future::Ready<Result<Router, Infallible>>;
+
+            fn poll_ready(
+                &mut self,
+                _cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Result<(), Self::Error>> {
+                Ok(()).into()
+            }
+
+            fn call(&mut self, _req: T) -> Self::Future {
+                let router = Server::make_router(self).build();
+                future::ready(Ok(router))
+            }
+        };
     }
 
-    fn call(&mut self, _req: T) -> Self::Future {
-        let router = Server::make_router(&self.mk_router).build();
-        future::ready(Ok(router))
-    }
+    pub(crate) use impl_make_service;
 }
