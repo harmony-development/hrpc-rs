@@ -43,7 +43,7 @@ macro_rules! return_err_as_resp {
 macro_rules! combine_services {
     ($fsvc:ident, $($svc:ident),+) => {
         {
-            use $crate::server::MakeRouter;
+            use $crate::server::Server;
 
             $fsvc
             $(
