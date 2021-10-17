@@ -30,7 +30,8 @@ DEALINGS IN THE SOFTWARE.
 
 use super::{
     error::{json_err_bytes, CustomError, ServerResult},
-    HeaderMapExt, HttpRequest, HttpResponse,
+    utils::HeaderMapExt,
+    HttpRequest, HttpResponse,
 };
 use crate::body::empty_box_body;
 

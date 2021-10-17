@@ -74,8 +74,7 @@ impl Request<()> {
 }
 
 impl<T> Request<T> {
-    /// Create a new request with the specified body.
-    pub fn new_body(body: HyperBody) -> Self {
+    pub(crate) fn new_body(body: HyperBody) -> Self {
         Self {
             body,
             message: PhantomData,
@@ -102,13 +101,15 @@ impl<T> Request<T> {
 impl<T: PbMsg> Request<T> {
     /// Create a new request with the specified message.
     ///
-    /// This adds the default "content-type" header used for hRPC unary requests.
+    /// This adds the [`HRPC_HEADER`] to the [`http::header::CONTENT_TYPE`]
+    /// header for hRPC unary requests.
     pub fn new(msg: T) -> Self {
         let encoded = encode_protobuf_message(msg).freeze();
         Self::new_body(HyperBody::from(encoded))
     }
 }
 
+/// Errors that can occur while decoding the body of a [`Request`].
 #[derive(Debug)]
 pub enum DecodeBodyError {
     InvalidProtoMessage(prost::DecodeError),

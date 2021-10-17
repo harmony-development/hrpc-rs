@@ -9,11 +9,14 @@ use std::{
 use bytes::Bytes;
 use http::StatusCode;
 
+pub use tokio_tungstenite::tungstenite::Error as SocketError;
+
 /// Trait that needs to be implemented to use an error type with a generated service server.
 pub trait CustomError: Debug + Send + Sync + 'static {
     /// Status code and message that will be used in client response.
     fn as_status_message(&self) -> (StatusCode, Bytes);
 
+    /// Create a response from this error.
     fn as_error_response(&self) -> HttpResponse {
         let (status, message) = self.as_status_message();
         http::Response::builder()
@@ -44,9 +47,6 @@ impl CustomError for (StatusCode, &'static str) {
     }
 }
 
-/// Socket error.
-pub type SocketError = tokio_tungstenite::tungstenite::Error;
-
 /// Shorthand type for `Result<T, ServerError>.
 pub type ServerResult<T> = Result<T, ServerError>;
 
@@ -65,6 +65,7 @@ pub enum ServerError {
 }
 
 impl ServerError {
+    /// Convert this error into a response.
     pub fn into_response(self) -> HttpResponse {
         let (status, message) = self.into_status_message();
 

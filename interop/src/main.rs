@@ -1,11 +1,12 @@
 use hrpc::{
+    exports::http::StatusCode,
     return_error,
     server::{
         error::{json_err_bytes, CustomError, ServerError as HrpcServerError},
         socket::Socket,
-        HrpcLayer, HttpResponse, Server, StatusCode,
+        HrpcLayer, Server,
     },
-    IntoResponse, Request, Response,
+    HttpResponse, IntoResponse, Request, Response,
 };
 use tower::limit::RateLimitLayer;
 
@@ -90,7 +91,7 @@ async fn client() {
 
 async fn server() {
     mu_server::MuServer::new(MuService)
-        .serve(([127, 0, 0, 1], 2289))
+        .serve("127.0.0.1:2289")
         .await
         .unwrap();
 }

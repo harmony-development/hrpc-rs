@@ -4,9 +4,12 @@ use std::{
     error::Error as StdError,
     fmt::{self, Display, Formatter},
 };
-use tokio_tungstenite::tungstenite;
 
-use crate::DecodeBodyError;
+pub use crate::DecodeBodyError;
+pub use http::Error as HttpError;
+pub use hyper::Error as HyperError;
+pub use std::io::Error as IoError;
+pub use tokio_tungstenite::tungstenite::Error as SocketError;
 
 /// Convenience type for `Client` operation result.
 pub type ClientResult<T> = Result<T, ClientError>;
@@ -15,9 +18,9 @@ pub type ClientResult<T> = Result<T, ClientError>;
 #[derive(Debug)]
 pub enum ClientError {
     /// Occurs if request creation fails.
-    FailedRequestBuilder(http::Error),
+    FailedRequestBuilder(HttpError),
     /// Occurs if hyper, the HTTP client, returns an error.
-    Http(hyper::Error),
+    Http(HyperError),
     /// Occurs if an endpoint returns an error.
     EndpointError {
         raw_error: Bytes,
@@ -25,7 +28,7 @@ pub enum ClientError {
         endpoint: Uri,
     },
     /// Occurs if a websocket returns an error.
-    SocketError(tungstenite::Error),
+    SocketError(SocketError),
     /// Occurs if the data server responded with can't be decoded as a protobuf response.
     MessageDecode(DecodeBodyError),
     /// Occurs if the data server responded with is not supported for decoding.
@@ -33,7 +36,7 @@ pub enum ClientError {
     /// Occurs if the given URL is invalid.
     InvalidUrl(InvalidUrlKind),
     /// Occurs if an IO error is returned.
-    Io(std::io::Error),
+    Io(IoError),
 }
 
 impl Display for ClientError {
@@ -83,14 +86,14 @@ impl From<DecodeBodyError> for ClientError {
     }
 }
 
-impl From<tungstenite::Error> for ClientError {
-    fn from(err: tungstenite::Error) -> Self {
+impl From<SocketError> for ClientError {
+    fn from(err: SocketError) -> Self {
         ClientError::SocketError(err)
     }
 }
 
-impl From<std::io::Error> for ClientError {
-    fn from(err: std::io::Error) -> Self {
+impl From<IoError> for ClientError {
+    fn from(err: IoError) -> Self {
         ClientError::Io(err)
     }
 }

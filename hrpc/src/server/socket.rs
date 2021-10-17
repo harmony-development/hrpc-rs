@@ -6,13 +6,15 @@ use tokio_tungstenite::tungstenite::Error as SocketError;
 use tracing::{debug, error};
 
 use super::{
-    prelude::ServerError,
+    error::ServerError,
     ws::{WebSocket, WsMessage},
 };
 
 type SenderChanWithReq<Resp> = (Resp, oneshot::Sender<Result<(), ServerError>>);
 
-/// A web socket.
+// This does not implement "close-on-drop" since socket instances may be sent across threads
+// by the user. This is done to prevent user mistakes.
+/// A hRPC socket.
 #[derive(Debug)]
 pub struct Socket<Req, Resp>
 where
@@ -29,7 +31,7 @@ where
     Req: prost::Message + Default + 'static,
     Resp: prost::Message + 'static,
 {
-    pub fn new(mut ws: WebSocket) -> Self {
+    pub(crate) fn new(mut ws: WebSocket) -> Self {
         let (recv_msg_tx, recv_msg_rx) = flume::bounded(64);
         let (send_msg_tx, mut send_msg_rx): (
             mpsc::Sender<SenderChanWithReq<Resp>>,
@@ -125,7 +127,11 @@ where
 
     /// Receive a message from the socket.
     ///
-    /// Returns `Err(SocketError::ClosedNormally)` if the socket is closed normally.
+    /// ## Errors
+    /// - Returns [`SocketError::ConnectionClosed`] if the socket is closed normally.
+    /// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.
+    ///
+    /// ## Notes
     /// This will block until getting a message if the socket is not closed.
     pub async fn receive_message(&self) -> Result<Req, ServerError> {
         if self.is_closed() {
@@ -140,6 +146,11 @@ where
 
     /// Send a message over the socket.
     ///
+    /// ## Errors
+    /// - Returns [`SocketError::ConnectionClosed`] if the socket is closed normally.
+    /// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.
+    ///
+    /// ## Notes
     /// This will block if the inner send buffer is filled.
     pub async fn send_message(&self, resp: Resp) -> Result<(), ServerError> {
         let (resp_tx, resp_rx) = oneshot::channel();

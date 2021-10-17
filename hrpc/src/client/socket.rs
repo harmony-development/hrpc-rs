@@ -1,17 +1,19 @@
 use bytes::{Bytes, BytesMut};
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::{mpsc, oneshot};
-use tokio_tungstenite::tungstenite;
+use tokio_tungstenite::tungstenite::{self, error::Error as SocketError};
 use tracing::debug;
 
-use super::error::*;
+use super::error::{ClientError, ClientResult};
 use crate::DecodeBodyError;
 
 type SenderChanWithReq<Req> = (Req, oneshot::Sender<Result<(), ClientError>>);
 type WebSocket =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
-/// A websocket, wrapped for ease of use with protobuf messages.
+// This does not implement "close-on-drop" since socket instances may be sent across threads
+// by the user. This is done to prevent user mistakes.
+/// A hRPC socket.
 #[derive(Debug, Clone)]
 pub struct Socket<Req, Resp>
 where
@@ -130,36 +132,39 @@ where
 
     /// Receive a message from the socket.
     ///
-    /// Returns a connection closed error if the socket is closed.
+    /// ## Errors
+    /// - Returns [`SocketError::ConnectionClosed`] if the socket is closed normally.
+    /// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.
+    ///
+    /// ## Notes
     /// This will block until getting a message if the socket is not closed.
     pub async fn receive_message(&self) -> ClientResult<Resp> {
         if self.is_closed() {
-            Err(ClientError::SocketError(
-                tungstenite::Error::ConnectionClosed,
-            ))
+            Err(ClientError::SocketError(SocketError::ConnectionClosed))
         } else {
             self.rx
                 .recv_async()
                 .await
-                .unwrap_or(Err(ClientError::SocketError(
-                    tungstenite::Error::ConnectionClosed,
-                )))
+                .unwrap_or(Err(ClientError::SocketError(SocketError::ConnectionClosed)))
         }
     }
 
     /// Send a message over the socket.
     ///
+    /// ## Errors
+    /// - Returns [`SocketError::ConnectionClosed`] if the socket is closed normally.
+    /// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.
+    ///
+    /// ## Notes
     /// This will block if the inner send buffer is filled.
     pub async fn send_message(&self, req: Req) -> ClientResult<()> {
         let (req_tx, req_rx) = oneshot::channel();
         if self.is_closed() || self.tx.send((req, req_tx)).await.is_err() {
-            Err(ClientError::SocketError(
-                tungstenite::Error::ConnectionClosed,
-            ))
+            Err(ClientError::SocketError(SocketError::ConnectionClosed))
         } else {
-            req_rx.await.unwrap_or(Err(ClientError::SocketError(
-                tungstenite::Error::ConnectionClosed,
-            )))
+            req_rx
+                .await
+                .unwrap_or(Err(ClientError::SocketError(SocketError::ConnectionClosed)))
         }
     }
 

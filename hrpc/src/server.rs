@@ -1,189 +1,190 @@
-use crate::return_err_as_resp;
+use std::{convert::Infallible, future, net::ToSocketAddrs};
 
-use self::ws::WebSocketUpgrade;
+use tower::{util::BoxLayer, Layer, Service};
 
-use super::{
-    body::{full_box_body, HyperBody},
-    encode_protobuf_message, hrpc_header_value, Request as HrpcRequest, Response as HrpcResponse,
-    HRPC_HEADER,
-};
-use error::{ServerError, ServerResult};
-use socket::Socket;
+use crate::{HttpRequest, HttpResponse};
+use handler::Handler;
+use router::Routes;
 
-use bytes::Bytes;
-use http::{header::HeaderName, HeaderMap, Method};
-use std::{convert::Infallible, future::Future, marker::PhantomData};
-use tower::{service_fn, util::BoxLayer};
+use self::router::RoutesFinalized;
 
-pub use super::{HttpRequest, HttpResponse};
-pub use service::{Handler, Router, RouterBuilder, Server};
-
+/// A boxed layer which takes hRPC `Handler`s and produces `BoxService`s.
 pub type HrpcLayer = BoxLayer<Handler, HttpRequest, HttpResponse, Infallible>;
 
+/// Error types used by hRPC.
 pub mod error;
-pub mod macros;
-pub mod service;
+/// Handler type and handlers used by hRPC.
+pub mod handler;
+/// The router used by hRPC.
+pub mod router;
+/// Socket used by hRPC for "streaming" RPCs.
 pub mod socket;
+/// Other useful types, traits and functions used by hRPC.
+pub mod utils;
+
+mod macros;
 pub(crate) mod ws;
 
-#[doc(inline)]
-pub use http::StatusCode;
-
+// Prelude used by generated code. It is not meant to be used by users.
 #[doc(hidden)]
 pub mod prelude {
     pub use super::{
-        error::*, serve, socket::*, unary_handler, ws_handler, Handler, HrpcLayer, HttpRequest,
-        HttpResponse, RouterBuilder, Server,
+        error::ServerResult,
+        handler::{unary_handler, ws_handler, Handler},
+        router::Routes,
+        socket::Socket,
+        utils::serve,
+        HrpcLayer, Server,
     };
     pub use crate::{body::box_body, Request as HrpcRequest, Response as HrpcResponse};
-    pub use tower::{layer::util::Identity, ServiceBuilder, ServiceExt};
+    pub use crate::{HttpRequest, HttpResponse};
+    pub use tower::{layer::util::Identity, Layer};
 }
 
-/// Start serving.
-pub async fn serve<A, S>(mk_service: S, address: A) -> Result<(), hyper::Error>
+#[async_trait::async_trait]
+pub trait Server: Send + 'static {
+    /// Creates a [`Routes`], which will be used to build a [`RoutesFinalized`] instance.
+    fn make_routes(&self) -> Routes;
+
+    /// Combines this server with another server.
+    fn combine_with<Other, OtherSvc>(self, other: Other) -> ServerStack<Other, Self>
+    where
+        Other: Server,
+        Self: Sized,
+    {
+        ServerStack {
+            outer: other,
+            inner: self,
+        }
+    }
+
+    /// Turns this server into a type that implements `MakeService`, so that
+    /// it can be used with [`hyper`].
+    fn into_make_service(self) -> IntoMakeService<Self>
+    where
+        Self: Sized,
+    {
+        IntoMakeService { mk_router: self }
+    }
+
+    /// Layers this server with a layer that transforms handlers.
+    fn layer<L>(self, layer: L) -> LayeredServer<L, Self>
+    where
+        L: Layer<Handler, Service = Handler> + Send + 'static,
+        Self: Sized,
+    {
+        LayeredServer { inner: self, layer }
+    }
+
+    /// Serves this server. See [`utils::serve`] for more information.
+    async fn serve<A>(self, address: A) -> Result<(), hyper::Error>
+    where
+        A: ToSocketAddrs + Send,
+        A::Iter: Send,
+        Self: Sized,
+    {
+        utils::serve(self, address).await
+    }
+}
+
+/// Type that layers the handlers that are produced by a [`Server`].
+pub struct LayeredServer<L, S>
 where
-    A: Into<std::net::SocketAddr>,
+    L: Layer<Handler, Service = Handler> + Send + 'static,
     S: Server,
 {
-    let addr = address.into();
-
-    let server = hyper::Server::bind(&addr).serve(mk_service.into_make_service());
-    tracing::info!("serving at {}", addr);
-    server.await
+    inner: S,
+    layer: L,
 }
 
-#[doc(hidden)]
-pub fn from_http_request<Msg: prost::Message + Default + 'static>(
-    req: HttpRequest,
-) -> ServerResult<HrpcRequest<Msg>> {
-    let (parts, body) = req.into_parts();
-
-    if parts.method != Method::POST {
-        return Err(ServerError::MethodNotPost);
-    }
-
-    if let Some(header) = parts
-        .headers
-        .get(http::header::CONTENT_TYPE)
-        .map(|h| Bytes::copy_from_slice(h.as_bytes()))
-    {
-        if !header.eq_ignore_ascii_case(HRPC_HEADER) {
-            return Err(ServerError::UnsupportedRequestType(header));
-        }
-    }
-
-    Ok(HrpcRequest {
-        body,
-        header_map: parts.headers,
-        message: std::marker::PhantomData,
-    })
-}
-
-#[doc(hidden)]
-pub fn into_http_request<Msg: prost::Message>(resp: HrpcResponse<Msg>) -> HttpResponse {
-    let encoded = encode_protobuf_message(resp.data).freeze();
-    http::Response::builder()
-        .header(http::header::CONTENT_TYPE, hrpc_header_value())
-        .header(http::header::ACCEPT, hrpc_header_value())
-        .body(full_box_body(encoded))
-        .unwrap()
-}
-
-#[doc(hidden)]
-pub fn unary_handler<Req, Resp, HandlerFn, HandlerFut>(handler: HandlerFn) -> Handler
+impl<L, S> Clone for LayeredServer<L, S>
 where
-    Req: prost::Message + Default + 'static,
-    Resp: prost::Message,
-    HandlerFut: Future<Output = Result<HrpcResponse<Resp>, ServerError>> + Send,
-    HandlerFn: FnOnce(HrpcRequest<Req>) -> HandlerFut + Clone + Send + 'static,
+    L: Layer<Handler, Service = Handler> + Clone + Send + 'static,
+    S: Server + Clone,
 {
-    let service = service_fn(move |req: HttpRequest| {
-        let handler = handler.clone();
-        async move {
-            let request = match from_http_request(req) {
-                Ok(request) => request,
-                Err(err) => {
-                    tracing::error!("{}", err);
-                    return Ok(err.into_response());
-                }
-            };
-            let response = match handler(request).await {
-                Ok(response) => response,
-                Err(err) => {
-                    tracing::error!("{}", err);
-                    return Ok(err.into_response());
-                }
-            };
-            Ok(into_http_request(response))
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            layer: self.layer.clone(),
         }
-    });
-    Handler::new(service)
+    }
 }
 
-#[doc(hidden)]
-pub fn ws_handler<Req, Resp, HandlerFn, HandlerFut, OnUpgradeFn>(
-    handler: HandlerFn,
-    on_upgrade: OnUpgradeFn,
-) -> Handler
+impl<L, S> Server for LayeredServer<L, S>
 where
-    Req: prost::Message + Default + 'static,
-    Resp: prost::Message + 'static,
-    HandlerFut: Future<Output = Result<(), ServerError>> + Send,
-    HandlerFn: FnOnce(HrpcRequest<()>, Socket<Req, Resp>) -> HandlerFut + Clone + Send + 'static,
-    OnUpgradeFn: FnOnce(HttpResponse) -> HttpResponse + Clone + Send + 'static,
+    L: Layer<Handler, Service = Handler> + Send + 'static,
+    S: Server,
 {
-    let service = service_fn(move |req: HttpRequest| {
-        let handler = handler.clone();
-        let on_upgrade = on_upgrade.clone();
-        async move {
-            let request = HrpcRequest {
-                body: HyperBody::empty(),
-                header_map: req.headers().clone(),
-                message: PhantomData,
-            };
-            let websocket_upgrade =
-                return_err_as_resp!(WebSocketUpgrade::from_request(req), |err| {
-                    tracing::error!("web socket upgrade error: {}", err);
-                });
+    fn make_routes(&self) -> Routes {
+        let rb = Server::make_routes(&self.inner);
+        rb.layer(&self.layer)
+    }
+}
 
-            let response = websocket_upgrade
-                .on_upgrade(|ws| async move {
-                    let socket = Socket::new(ws);
-                    let res = handler(request, socket.clone()).await;
-                    if let Err(err) = res {
-                        tracing::error!("{}", err);
-                    }
-                    socket.close().await;
-                })
-                .into_response();
+/// Type that contains two [`Server`]s and stacks (combines) them.
+pub struct ServerStack<Outer, Inner>
+where
+    Outer: Server,
+    Inner: Server,
+{
+    outer: Outer,
+    inner: Inner,
+}
 
-            Ok(on_upgrade(response))
+impl<Outer, Inner> Clone for ServerStack<Outer, Inner>
+where
+    Outer: Server + Clone,
+    Inner: Server + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            outer: self.outer.clone(),
+            inner: self.inner.clone(),
         }
-    });
-
-    Handler::new(service)
+    }
 }
 
-/// Helper methods for working with `HeaderMap`.
-pub trait HeaderMapExt {
-    /// Check if a header is equal to a bytes array.
-    fn header_eq(&self, key: &HeaderName, value: &[u8]) -> bool;
-    /// Check if a header contains a string.
-    fn header_contains_str(&self, key: &HeaderName, value: &str) -> bool;
+impl<Outer, Inner> Server for ServerStack<Outer, Inner>
+where
+    Outer: Server,
+    Inner: Server,
+{
+    fn make_routes(&self) -> Routes {
+        let outer_rb = Server::make_routes(&self.outer);
+        let inner_rb = Server::make_routes(&self.inner);
+        outer_rb.combine_with(inner_rb)
+    }
 }
 
-impl HeaderMapExt for HeaderMap {
-    fn header_eq(&self, key: &HeaderName, value: &[u8]) -> bool {
-        self.get(key).map_or(false, |header| {
-            header.as_bytes().eq_ignore_ascii_case(value)
-        })
+/// Type that contains a [`Server`] and implements `tower::MakeService` to
+/// create [`RoutesFinalized`] instances.
+pub struct IntoMakeService<S: Server> {
+    mk_router: S,
+}
+
+impl<S: Server + Clone> Clone for IntoMakeService<S> {
+    fn clone(&self) -> Self {
+        Self {
+            mk_router: self.mk_router.clone(),
+        }
+    }
+}
+
+impl<T, S: Server> Service<T> for IntoMakeService<S> {
+    type Response = RoutesFinalized;
+
+    type Error = Infallible;
+
+    type Future = future::Ready<Result<RoutesFinalized, Infallible>>;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        Ok(()).into()
     }
 
-    fn header_contains_str(&self, key: &HeaderName, pat: &str) -> bool {
-        self.get(key).map_or(false, |header| {
-            header
-                .to_str()
-                .map_or(false, |value| value.to_ascii_lowercase().contains(pat))
-        })
+    fn call(&mut self, _req: T) -> Self::Future {
+        future::ready(Ok(self.mk_router.make_routes().build()))
     }
 }

@@ -5,17 +5,16 @@ use std::{
     sync::Arc,
 };
 
-use crate::{body::box_body, decode_body, DecodeBodyError};
-
 use super::Request;
+use crate::{body::box_body, decode_body, DecodeBodyError};
+use error::*;
+use socket::*;
 
 use bytes::BytesMut;
-use error::*;
 use http::{
     uri::{PathAndQuery, Scheme},
     HeaderMap, Method, Uri,
 };
-use socket::*;
 use tokio_rustls::webpki::DNSNameRef;
 use tokio_tungstenite::tungstenite;
 use tower::Service;
@@ -25,7 +24,9 @@ use tower_http::{
     trace::{Trace, TraceLayer},
 };
 
+/// Error types.
 pub mod error;
+/// hRPC socket used for streaming RPCs.
 pub mod socket;
 
 /// A `hyper` HTTP client that supports HTTPS.
@@ -97,7 +98,7 @@ impl Client {
         Self::new_inner(http_client(), server)
     }
 
-    /// Creates a new client using the provided HttpClient.
+    /// Creates a new client using the provided [`HttpClient`].
     pub fn new_inner(inner: HttpClient, server: Uri) -> ClientResult<Self> {
         if let Some("http" | "https") = server.scheme_str() {
             Ok(Self::new_service(inner, server))
@@ -106,7 +107,7 @@ impl Client {
         }
     }
 
-    /// Set the function to modify request headers with before sending the request.
+    /// Set the function to modify request headers with before sending a request.
     pub fn modify_request_headers_with(
         mut self,
         f: Arc<dyn Fn(&mut HeaderMap) + Send + Sync>,
@@ -115,7 +116,7 @@ impl Client {
         self
     }
 
-    /// Executes an unary request and returns the decoded response.
+    /// Executes a unary request and returns the decoded response.
     pub async fn execute_request<Req: prost::Message, Resp: prost::Message + Default>(
         &mut self,
         path: &str,

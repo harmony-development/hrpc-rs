@@ -36,7 +36,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             }
 
             impl<T: #server_trait> Server for #server_service<T> {
-                fn make_router(&self) -> RouterBuilder {
+                fn make_routes(&self) -> Routes {
                     let server = self.inner.clone();
 
                     #services
@@ -124,7 +124,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, TokenStream) {
     let mut stream = TokenStream::new();
     let mut comb_stream = quote! {
-        RouterBuilder::new()
+        Routes::new()
     };
 
     for method in service.methods().iter() {
@@ -175,10 +175,7 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
             let #name = {
                 #method
             };
-            let #name = ServiceBuilder::new()
-                .layer(server. #pre_name (#endpoint))
-                .service(#name)
-                .map_response(|r| r.map(box_body));
+            let #name = server. #pre_name (#endpoint) .layer(#name);
         };
 
         comb_stream.extend(quote! { .route(#endpoint, #name) });
