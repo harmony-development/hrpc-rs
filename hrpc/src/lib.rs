@@ -37,7 +37,7 @@ pub mod client;
 #[cfg(feature = "server")]
 pub mod server;
 
-/// Body type.
+/// Body utitilies and types.
 pub mod body;
 
 /// Alias for a type-erased error type.
@@ -112,7 +112,9 @@ impl<T: PbMsg> Request<T> {
 /// Errors that can occur while decoding the body of a [`Request`].
 #[derive(Debug)]
 pub enum DecodeBodyError {
+    /// The body contained an invalid protobuf message.
     InvalidProtoMessage(prost::DecodeError),
+    /// An error occured while reading the body.
     InvalidBody(BoxError),
 }
 

@@ -5,6 +5,8 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::tungstenite::Error as SocketError;
 use tracing::{debug, error};
 
+use crate::DecodeBodyError;
+
 use super::{
     error::ServerError,
     ws::{WebSocket, WsMessage},
@@ -49,7 +51,8 @@ where
                             Ok(msg) => {
                                 match msg {
                                     WsMessage::Binary(data) => {
-                                        Req::decode(data.as_slice()).map_err(ServerError::MessageDecode)
+                                        Req::decode(data.as_slice())
+                                            .map_err(|err| ServerError::DecodeBodyError(DecodeBodyError::InvalidProtoMessage(err)))
                                     }
                                     WsMessage::Ping(data) => {
                                         if let Err(err) = ws.send(WsMessage::Pong(data)).await {

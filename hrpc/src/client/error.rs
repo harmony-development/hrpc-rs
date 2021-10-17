@@ -29,7 +29,7 @@ pub enum ClientError {
     },
     /// Occurs if a websocket returns an error.
     SocketError(SocketError),
-    /// Occurs if the data server responded with can't be decoded as a protobuf response.
+    /// Occurs if the data server responded with could not be decoded.
     MessageDecode(DecodeBodyError),
     /// Occurs if the data server responded with is not supported for decoding.
     ContentNotSupported(Bytes),

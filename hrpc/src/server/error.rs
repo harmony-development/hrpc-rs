@@ -1,5 +1,5 @@
 use super::HttpResponse;
-use crate::{body::box_body, BoxError, DecodeBodyError};
+use crate::{body::box_body, DecodeBodyError};
 
 use std::{
     error::Error as StdError,
@@ -50,15 +50,11 @@ impl CustomError for (StatusCode, &'static str) {
 /// Shorthand type for `Result<T, ServerError>.
 pub type ServerResult<T> = Result<T, ServerError>;
 
-#[doc(hidden)]
+/// A server error.
 #[derive(Debug)]
 pub enum ServerError {
-    EmptyHeaders,
-    EmptyBody,
     MethodNotPost,
     UnsupportedRequestType(Bytes),
-    MessageDecode(prost::DecodeError),
-    BodyError(BoxError),
     SocketError(SocketError),
     DecodeBodyError(DecodeBodyError),
     Custom(Box<dyn CustomError>),
@@ -81,10 +77,7 @@ impl ServerError {
         }
         let code = match &self {
             Self::Custom(_) => unreachable!(),
-            Self::MessageDecode(_) | Self::BodyError(_) => StatusCode::BAD_REQUEST,
-            Self::EmptyBody | Self::EmptyHeaders | Self::SocketError(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
+            Self::SocketError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::MethodNotPost => StatusCode::METHOD_NOT_ALLOWED,
             Self::UnsupportedRequestType(_) => StatusCode::BAD_REQUEST,
             Self::DecodeBodyError(_) => StatusCode::BAD_REQUEST,
@@ -96,15 +89,11 @@ impl ServerError {
 impl Display for ServerError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::MessageDecode(err) => write!(f, "invalid protobuf message: {}", err),
             Self::Custom(err) => write!(f, "error occured: {:?}", err),
-            Self::BodyError(err) => write!(f, "body error: {}", err),
-            Self::EmptyBody => f.write_str("request body has already been extracted"),
-            Self::EmptyHeaders => f.write_str("request headers has already been extracted"),
             Self::MethodNotPost => f.write_str("request method must be POST"),
             Self::UnsupportedRequestType(ty) => write!(f, "request type not supported: {:?}", ty),
             Self::SocketError(err) => write!(f, "websocket error: {}", err),
-            Self::DecodeBodyError(err) => write!(f, "failed to decode body: {}", err),
+            Self::DecodeBodyError(err) => write!(f, "failed to decode request body: {}", err),
         }
     }
 }
@@ -112,17 +101,10 @@ impl Display for ServerError {
 impl StdError for ServerError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
-            Self::MessageDecode(err) => Some(err),
             Self::SocketError(err) => Some(err),
             Self::DecodeBodyError(err) => Some(err),
             _ => None,
         }
-    }
-}
-
-impl From<prost::DecodeError> for ServerError {
-    fn from(err: prost::DecodeError) -> Self {
-        Self::MessageDecode(err)
     }
 }
 
