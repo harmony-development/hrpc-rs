@@ -1,7 +1,11 @@
 use std::time::Duration;
 
 use bytes::BytesMut;
-use tokio::sync::{mpsc, oneshot};
+use futures_util::Future;
+use tokio::{
+    sync::{mpsc, oneshot},
+    task::JoinHandle,
+};
 use tokio_tungstenite::tungstenite::Error as SocketError;
 use tracing::{debug, error};
 
@@ -175,6 +179,41 @@ where
     pub async fn close(&self) {
         // We don't care about the error, it's closed either way
         let _ = self.close_chan.send(()).await;
+    }
+
+    /// Spawns a parallel task that processes a socket.
+    pub fn spawn_task<T, Handler, HandlerFut>(
+        &self,
+        f: Handler,
+    ) -> JoinHandle<Result<T, ServerError>>
+    where
+        Handler: FnOnce(Self) -> HandlerFut + 'static,
+        HandlerFut: Future<Output = Result<T, ServerError>> + Send + 'static,
+        T: Send + 'static,
+    {
+        let sock = self.clone();
+        let fut = f(sock);
+        tokio::spawn(fut)
+    }
+
+    /// Spawns a parallel task that processes request messages and produces
+    /// response messages.
+    pub fn spawn_process_task<ProcessFn, ProcessFut>(
+        &self,
+        f: ProcessFn,
+    ) -> JoinHandle<Result<(), ServerError>>
+    where
+        ProcessFn: for<'a> Fn(&'a Self, Req) -> ProcessFut + Send + Sync + 'static,
+        ProcessFut: Future<Output = Result<Resp, ServerError>> + Send,
+    {
+        let sock = self.clone();
+        tokio::spawn(async move {
+            loop {
+                let req = sock.receive_message().await?;
+                let resp = f(&sock, req).await?;
+                sock.send_message(resp).await?;
+            }
+        })
     }
 }
 

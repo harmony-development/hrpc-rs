@@ -122,37 +122,26 @@ impl mu_server::Mu for MuService {
         _request: Request<()>,
         sock: Socket<Ping, Pong>,
     ) -> Result<(), HrpcServerError> {
-        let periodic_task = {
-            let sock = sock.clone();
-            async move {
-                let mut int = tokio::time::interval(Duration::from_secs(10));
-                int.tick().await;
-                loop {
-                    int.tick().await;
-                    bail_result!(
-                        sock.send_message(Pong {
-                            mu: "been 10 seconds".to_string(),
-                        })
-                        .await
-                    );
-                }
-                #[allow(unreachable_code)]
-                Ok(())
-            }
-        };
-
-        let recv_task = async move {
+        let periodic_task = sock.spawn_task(|sock| async move {
+            let mut int = tokio::time::interval(Duration::from_secs(10));
+            int.tick().await;
             loop {
-                let message = bail_result!(sock.receive_message().await);
-                bail_result!(sock.send_message(Pong { mu: message.mu }).await);
+                int.tick().await;
+                bail_result!(
+                    sock.send_message(Pong {
+                        mu: "been 10 seconds".to_string(),
+                    })
+                    .await
+                );
             }
-            #[allow(unreachable_code)]
-            Ok(())
-        };
+        });
+
+        let recv_task =
+            sock.spawn_process_task(|_sock, message| async { Ok(Pong { mu: message.mu }) });
 
         tokio::select! {
-            res = periodic_task => res,
-            res = recv_task => res,
+            res = periodic_task => res.unwrap(),
+            res = recv_task => res.unwrap(),
         }
     }
 

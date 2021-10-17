@@ -1,6 +1,9 @@
 use bytes::{Bytes, BytesMut};
-use futures_util::{SinkExt, StreamExt};
-use tokio::sync::{mpsc, oneshot};
+use futures_util::{Future, SinkExt, StreamExt};
+use tokio::{
+    sync::{mpsc, oneshot},
+    task::JoinHandle,
+};
 use tokio_tungstenite::tungstenite::{self, error::Error as SocketError};
 use tracing::debug;
 
@@ -14,7 +17,7 @@ type WebSocket =
 // This does not implement "close-on-drop" since socket instances may be sent across threads
 // by the user. This is done to prevent user mistakes.
 /// A hRPC socket.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Socket<Req, Resp>
 where
     Req: prost::Message,
@@ -177,5 +180,54 @@ where
     pub async fn close(&self) {
         // We don't care about the error, it's closed either way
         let _ = self.close_chan.send(()).await;
+    }
+
+    /// Spawns a parallel task that processes a socket.
+    pub fn spawn_task<T, Handler, HandlerFut>(
+        &self,
+        f: Handler,
+    ) -> JoinHandle<Result<T, ClientError>>
+    where
+        Handler: FnOnce(Self) -> HandlerFut + 'static,
+        HandlerFut: Future<Output = Result<T, ClientError>> + Send + 'static,
+        T: Send + 'static,
+    {
+        let sock = self.clone();
+        let fut = f(sock);
+        tokio::spawn(fut)
+    }
+
+    /// Spawns a parallel task that processes response messages and produces
+    /// request messages.
+    pub fn spawn_process_task<ProcessFn, ProcessFut>(
+        &self,
+        f: ProcessFn,
+    ) -> JoinHandle<Result<(), ClientError>>
+    where
+        ProcessFn: for<'a> Fn(&'a Self, Resp) -> ProcessFut + Send + Sync + 'static,
+        ProcessFut: Future<Output = Result<Req, ClientError>> + Send,
+    {
+        let sock = self.clone();
+        tokio::spawn(async move {
+            loop {
+                let req = sock.receive_message().await?;
+                let resp = f(&sock, req).await?;
+                sock.send_message(resp).await?;
+            }
+        })
+    }
+}
+
+impl<Req, Resp> Clone for Socket<Req, Resp>
+where
+    Req: prost::Message + 'static,
+    Resp: prost::Message + Default + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            close_chan: self.close_chan.clone(),
+            rx: self.rx.clone(),
+            tx: self.tx.clone(),
+        }
     }
 }
