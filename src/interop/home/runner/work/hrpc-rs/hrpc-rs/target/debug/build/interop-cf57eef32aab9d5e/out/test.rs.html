@@ -179,15 +179,6 @@
 <span id="179">179</span>
 <span id="180">180</span>
 <span id="181">181</span>
-<span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
 </pre><pre class="rust">
 <span class="doccomment">/// Ping message.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">::prost::Message</span>)]</span>
@@ -324,7 +315,7 @@
         }
     }
     <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Mu</span><span class="op">&gt;</span> <span class="ident">Server</span> <span class="kw">for</span> <span class="ident">MuServer</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="kw">fn</span> <span class="ident">make_router</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RouterBuilder</span> {
+        <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span> {
             <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>();
             <span class="kw">let</span> <span class="ident">mu</span> <span class="op">=</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
@@ -332,10 +323,7 @@
                     <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span><span class="kw">super</span><span class="ident">::Ping</span><span class="op">&gt;</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>.<span class="ident">mu</span>(<span class="ident">request</span>).<span class="kw">await</span> };
                 <span class="ident">unary_handler</span>(<span class="ident">handler</span>)
             };
-            <span class="kw">let</span> <span class="ident">mu</span> <span class="op">=</span> <span class="ident">ServiceBuilder::new</span>()
-                .<span class="ident">layer</span>(<span class="ident">server</span>.<span class="ident">mu_middleware</span>(<span class="string">&quot;/test.Mu/Mu&quot;</span>))
-                .<span class="ident">service</span>(<span class="ident">mu</span>)
-                .<span class="ident">map_response</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">r</span>.<span class="ident">map</span>(<span class="ident">box_body</span>));
+            <span class="kw">let</span> <span class="ident">mu</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">mu_middleware</span>(<span class="string">&quot;/test.Mu/Mu&quot;</span>).<span class="ident">layer</span>(<span class="ident">mu</span>);
             <span class="kw">let</span> <span class="ident">mu_mute</span> <span class="op">=</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
                 <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> {
@@ -347,10 +335,7 @@
                 <span class="kw">let</span> <span class="ident">on_upgrade</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">response</span>: <span class="ident">HttpResponse</span><span class="op">|</span> <span class="ident">svr</span>.<span class="ident">mu_mute_on_upgrade</span>(<span class="ident">response</span>);
                 <span class="ident">ws_handler</span>(<span class="ident">handler</span>, <span class="ident">on_upgrade</span>)
             };
-            <span class="kw">let</span> <span class="ident">mu_mute</span> <span class="op">=</span> <span class="ident">ServiceBuilder::new</span>()
-                .<span class="ident">layer</span>(<span class="ident">server</span>.<span class="ident">mu_mute_middleware</span>(<span class="string">&quot;/test.Mu/MuMute&quot;</span>))
-                .<span class="ident">service</span>(<span class="ident">mu_mute</span>)
-                .<span class="ident">map_response</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">r</span>.<span class="ident">map</span>(<span class="ident">box_body</span>));
+            <span class="kw">let</span> <span class="ident">mu_mute</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">mu_mute_middleware</span>(<span class="string">&quot;/test.Mu/MuMute&quot;</span>).<span class="ident">layer</span>(<span class="ident">mu_mute</span>);
             <span class="kw">let</span> <span class="ident">mu_mu</span> <span class="op">=</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
                 <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> {
@@ -362,11 +347,8 @@
                 <span class="kw">let</span> <span class="ident">on_upgrade</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">response</span>: <span class="ident">HttpResponse</span><span class="op">|</span> <span class="ident">svr</span>.<span class="ident">mu_mu_on_upgrade</span>(<span class="ident">response</span>);
                 <span class="ident">ws_handler</span>(<span class="ident">handler</span>, <span class="ident">on_upgrade</span>)
             };
-            <span class="kw">let</span> <span class="ident">mu_mu</span> <span class="op">=</span> <span class="ident">ServiceBuilder::new</span>()
-                .<span class="ident">layer</span>(<span class="ident">server</span>.<span class="ident">mu_mu_middleware</span>(<span class="string">&quot;/test.Mu/MuMu&quot;</span>))
-                .<span class="ident">service</span>(<span class="ident">mu_mu</span>)
-                .<span class="ident">map_response</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">r</span>.<span class="ident">map</span>(<span class="ident">box_body</span>));
-            <span class="ident">RouterBuilder::new</span>()
+            <span class="kw">let</span> <span class="ident">mu_mu</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">mu_mu_middleware</span>(<span class="string">&quot;/test.Mu/MuMu&quot;</span>).<span class="ident">layer</span>(<span class="ident">mu_mu</span>);
+            <span class="ident">Routes::new</span>()
                 .<span class="ident">route</span>(<span class="string">&quot;/test.Mu/Mu&quot;</span>, <span class="ident">mu</span>)
                 .<span class="ident">route</span>(<span class="string">&quot;/test.Mu/MuMute&quot;</span>, <span class="ident">mu_mute</span>)
                 .<span class="ident">route</span>(<span class="string">&quot;/test.Mu/MuMu&quot;</span>, <span class="ident">mu_mu</span>)

@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Socket","A web socket."]]});
+initSidebarItems({"struct":[["Socket","A hRPC socket."]]});

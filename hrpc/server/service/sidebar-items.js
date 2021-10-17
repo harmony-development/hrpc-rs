@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["not_found",""]],"struct":[["Handler","hRPC handler service type."],["IntoMakeService",""],["LayeredMakeRouter",""],["Router",""],["RouterBuilder",""],["ServerStack",""]],"trait":[["Server",""]],"type":[["BoxedHandlerService",""],["BoxedMakeRouterService",""],["CallFuture","Call future used by Handler."]]});

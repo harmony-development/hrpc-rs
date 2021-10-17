@@ -303,6 +303,7 @@
 <span id="303">303</span>
 <span id="304">304</span>
 <span id="305">305</span>
+<span id="306">306</span>
 </pre><pre class="rust">
 <span class="comment">// The code in this file originally comes from https://github.com/tokio-rs/axum/blob/main/src/extract/ws.rs</span>
 <span class="comment">// and is under the following license:</span>
@@ -336,7 +337,8 @@ DEALINGS IN THE SOFTWARE.
 
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">error</span>::{<span class="ident">json_err_bytes</span>, <span class="ident">CustomError</span>, <span class="ident">ServerResult</span>},
-    <span class="ident">HeaderMapExt</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>,
+    <span class="ident">utils::HeaderMapExt</span>,
+    <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>,
 };
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::body::empty_box_body</span>;
 

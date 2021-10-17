@@ -184,9 +184,6 @@
 <span id="184">184</span>
 <span id="185">185</span>
 <span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Method</span>, <span class="ident">Service</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">generate_doc_comment</span>, <span class="ident">generate_doc_comments</span>, <span class="ident">naive_snake_case</span>};
@@ -226,7 +223,7 @@
             }
 
             <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: #<span class="ident">server_trait</span><span class="op">&gt;</span> <span class="ident">Server</span> <span class="kw">for</span> #<span class="ident">server_service</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-                <span class="kw">fn</span> <span class="ident">make_router</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RouterBuilder</span> {
+                <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span> {
                     <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>();
 
                     #<span class="ident">services</span>
@@ -314,7 +311,7 @@
 <span class="kw">fn</span> <span class="ident">generate_routes</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Service</span><span class="op">&gt;</span>(<span class="ident">service</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">TokenStream</span>, <span class="ident">TokenStream</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">TokenStream::new</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">comb_stream</span> <span class="op">=</span> <span class="macro">quote!</span> {
-        <span class="ident">RouterBuilder::new</span>()
+        <span class="ident">Routes::new</span>()
     };
 
     <span class="kw">for</span> <span class="ident">method</span> <span class="kw">in</span> <span class="ident">service</span>.<span class="ident">methods</span>().<span class="ident">iter</span>() {
@@ -365,10 +362,7 @@
             <span class="kw">let</span> #<span class="ident">name</span> <span class="op">=</span> {
                 #<span class="ident">method</span>
             };
-            <span class="kw">let</span> #<span class="ident">name</span> <span class="op">=</span> <span class="ident">ServiceBuilder::new</span>()
-                .<span class="ident">layer</span>(<span class="ident">server</span>. #<span class="ident">pre_name</span> (#<span class="ident">endpoint</span>))
-                .<span class="ident">service</span>(#<span class="ident">name</span>)
-                .<span class="ident">map_response</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">r</span>.<span class="ident">map</span>(<span class="ident">box_body</span>));
+            <span class="kw">let</span> #<span class="ident">name</span> <span class="op">=</span> <span class="ident">server</span>. #<span class="ident">pre_name</span> (#<span class="ident">endpoint</span>) .<span class="ident">layer</span>(#<span class="ident">name</span>);
         };
 
         <span class="ident">comb_stream</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> { .<span class="ident">route</span>(#<span class="ident">endpoint</span>, #<span class="ident">name</span>) });

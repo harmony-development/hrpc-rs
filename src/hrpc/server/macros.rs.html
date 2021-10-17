@@ -52,10 +52,29 @@
 <span id="52">52</span>
 <span id="53">53</span>
 <span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
 </pre><pre class="rust">
-<span class="doccomment">/// Returns an error.</span>
+<span class="doccomment">/// Bails with an error.</span>
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
-<span class="macro">macro_rules!</span> <span class="ident">return_error</span> {
+<span class="macro">macro_rules!</span> <span class="ident">bail</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">err</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">err</span>.<span class="ident">into</span>());
+    };
+}
+
+<span class="doccomment">/// Takes a `Result`, returns the error if it&#39;s `Err`, otherwise returns the</span>
+<span class="doccomment">/// `Ok` value.</span>
+<span class="attribute">#[<span class="ident">macro_export</span>]</span>
+<span class="macro">macro_rules!</span> <span class="ident">bail_result</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">res</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">res</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">val</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">val</span>,
@@ -73,9 +92,10 @@
     };
 }
 
-<span class="doccomment">/// Returns an error as response. Mostly useful for implementing hRPC handlers.</span>
+<span class="doccomment">/// Takes a `Result`, returns the error as a HTTP response if it&#39;s `Err`,</span>
+<span class="doccomment">/// otherwise returns the `Ok` value.</span>
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
-<span class="macro">macro_rules!</span> <span class="ident">return_err_as_resp</span> {
+<span class="macro">macro_rules!</span> <span class="ident">bail_result_as_response</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">res</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">res</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">val</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">val</span>,
@@ -93,7 +113,7 @@
     };
 }
 
-<span class="doccomment">/// Combines a list of services that implement `MakeRouter`.</span>
+<span class="doccomment">/// Combines a list of services that implement `Server`.</span>
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules!</span> <span class="ident">combine_services</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fsvc</span>:<span class="ident">ident</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">svc</span>:<span class="ident">ident</span>),<span class="op">+</span>) <span class="op">=</span><span class="op">&gt;</span> {

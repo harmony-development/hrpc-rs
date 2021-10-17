@@ -261,6 +261,9 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
 </pre><pre class="rust">
 <span class="doccomment">//! Common code used in hRPC code generation.</span>
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -301,7 +304,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">server</span>;
 
-<span class="doccomment">/// Body type.</span>
+<span class="doccomment">/// Body utitilies and types.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">body</span>;
 
 <span class="doccomment">/// Alias for a type-erased error type.</span>
@@ -338,8 +341,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Create a new request with the specified body.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_body</span>(<span class="ident">body</span>: <span class="ident">HyperBody</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new_body</span>(<span class="ident">body</span>: <span class="ident">HyperBody</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">body</span>,
             <span class="ident">message</span>: <span class="ident">PhantomData</span>,
@@ -366,16 +368,20 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">PbMsg</span><span class="op">&gt;</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Create a new request with the specified message.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// This adds the default &quot;content-type&quot; header used for hRPC unary requests.</span>
+    <span class="doccomment">/// This adds the [`HRPC_HEADER`] to the [`http::header::CONTENT_TYPE`]</span>
+    <span class="doccomment">/// header for hRPC unary requests.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">msg</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">encoded</span> <span class="op">=</span> <span class="ident">encode_protobuf_message</span>(<span class="ident">msg</span>).<span class="ident">freeze</span>();
         <span class="self">Self</span><span class="ident">::new_body</span>(<span class="ident">HyperBody::from</span>(<span class="ident">encoded</span>))
     }
 }
 
+<span class="doccomment">/// Errors that can occur while decoding the body of a [`Request`].</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">DecodeBodyError</span> {
+    <span class="doccomment">/// The body contained an invalid protobuf message.</span>
     <span class="ident">InvalidProtoMessage</span>(<span class="ident">prost::DecodeError</span>),
+    <span class="doccomment">/// An error occured while reading the body.</span>
     <span class="ident">InvalidBody</span>(<span class="ident">BoxError</span>),
 }
 
