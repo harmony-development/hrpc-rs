@@ -1,6 +1,6 @@
 use hrpc::{
+    bail, bail_result,
     exports::http::StatusCode,
-    return_error,
     server::{
         error::{json_err_bytes, CustomError, ServerError as HrpcServerError},
         socket::Socket,
@@ -104,7 +104,7 @@ impl mu_server::Mu for MuService {
     async fn mu(&mut self, request: Request<Ping>) -> Result<Response<Pong>, HrpcServerError> {
         let msg = request.into_message().await?;
         if msg.mu.is_empty() {
-            return Err(ServerError::PingEmpty.into());
+            bail!(ServerError::PingEmpty);
         }
         Ok((Pong { mu: msg.mu }).into_response())
     }
@@ -126,27 +126,34 @@ impl mu_server::Mu for MuService {
             let sock = sock.clone();
             async move {
                 let mut int = tokio::time::interval(Duration::from_secs(10));
+                int.tick().await;
                 loop {
                     int.tick().await;
-                    return_error!(
+                    bail_result!(
                         sock.send_message(Pong {
                             mu: "been 10 seconds".to_string(),
                         })
                         .await
                     );
                 }
+                #[allow(unreachable_code)]
+                Ok(())
             }
         };
+
         let recv_task = async move {
             loop {
-                let message = return_error!(sock.receive_message().await);
-                return_error!(sock.send_message(Pong { mu: message.mu }).await);
+                let message = bail_result!(sock.receive_message().await);
+                bail_result!(sock.send_message(Pong { mu: message.mu }).await);
             }
+            #[allow(unreachable_code)]
+            Ok(())
         };
-        let (res, res2) = tokio::join!(periodic_task, recv_task);
-        res?;
-        res2?;
-        Ok(())
+
+        tokio::select! {
+            res = periodic_task => res,
+            res = recv_task => res,
+        }
     }
 
     async fn mu_mu(

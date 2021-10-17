@@ -10,9 +10,10 @@ use super::{
     ws::WebSocketUpgrade,
 };
 use crate::{
+    bail_result_as_response,
     body::{full_box_body, HyperBody},
-    encode_protobuf_message, hrpc_header_value, return_err_as_resp, HttpRequest, HttpResponse,
-    Request as HrpcRequest, Response as HrpcResponse, HRPC_HEADER,
+    encode_protobuf_message, hrpc_header_value, HttpRequest, HttpResponse, Request as HrpcRequest,
+    Response as HrpcResponse, HRPC_HEADER,
 };
 
 /// Call future used by [`Handler`].
@@ -164,7 +165,7 @@ where
                 message: PhantomData,
             };
             let websocket_upgrade =
-                return_err_as_resp!(WebSocketUpgrade::from_request(req), |err| {
+                bail_result_as_response!(WebSocketUpgrade::from_request(req), |err| {
                     tracing::error!("web socket upgrade error: {}", err);
                 });
 

@@ -1,6 +1,15 @@
-/// Returns an error.
+/// Bails with an error.
 #[macro_export]
-macro_rules! return_error {
+macro_rules! bail {
+    ($err:expr) => {
+        return Err($err.into());
+    };
+}
+
+/// Takes a `Result`, returns the error if it's `Err`, otherwise returns the
+/// `Ok` value.
+#[macro_export]
+macro_rules! bail_result {
     ($res:expr) => {
         match $res {
             Ok(val) => val,
@@ -18,9 +27,10 @@ macro_rules! return_error {
     };
 }
 
-/// Returns an error as response. Mostly useful for implementing hRPC handlers.
+/// Takes a `Result`, returns the error as a HTTP response if it's `Err`,
+/// otherwise returns the `Ok` value.
 #[macro_export]
-macro_rules! return_err_as_resp {
+macro_rules! bail_result_as_response {
     ($res:expr) => {
         match $res {
             Ok(val) => val,
@@ -38,7 +48,7 @@ macro_rules! return_err_as_resp {
     };
 }
 
-/// Combines a list of services that implement `MakeRouter`.
+/// Combines a list of services that implement `Server`.
 #[macro_export]
 macro_rules! combine_services {
     ($fsvc:ident, $($svc:ident),+) => {
