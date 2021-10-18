@@ -18,15 +18,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
         /// Generated client implementations.
         #[allow(dead_code, unused_imports)]
         pub mod #client_mod {
-            use hrpc::{
-                IntoRequest, Request,
-                client::{
-                    Client, HttpClient,
-                    error::ClientResult,
-                    socket::Socket
-                },
-                exports::http::Uri,
-            };
+            use hrpc::client::prelude::*;
 
             #service_doc
             #[derive(Debug, Clone)]
@@ -35,9 +27,13 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             }
 
             impl #service_ident {
-                pub fn new(host_url: Uri) -> ClientResult<Self> {
+                pub fn connect<U>(host: U) -> ClientResult<Self>
+                where
+                    U: TryInto<Uri>,
+                    U::Error: Debug,
+                {
                     Ok(Self {
-                        inner: Client::new(host_url)?,
+                        inner: Client::new(host.try_into().expect("invalid URL"))?,
                     })
                 }
 

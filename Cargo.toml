@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*"]
+members = ["crates/*", "examples/*"]
 
 [workspace.metadata.nix]
 systems = ["x86_64-linux"]

@@ -35,7 +35,7 @@ async fn main() {
 }
 
 async fn client() {
-    let mut client = mu_client::MuClient::new("http://localhost:2289".parse().unwrap()).unwrap();
+    let mut client = mu_client::MuClient::connect("http://localhost:2289").unwrap();
 
     let resp = client
         .mu(Ping {

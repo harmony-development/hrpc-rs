@@ -9,6 +9,10 @@ homepage = "https://github.com/harmony-development/hrpc-rs"
 description = "Common code for hRPC."
 keywords = ["hrpc", "harmony", "rpc"]
 
+[package.metadata.nix]
+build = true
+library = true
+
 [features]
 default = ["server", "client"]
 server = [
@@ -83,7 +87,3 @@ flume = { version = "0.10", default-features = false, features = [
     # TODO(yusdacra): Do we need eventual fairness?
     "eventual-fairness",
 ] }
-
-[package.metadata.nix]
-build = true
-library = true

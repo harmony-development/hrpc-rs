@@ -29,6 +29,12 @@ pub mod error;
 /// hRPC socket used for streaming RPCs.
 pub mod socket;
 
+pub mod prelude {
+    pub use super::{error::ClientResult, socket::Socket, Client, HttpClient};
+    pub use crate::{exports::http::Uri, IntoRequest, Request};
+    pub use std::{convert::TryInto, fmt::Debug};
+}
+
 /// A `hyper` HTTP client that supports HTTPS.
 pub type HttpClient = hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>;
 
