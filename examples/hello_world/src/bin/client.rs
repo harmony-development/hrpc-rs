@@ -6,7 +6,7 @@ use hello_world::{
 #[tokio::main]
 async fn main() -> Result<(), BoxError> {
     // Create a new greeter client
-    let mut client = GreeterClient::connect("http://localhost:2289")?;
+    let mut client = GreeterClient::new("http://localhost:2289")?;
 
     // Call the welcome user RPC
     let response = client

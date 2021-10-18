@@ -26,18 +26,18 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             #service_doc
             #[derive(Debug)]
             pub struct #server_service<T: #server_trait> {
-                inner: T,
+                service: T,
             }
 
             impl<T: #server_trait> Clone for #server_service<T> {
                 fn clone(&self) -> Self {
-                    Self { inner: self.inner.clone() }
+                    Self { service: self.service.clone() }
                 }
             }
 
             impl<T: #server_trait> Server for #server_service<T> {
                 fn make_routes(&self) -> Routes {
-                    let server = self.inner.clone();
+                    let service = self.service.clone();
 
                     #services
 
@@ -47,8 +47,8 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
             impl<T: #server_trait> #server_service<T> {
                 /// Create a new service server.
-                pub fn new(inner: T) -> Self {
-                    Self { inner }
+                pub fn new(service: T) -> Self {
+                    Self { service }
                 }
             }
         }
@@ -150,7 +150,7 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
 
         let method = match streaming {
             (false, false) => quote! {
-                let mut svr = server.clone();
+                let mut svr = service.clone();
 
                 let handler = move |request: HrpcRequest<#req_message>| async move { svr. #name (request) .await };
                 unary_handler(handler)
@@ -160,7 +160,7 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
                 package_name, method_name
             ),
             (true, true) | (false, true) => quote! {
-                let mut svr = server.clone();
+                let mut svr = service.clone();
 
                 let handler = {
                     let mut svr = svr.clone();
@@ -175,7 +175,7 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
             let #name = {
                 #method
             };
-            let #name = server. #pre_name (#endpoint) .layer(#name);
+            let #name = service. #pre_name (#endpoint) .layer(#name);
         };
 
         comb_stream.extend(quote! { .route(#endpoint, #name) });

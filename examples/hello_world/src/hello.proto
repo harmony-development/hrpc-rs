@@ -16,5 +16,6 @@ message WelcomeUserResponse {
 
 // The greeter service.
 service Greeter {
+    // Endpoint to welcome a user.
     rpc WelcomeUser(WelcomeUserRequest) returns (WelcomeUserResponse);
 }

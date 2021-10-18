@@ -27,7 +27,8 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             }
 
             impl #service_ident {
-                pub fn connect<U>(host: U) -> ClientResult<Self>
+                /// Create a new client.
+                pub fn new<U>(host: U) -> ClientResult<Self>
                 where
                     U: TryInto<Uri>,
                     U::Error: Debug,
@@ -37,18 +38,16 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                     })
                 }
 
+                /// Create a new client using an already created hRPC generic client.
                 pub fn new_inner(inner: Client) -> Self {
                     Self { inner }
                 }
 
+                /// Create a new client using an hRPC HTTP client and host URL.
                 pub fn new_http(http: HttpClient, host_url: Uri) -> ClientResult<Self> {
                     Ok(Self {
                         inner: Client::new_inner(http, host_url)?,
                     })
-                }
-
-                pub fn inner(&self) -> &Client {
-                    &self.inner
                 }
 
                 #methods
@@ -92,11 +91,11 @@ fn generate_unary<T: Method>(method: &T, proto_path: &str, path: String) -> Toke
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub async fn #ident(
-            &mut self,
-            request: impl IntoRequest<#request>,
-        ) -> ClientResult<#response> {
-            self.inner.execute_request(#path, request.into_request()).await
+        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<#response>
+        where
+            Req: IntoRequest<#request>,
+        {
+            self.inner.execute_request(#path, req.into_request()).await
         }
     }
 }
@@ -106,11 +105,11 @@ fn generate_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> 
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub async fn #ident(
-            &mut self,
-            request: impl IntoRequest<()>,
-        ) -> ClientResult<Socket<#request, #response>> {
-            self.inner.connect_socket(#path, request.into_request()).await
+        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<Socket<#request, #response>>
+        where
+            Req: IntoRequest<()>,
+        {
+            self.inner.connect_socket(#path, req.into_request()).await
         }
     }
 }
@@ -120,11 +119,11 @@ fn generate_server_streaming<T: Method>(method: &T, proto_path: &str, path: Stri
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub async fn #ident(
-            &mut self,
-            request: impl IntoRequest<#request>,
-        ) -> ClientResult<Socket<#request, #response>> {
-            self.inner.connect_socket_req(#path, request.into_request()).await
+        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<Socket<#request, #response>>
+        where
+            Req: IntoRequest<#request>,
+        {
+            self.inner.connect_socket_req(#path, req.into_request()).await
         }
     }
 }
