@@ -279,6 +279,7 @@
 <span id="279">279</span>
 <span id="280">280</span>
 <span id="281">281</span>
+<span id="282">282</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Formatter</span>},
@@ -311,6 +312,7 @@
 <span class="doccomment">/// hRPC socket used for streaming RPCs.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">socket</span>;
 
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">prelude</span> {
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">error::ClientResult</span>, <span class="ident">socket::Socket</span>, <span class="ident">Client</span>, <span class="ident">HttpClient</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">exports::http::Uri</span>, <span class="ident">IntoRequest</span>, <span class="ident">Request</span>};

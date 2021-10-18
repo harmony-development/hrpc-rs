@@ -1,1 +1,0 @@
-initSidebarItems({"macro":[["Debug","Derive macro generating an impl of the trait `Debug`."]],"struct":[["Uri","The URI component of a request."]],"trait":[["Debug","`?` formatting."],["TryInto","An attempted conversion that consumes `self`, which may or may not be expensive."]]});
