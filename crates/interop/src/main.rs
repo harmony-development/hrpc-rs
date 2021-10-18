@@ -3,8 +3,9 @@ use hrpc::{
     exports::http::StatusCode,
     server::{
         error::{json_err_bytes, CustomError, ServerError as HrpcServerError},
+        handler::HrpcLayer,
         socket::Socket,
-        HrpcLayer, Server,
+        Server,
     },
     HttpResponse, IntoResponse, Request, Response,
 };

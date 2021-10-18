@@ -1,10 +1,17 @@
+use bytes::Bytes;
 use futures_util::{future::BoxFuture, Future};
 use http::{header, Method, StatusCode};
 use std::{convert::Infallible, future, marker::PhantomData};
-use tower::{service_fn, util::BoxService, Layer, Service};
+use tower::{
+    service_fn,
+    util::{BoxLayer, BoxService},
+    Layer, Service, ServiceBuilder,
+};
+use tower_http::map_response_body::MapResponseBodyLayer;
 
 use super::{
     error::{CustomError, ServerError, ServerResult},
+    gen_prelude::box_body,
     socket::Socket,
     utils::HeaderMapExt,
     ws::WebSocketUpgrade,
@@ -12,8 +19,8 @@ use super::{
 use crate::{
     bail, bail_result_as_response,
     body::{full_box_body, HyperBody},
-    encode_protobuf_message, hrpc_header_value, HttpRequest, HttpResponse, Request as HrpcRequest,
-    Response as HrpcResponse, HRPC_HEADER,
+    encode_protobuf_message, hrpc_header_value, BoxError, HttpRequest, HttpResponse,
+    Request as HrpcRequest, Response as HrpcResponse, HRPC_HEADER,
 };
 
 /// Call future used by [`Handler`].
@@ -65,6 +72,47 @@ impl Service<HttpRequest> for Handler {
 
     fn call(&mut self, req: HttpRequest) -> Self::Future {
         Service::call(&mut self.svc, req)
+    }
+}
+
+/// Layer type that produces hRPC [`Handler`]s.
+pub struct HrpcLayer {
+    inner: BoxLayer<Handler, HttpRequest, HttpResponse, Infallible>,
+}
+
+impl HrpcLayer {
+    /// Create a new [`HrpcLayer`].
+    pub fn new<L, S, B>(layer: L) -> Self
+    where
+        L: Layer<Handler, Service = S> + Send + Sync + 'static,
+        S: Service<HttpRequest, Response = http::Response<B>, Error = Infallible> + Send + 'static,
+        S::Future: Send,
+        B: http_body::Body<Data = Bytes> + Send + Sync + 'static,
+        B::Error: Into<BoxError>,
+    {
+        Self {
+            inner: BoxLayer::new(
+                ServiceBuilder::new()
+                    .layer(MapResponseBodyLayer::new(box_body))
+                    .layer(layer)
+                    .into_inner(),
+            ),
+        }
+    }
+}
+
+impl<S> Layer<S> for HrpcLayer
+where
+    S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
+    S::Future: Send,
+{
+    type Service = Handler;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        let handler = Handler::new(inner);
+        Handler {
+            svc: self.inner.layer(handler),
+        }
     }
 }
 

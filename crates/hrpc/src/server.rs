@@ -1,15 +1,12 @@
 use std::{convert::Infallible, future, net::ToSocketAddrs};
 
-use tower::{util::BoxLayer, Layer, Service};
+use tower::{Layer, Service};
 
 use crate::{HttpRequest, HttpResponse};
 use handler::Handler;
 use router::Routes;
 
 use self::router::RoutesFinalized;
-
-/// A boxed layer which takes hRPC `Handler`s and produces `BoxService`s.
-pub type HrpcLayer = BoxLayer<Handler, HttpRequest, HttpResponse, Infallible>;
 
 /// Error types used by hRPC.
 pub mod error;
@@ -30,11 +27,11 @@ pub(crate) mod ws;
 pub mod gen_prelude {
     pub use super::{
         error::ServerResult,
-        handler::{unary_handler, ws_handler, Handler},
+        handler::{unary_handler, ws_handler, Handler, HrpcLayer},
         router::Routes,
         socket::Socket,
         utils::serve,
-        HrpcLayer, Server,
+        Server,
     };
     pub use crate::{body::box_body, Request as HrpcRequest, Response as HrpcResponse};
     pub use crate::{HttpRequest, HttpResponse};
@@ -45,8 +42,9 @@ pub mod gen_prelude {
 pub mod prelude {
     pub use super::{
         error::{CustomError, ServerResult},
+        handler::HrpcLayer,
         socket::Socket,
-        HrpcLayer, Server,
+        Server,
     };
     pub use crate::{IntoResponse, Request, Response};
     pub use async_trait::async_trait;
