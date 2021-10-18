@@ -1,13 +1,17 @@
 [package]
 name = "hrpc"
-version = "0.20.0"
+version = "0.21.0"
 authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
 edition = "2018"
 license = "MIT"
 repository = "https://github.com/harmony-development/hrpc-rs"
 homepage = "https://github.com/harmony-development/hrpc-rs"
 description = "Common code for hRPC."
-keywords = ["hrpc", "harmony", "rpc"]
+keywords = ["hrpc", "harmony", "rpc", "protobuf"]
+categories = ["network-programming"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [package.metadata.nix]
 build = true
