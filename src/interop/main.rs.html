@@ -179,6 +179,9 @@
 <span id="179">179</span>
 <span id="180">180</span>
 <span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">hrpc</span>::{
     <span class="ident">bail</span>, <span class="ident">bail_result</span>,
@@ -296,8 +299,11 @@
         <span class="ident">response</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">mu_mute_middleware</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_endpoint</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HrpcLayer</span> {
-        <span class="ident">HrpcLayer::new</span>(<span class="ident">RateLimitLayer::new</span>(<span class="number">1</span>, <span class="ident">Duration::from_secs</span>(<span class="number">5</span>)))
+    <span class="kw">fn</span> <span class="ident">mu_mute_middleware</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_endpoint</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HrpcLayer</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Some</span>(<span class="ident">HrpcLayer::new</span>(<span class="ident">RateLimitLayer::new</span>(
+            <span class="number">1</span>,
+            <span class="ident">Duration::from_secs</span>(<span class="number">5</span>),
+        )))
     }
 
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu_mute</span>(

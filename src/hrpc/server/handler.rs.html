@@ -232,12 +232,28 @@
 <span id="232">232</span>
 <span id="233">233</span>
 <span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>};
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>, <span class="ident">Method</span>, <span class="ident">StatusCode</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>, <span class="ident">marker::PhantomData</span>};
 <span class="kw">use</span> <span class="ident">tower</span>::{
+    <span class="ident">layer::util::Stack</span>,
     <span class="ident">service_fn</span>,
     <span class="ident">util</span>::{<span class="ident">BoxLayer</span>, <span class="ident">BoxService</span>},
     <span class="ident">Layer</span>, <span class="ident">Service</span>, <span class="ident">ServiceBuilder</span>,
@@ -273,6 +289,11 @@
         <span class="ident">S</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">HttpResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
         <span class="ident">S::Future</span>: <span class="ident">Send</span>,
     {
+        <span class="comment">// If it&#39;s already a `Handler`, just use the service in that.</span>
+        <span class="kw">super</span><span class="macro">::utils::downcast::if_downcast_into!</span>(<span class="ident">S</span>, <span class="ident">Handler</span>, <span class="ident">svc</span>, {
+            <span class="kw">return</span> <span class="self">Self</span> { <span class="ident">svc</span>: <span class="ident">svc</span>.<span class="ident">svc</span> };
+        });
+
         <span class="self">Self</span> {
             <span class="ident">svc</span>: <span class="ident">BoxService::new</span>(<span class="ident">svc</span>),
         }
@@ -285,9 +306,7 @@
         <span class="ident">S</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">HttpResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
         <span class="ident">S::Future</span>: <span class="ident">Send</span>,
     {
-        <span class="self">Self</span> {
-            <span class="ident">svc</span>: <span class="ident">BoxService::new</span>(<span class="ident">layer</span>.<span class="ident">layer</span>(<span class="self">self</span>)),
-        }
+        <span class="ident">Handler::new</span>(<span class="ident">layer</span>.<span class="ident">layer</span>(<span class="self">self</span>))
     }
 }
 
@@ -326,6 +345,11 @@
         <span class="ident">B</span>: <span class="ident">http_body::Body</span><span class="op">&lt;</span><span class="ident">Data</span> <span class="op">=</span> <span class="ident">Bytes</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
         <span class="ident">B::Error</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">BoxError</span><span class="op">&gt;</span>,
     {
+        <span class="comment">// If it&#39;s already a HrpcLayer, no need to wrap it in stuff</span>
+        <span class="kw">super</span><span class="macro">::utils::downcast::if_downcast_into!</span>(<span class="ident">S</span>, <span class="ident">HrpcLayer</span>, <span class="ident">layer</span>, {
+            <span class="kw">return</span> <span class="self">Self</span> { <span class="ident">inner</span>: <span class="ident">layer</span>.<span class="ident">inner</span> };
+        });
+
         <span class="self">Self</span> {
             <span class="ident">inner</span>: <span class="ident">BoxLayer::new</span>(
                 <span class="ident">ServiceBuilder::new</span>()
@@ -333,6 +357,12 @@
                     .<span class="ident">layer</span>(<span class="ident">layer</span>)
                     .<span class="ident">into_inner</span>(),
             ),
+        }
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">stack</span>(<span class="ident">inner</span>: <span class="ident">HrpcLayer</span>, <span class="ident">outer</span>: <span class="ident">HrpcLayer</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">inner</span>: <span class="ident">BoxLayer::new</span>(<span class="ident">Stack::new</span>(<span class="ident">inner</span>, <span class="ident">outer</span>)),
         }
     }
 }

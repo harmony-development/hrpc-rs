@@ -99,8 +99,63 @@
 <span id="99"> 99</span>
 <span id="100">100</span>
 <span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
 </pre><pre class="rust">
-<span class="kw">use</span> <span class="ident">std::net::ToSocketAddrs</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">net::ToSocketAddrs</span>, <span class="ident">time::Duration</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::HttpRequest</span>;
 
@@ -158,7 +213,11 @@
         };
     }
 
-    <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="ident">builder</span><span class="question-mark">?</span>.<span class="ident">serve</span>(<span class="ident">server</span>.<span class="ident">into_make_service</span>());
+    <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="ident">builder</span><span class="question-mark">?</span>
+        .<span class="ident">http1_keepalive</span>(<span class="bool-val">true</span>)
+        .<span class="ident">http2_keep_alive_interval</span>(<span class="prelude-val">Some</span>(<span class="ident">Duration::from_secs</span>(<span class="number">10</span>)))
+        .<span class="ident">http2_keep_alive_timeout</span>(<span class="ident">Duration::from_secs</span>(<span class="number">20</span>))
+        .<span class="ident">serve</span>(<span class="ident">server</span>.<span class="ident">into_make_service</span>());
     <span class="macro">tracing::info!</span>(<span class="string">&quot;serving at {}&quot;</span>, <span class="ident">successful_addr</span>);
     <span class="ident">server</span>.<span class="kw">await</span>
 }
@@ -200,6 +259,57 @@
             )
             .<span class="ident">into_inner</span>(),
     )
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">downcast</span> {
+    <span class="doccomment">/// Code originally from https://github.com/hyperium/http/blob/master/src/convert.rs,</span>
+    <span class="doccomment">/// licensed under the following license:</span>
+    <span class="comment">/*
+    Copyright (c) 2017 http-rs authors
+
+    Permission is hereby granted, free of charge, to any
+    person obtaining a copy of this software and associated
+    documentation files (the &quot;Software&quot;), to deal in the
+    Software without restriction, including without
+    limitation the rights to use, copy, modify, merge,
+    publish, distribute, sublicense, and/or sell copies of
+    the Software, and to permit persons to whom the Software
+    is furnished to do so, subject to the following
+    conditions:
+
+    The above copyright notice and this permission notice
+    shall be included in all copies or substantial portions
+    of the Software.
+
+    THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF
+    ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+    TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+    PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+    SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+    IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+    */</span>
+    <span class="macro">macro_rules!</span> <span class="ident">if_downcast_into</span> {
+        (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">in_ty</span>:<span class="ident">ty</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">out_ty</span>:<span class="ident">ty</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">val</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">body</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {{
+            <span class="kw">if</span> <span class="ident">std::any::TypeId::of</span>::<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">in_ty</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">std::any::TypeId::of</span>::<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">out_ty</span><span class="op">&gt;</span>() {
+                <span class="comment">// Store the value in an `Option` so we can `take`</span>
+                <span class="comment">// it after casting to `&amp;mut dyn Any`.</span>
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">slot</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">val</span>);
+                <span class="comment">// Re-write the `$val` ident with the downcasted value.</span>
+                <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">val</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">slot</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw">dyn</span> <span class="ident">std::any::Any</span>)
+                    .<span class="ident">downcast_mut</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">out_ty</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+                    .<span class="ident">unwrap</span>()
+                    .<span class="ident">take</span>()
+                    .<span class="ident">unwrap</span>();
+                <span class="comment">// Run the $body in scope of the replaced val.</span>
+                <span class="macro-nonterminal">$</span><span class="macro-nonterminal">body</span>
+            }
+        }};
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">if_downcast_into</span>;
 }
 </pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="hrpc" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
