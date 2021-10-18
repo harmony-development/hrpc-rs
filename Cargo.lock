@@ -423,7 +423,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "ahash",
  "async-trait",
@@ -451,7 +451,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-build"
-version = "0.21.1"
+version = "0.22.0"
 dependencies = [
  "proc-macro2",
  "prost-build",
@@ -557,9 +557,9 @@ dependencies = [
 
 [[package]]
 name = "instant"
-version = "0.1.11"
+version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "716d3d89f35ac6a34fd0eed635395f4c3b76fa889338a4632e5231a8684216bd"
+checksum = "7a5bbe824c507c5da5956355e86a746d82e0e1464f65d862cc5e71da70e94b2c"
 dependencies = [
  "cfg-if",
 ]
