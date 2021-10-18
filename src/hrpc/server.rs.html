@@ -190,6 +190,18 @@
 <span id="190">190</span>
 <span id="191">191</span>
 <span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>, <span class="ident">net::ToSocketAddrs</span>};
 
@@ -220,7 +232,7 @@
 
 <span class="comment">// Prelude used by generated code. It is not meant to be used by users.</span>
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">prelude</span> {
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">gen_prelude</span> {
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{
         <span class="ident">error::ServerResult</span>,
         <span class="ident">handler</span>::{<span class="ident">unary_handler</span>, <span class="ident">ws_handler</span>, <span class="ident">Handler</span>},
@@ -232,6 +244,18 @@
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">body::box_body</span>, <span class="ident">Request</span> <span class="kw">as</span> <span class="ident">HrpcRequest</span>, <span class="ident">Response</span> <span class="kw">as</span> <span class="ident">HrpcResponse</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">layer::util::Identity</span>, <span class="ident">Layer</span>};
+}
+
+<span class="doccomment">/// Prelude that exports commonly used server types.</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">prelude</span> {
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{
+        <span class="ident">error</span>::{<span class="ident">CustomError</span>, <span class="ident">ServerResult</span>},
+        <span class="ident">socket::Socket</span>,
+        <span class="ident">HrpcLayer</span>, <span class="ident">Server</span>,
+    };
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">IntoResponse</span>, <span class="ident">Request</span>, <span class="ident">Response</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http::StatusCode</span>;
 }
 
 <span class="doccomment">/// The core trait of `hrpc-rs` servers. This trait acts as a `tower::MakeService`,</span>

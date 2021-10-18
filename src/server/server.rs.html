@@ -34,26 +34,12 @@
 <span id="34">34</span>
 <span id="35">35</span>
 <span id="36">36</span>
-<span id="37">37</span>
-<span id="38">38</span>
-<span id="39">39</span>
-<span id="40">40</span>
-<span id="41">41</span>
-<span id="42">42</span>
-<span id="43">43</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">hello_world</span>::{
-    <span class="ident">hello</span>::{
-        <span class="ident">greeter_server</span>::{<span class="ident">Greeter</span>, <span class="ident">GreeterServer</span>},
-        <span class="ident">WelcomeUserRequest</span>, <span class="ident">WelcomeUserResponse</span>,
-    },
+    <span class="ident">hello</span>::{<span class="ident">greeter_server</span>::<span class="kw-2">*</span>, <span class="kw-2">*</span>},
     <span class="ident">BoxError</span>,
 };
-<span class="kw">use</span> <span class="ident">hrpc</span>::{
-    <span class="ident">exports::async_trait</span>,
-    <span class="ident">server</span>::{<span class="ident">error::ServerResult</span>, <span class="ident">Server</span>},
-    <span class="ident">IntoResponse</span>, <span class="ident">Request</span>, <span class="ident">Response</span>,
-};
+<span class="kw">use</span> <span class="ident">hrpc::server::prelude</span>::<span class="kw-2">*</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">GreeterService</span>;
