@@ -22,6 +22,8 @@ pub mod utils;
 mod macros;
 pub(crate) mod ws;
 
+pub use handler::HrpcLayer;
+
 // Prelude used by generated code. It is not meant to be used by users.
 #[doc(hidden)]
 pub mod gen_prelude {
