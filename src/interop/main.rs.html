@@ -178,14 +178,16 @@
 <span id="178">178</span>
 <span id="179">179</span>
 <span id="180">180</span>
+<span id="181">181</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">hrpc</span>::{
     <span class="ident">bail</span>, <span class="ident">bail_result</span>,
     <span class="ident">exports::http::StatusCode</span>,
     <span class="ident">server</span>::{
         <span class="ident">error</span>::{<span class="ident">json_err_bytes</span>, <span class="ident">CustomError</span>, <span class="ident">ServerError</span> <span class="kw">as</span> <span class="ident">HrpcServerError</span>},
+        <span class="ident">handler::HrpcLayer</span>,
         <span class="ident">socket::Socket</span>,
-        <span class="ident">HrpcLayer</span>, <span class="ident">Server</span>,
+        <span class="ident">Server</span>,
     },
     <span class="ident">HttpResponse</span>, <span class="ident">IntoResponse</span>, <span class="ident">Request</span>, <span class="ident">Response</span>,
 };

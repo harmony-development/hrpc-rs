@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["not_found","A handler that responses to any request with not found."]],"struct":[["Handler","A hRPC handler."]],"type":[["CallFuture","Call future used by [`Handler`]."]]});
+initSidebarItems({"fn":[["not_found","A handler that responses to any request with not found."]],"struct":[["Handler","A hRPC handler."],["HrpcLayer","Layer type that produces hRPC [`Handler`]s."]],"type":[["CallFuture","Call future used by [`Handler`]."]]});
