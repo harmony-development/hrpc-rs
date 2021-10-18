@@ -68,8 +68,11 @@ pub type ServerResult<T> = Result<T, ServerError>;
 /// A server error.
 #[derive(Debug)]
 pub enum ServerError {
+    /// Occurs if a socket error occurs.
     SocketError(SocketError),
+    /// Occurs if a body of supported type could not be decoded.
     DecodeBodyError(DecodeBodyError),
+    /// Custom error that can be anything.
     Custom(Box<dyn CustomError>),
 }
 

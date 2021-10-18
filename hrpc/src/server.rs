@@ -41,6 +41,8 @@ pub mod prelude {
     pub use tower::{layer::util::Identity, Layer};
 }
 
+/// The core trait of `hrpc-rs` servers. This trait acts as a `tower::MakeService`,
+/// it can produce a set of [`Routes`] and can be combined with other [`Server`]s.
 #[async_trait::async_trait]
 pub trait Server: Send + 'static {
     /// Creates a [`Routes`], which will be used to build a [`RoutesFinalized`] instance.

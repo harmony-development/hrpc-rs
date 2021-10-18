@@ -19,6 +19,7 @@ impl Default for Routes {
 }
 
 impl Routes {
+    /// Create a new [`Routes`].
     pub fn new() -> Self {
         Self {
             handlers: Vec::new(),
@@ -26,6 +27,7 @@ impl Routes {
         }
     }
 
+    /// Add a new route.
     pub fn route<S>(mut self, path: impl Into<String>, handler: S) -> Self
     where
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
@@ -35,6 +37,7 @@ impl Routes {
         self
     }
 
+    /// Layer the routes that were added until this.
     pub fn layer<L, S>(mut self, layer: L) -> Self
     where
         L: Layer<Handler, Service = S>,
@@ -48,12 +51,14 @@ impl Routes {
         self
     }
 
-    pub fn combine_with(mut self, other_router_builder: impl Into<Routes>) -> Self {
-        let mut orb = other_router_builder.into();
-        self.handlers.append(&mut orb.handlers);
+    /// Combine this with another [`Routes`].
+    pub fn combine_with(mut self, other_routes: impl Into<Routes>) -> Self {
+        let mut other_routes = other_routes.into();
+        self.handlers.append(&mut other_routes.handlers);
         self
     }
 
+    /// Set the service that will be used if no routes are matched.
     pub fn any<S>(mut self, handler: S) -> Self
     where
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
@@ -63,6 +68,10 @@ impl Routes {
         self
     }
 
+    /// Build the routes.
+    ///
+    /// ## Panics
+    /// - This can panic if one of the paths of the inserted routes are invalid.
     pub fn build(self) -> RoutesFinalized {
         let mut matcher = Matcher::new();
 
