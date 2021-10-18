@@ -1,15 +1,19 @@
 use std::convert::Infallible;
 
-use super::handler::{not_found, CallFuture, Handler};
+use super::{
+    handler::{not_found, CallFuture, Handler},
+    HrpcLayer,
+};
 use crate::{HttpRequest, HttpResponse};
 
 use matchit::Node as Matcher;
-use tower::{Layer, Service};
+use tower::{Layer, Service, ServiceBuilder};
 
 /// Builder type for inserting [`Handler`]s before building a [`RoutesFinalized`].
 pub struct Routes {
     handlers: Vec<(String, Handler)>,
     any: Option<Handler>,
+    all_layer: Option<HrpcLayer>,
 }
 
 impl Default for Routes {
@@ -24,6 +28,7 @@ impl Routes {
         Self {
             handlers: Vec::new(),
             any: None,
+            all_layer: None,
         }
     }
 
@@ -51,10 +56,36 @@ impl Routes {
         self
     }
 
-    /// Combine this with another [`Routes`].
+    /// Set layer for the finalized router service.
+    pub fn layer_all<L, S>(mut self, layer: L) -> Self
+    where
+        L: Layer<Handler, Service = S> + Send + Sync + 'static,
+        S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
+        S::Future: Send,
+    {
+        self.all_layer = Some(HrpcLayer::new(layer));
+        self
+    }
+
+    /// Combine this with another [`Routes`]. Note that this cannot combine the `any` handler.
     pub fn combine_with(mut self, other_routes: impl Into<Routes>) -> Self {
         let mut other_routes = other_routes.into();
         self.handlers.append(&mut other_routes.handlers);
+        self.all_layer = if let Some(layer) = self.all_layer {
+            let layer = if let Some(other_layer) = other_routes.all_layer {
+                HrpcLayer::new(
+                    ServiceBuilder::new()
+                        .layer(layer)
+                        .layer(other_layer)
+                        .into_inner(),
+                )
+            } else {
+                layer
+            };
+            Some(layer)
+        } else {
+            other_routes.all_layer
+        };
         self
     }
 
@@ -79,20 +110,26 @@ impl Routes {
             matcher.insert(path, handler).expect("invalid route path");
         }
 
-        RoutesFinalized {
+        let internal = RoutesInternal {
             matcher,
             any: self.any.unwrap_or_else(not_found),
-        }
+        };
+
+        let inner = match self.all_layer {
+            Some(layer) => layer.layer(internal),
+            None => Handler::new(internal),
+        };
+
+        RoutesFinalized { inner }
     }
 }
 
-/// Finalized [`Routes`], ready for serving as a [`Service`].
-pub struct RoutesFinalized {
+struct RoutesInternal {
     matcher: Matcher<Handler>,
     any: Handler,
 }
 
-impl Service<HttpRequest> for RoutesFinalized {
+impl Service<HttpRequest> for RoutesInternal {
     type Response = HttpResponse;
 
     type Error = Infallible;
@@ -113,5 +150,29 @@ impl Service<HttpRequest> for RoutesFinalized {
         } else {
             Service::call(&mut self.any, req)
         }
+    }
+}
+
+/// Finalized [`Routes`], ready for serving as a [`Service`].
+pub struct RoutesFinalized {
+    inner: Handler,
+}
+
+impl Service<HttpRequest> for RoutesFinalized {
+    type Response = HttpResponse;
+
+    type Error = Infallible;
+
+    type Future = CallFuture;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        Ok(()).into()
+    }
+
+    fn call(&mut self, req: HttpRequest) -> Self::Future {
+        Service::call(&mut self.inner, req)
     }
 }

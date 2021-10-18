@@ -76,6 +76,7 @@ impl Service<HttpRequest> for Handler {
 }
 
 /// Layer type that produces hRPC [`Handler`]s.
+#[derive(Clone)]
 pub struct HrpcLayer {
     inner: BoxLayer<Handler, HttpRequest, HttpResponse, Infallible>,
 }

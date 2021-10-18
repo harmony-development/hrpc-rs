@@ -126,12 +126,12 @@ where
 
 impl<L, S> Server for LayeredServer<L, S>
 where
-    L: Layer<Handler, Service = Handler> + Send + 'static,
+    L: Layer<Handler, Service = Handler> + Clone + Send + Sync + 'static,
     S: Server,
 {
     fn make_routes(&self) -> Routes {
         let rb = Server::make_routes(&self.inner);
-        rb.layer(&self.layer)
+        rb.layer_all(self.layer.clone())
     }
 }
 
