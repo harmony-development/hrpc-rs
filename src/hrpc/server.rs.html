@@ -188,6 +188,8 @@
 <span id="188">188</span>
 <span id="189">189</span>
 <span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>, <span class="ident">net::ToSocketAddrs</span>};
 
@@ -232,6 +234,8 @@
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">layer::util::Identity</span>, <span class="ident">Layer</span>};
 }
 
+<span class="doccomment">/// The core trait of `hrpc-rs` servers. This trait acts as a `tower::MakeService`,</span>
+<span class="doccomment">/// it can produce a set of [`Routes`] and can be combined with other [`Server`]s.</span>
 <span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Server</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
     <span class="doccomment">/// Creates a [`Routes`], which will be used to build a [`RoutesFinalized`] instance.</span>

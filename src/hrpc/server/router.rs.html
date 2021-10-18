@@ -106,6 +106,15 @@
 <span id="106">106</span>
 <span id="107">107</span>
 <span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">std::convert::Infallible</span>;
 
@@ -128,6 +137,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Routes</span> {
+    <span class="doccomment">/// Create a new [`Routes`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">handlers</span>: <span class="ident">Vec::new</span>(),
@@ -135,6 +145,7 @@
         }
     }
 
+    <span class="doccomment">/// Add a new route.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">route</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">path</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">handler</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
     <span class="kw">where</span>
         <span class="ident">S</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">HttpResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
@@ -144,6 +155,7 @@
         <span class="self">self</span>
     }
 
+    <span class="doccomment">/// Layer the routes that were added until this.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">layer</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">layer</span>: <span class="ident">L</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
     <span class="kw">where</span>
         <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span>,
@@ -157,12 +169,14 @@
         <span class="self">self</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">combine_with</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">other_router_builder</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Routes</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">orb</span> <span class="op">=</span> <span class="ident">other_router_builder</span>.<span class="ident">into</span>();
-        <span class="self">self</span>.<span class="ident">handlers</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">orb</span>.<span class="ident">handlers</span>);
+    <span class="doccomment">/// Combine this with another [`Routes`].</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">combine_with</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">other_routes</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Routes</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">other_routes</span> <span class="op">=</span> <span class="ident">other_routes</span>.<span class="ident">into</span>();
+        <span class="self">self</span>.<span class="ident">handlers</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">other_routes</span>.<span class="ident">handlers</span>);
         <span class="self">self</span>
     }
 
+    <span class="doccomment">/// Set the service that will be used if no routes are matched.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">any</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">handler</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
     <span class="kw">where</span>
         <span class="ident">S</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">HttpResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
@@ -172,6 +186,10 @@
         <span class="self">self</span>
     }
 
+    <span class="doccomment">/// Build the routes.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ## Panics</span>
+    <span class="doccomment">/// - This can panic if one of the paths of the inserted routes are invalid.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RoutesFinalized</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">matcher</span> <span class="op">=</span> <span class="ident">Matcher::new</span>();
 

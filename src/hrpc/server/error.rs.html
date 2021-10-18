@@ -133,6 +133,15 @@
 <span id="133">133</span>
 <span id="134">134</span>
 <span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="kw">super</span><span class="ident">::HttpResponse</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">body::box_body</span>, <span class="ident">DecodeBodyError</span>};
@@ -183,16 +192,32 @@
     }
 }
 
+<span class="kw">impl</span> <span class="ident">CustomError</span> <span class="kw">for</span> <span class="ident">String</span> {
+    <span class="kw">fn</span> <span class="ident">as_status_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">StatusCode</span>, <span class="ident">Bytes</span>) {
+        (
+            <span class="ident">StatusCode::INTERNAL_SERVER_ERROR</span>,
+            <span class="ident">json_err_bytes</span>(<span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">into</span>(),
+        )
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">CustomError</span> <span class="kw">for</span> (<span class="ident">StatusCode</span>, <span class="ident">String</span>) {
+    <span class="kw">fn</span> <span class="ident">as_status_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">StatusCode</span>, <span class="ident">Bytes</span>) {
+        (<span class="self">self</span>.<span class="number">0</span>, <span class="ident">json_err_bytes</span>(<span class="self">self</span>.<span class="number">1</span>.<span class="ident">clone</span>()).<span class="ident">into</span>())
+    }
+}
+
 <span class="doccomment">/// Shorthand type for `Result&lt;T, ServerError&gt;.</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">ServerError</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// A server error.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ServerError</span> {
-    <span class="ident">MethodNotPost</span>,
-    <span class="ident">UnsupportedRequestType</span>(<span class="ident">Bytes</span>),
+    <span class="doccomment">/// Occurs if a socket error occurs.</span>
     <span class="ident">SocketError</span>(<span class="ident">SocketError</span>),
+    <span class="doccomment">/// Occurs if a body of supported type could not be decoded.</span>
     <span class="ident">DecodeBodyError</span>(<span class="ident">DecodeBodyError</span>),
+    <span class="doccomment">/// Custom error that can be anything.</span>
     <span class="ident">Custom</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CustomError</span><span class="op">&gt;</span>),
 }
 
@@ -208,14 +233,9 @@
     }
 
     <span class="kw">fn</span> <span class="ident">into_status_message</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">StatusCode</span>, <span class="ident">Bytes</span>) {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="self">Self</span><span class="ident">::Custom</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="self">self</span> {
-            <span class="kw">return</span> <span class="ident">err</span>.<span class="ident">as_status_message</span>();
-        }
         <span class="kw">let</span> <span class="ident">code</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span> {
-            <span class="self">Self</span><span class="ident">::Custom</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable!</span>(),
+            <span class="self">Self</span><span class="ident">::Custom</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="ident">err</span>.<span class="ident">as_status_message</span>(),
             <span class="self">Self</span><span class="ident">::SocketError</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::INTERNAL_SERVER_ERROR</span>,
-            <span class="self">Self</span><span class="ident">::MethodNotPost</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::METHOD_NOT_ALLOWED</span>,
-            <span class="self">Self</span><span class="ident">::UnsupportedRequestType</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::BAD_REQUEST</span>,
             <span class="self">Self</span><span class="ident">::DecodeBodyError</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::BAD_REQUEST</span>,
         };
         (<span class="ident">code</span>, <span class="ident">json_err_bytes</span>(<span class="self">self</span>.<span class="ident">to_string</span>()).<span class="ident">into</span>())
@@ -226,8 +246,6 @@
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="self">Self</span><span class="ident">::Custom</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;error occured: {:?}&quot;</span>, <span class="ident">err</span>),
-            <span class="self">Self</span><span class="ident">::MethodNotPost</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f</span>.<span class="ident">write_str</span>(<span class="string">&quot;request method must be POST&quot;</span>),
-            <span class="self">Self</span><span class="ident">::UnsupportedRequestType</span>(<span class="ident">ty</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;request type not supported: {:?}&quot;</span>, <span class="ident">ty</span>),
             <span class="self">Self</span><span class="ident">::SocketError</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;websocket error: {}&quot;</span>, <span class="ident">err</span>),
             <span class="self">Self</span><span class="ident">::DecodeBodyError</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;failed to decode request body: {}&quot;</span>, <span class="ident">err</span>),
         }

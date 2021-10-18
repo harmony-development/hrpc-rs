@@ -183,23 +183,20 @@
 <span id="183">183</span>
 <span id="184">184</span>
 <span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
 </pre><pre class="rust">
-<span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>};
-<span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">Method</span>, <span class="ident">StatusCode</span>};
+<span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>, <span class="ident">Method</span>, <span class="ident">StatusCode</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>, <span class="ident">marker::PhantomData</span>};
 <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">service_fn</span>, <span class="ident">util::BoxService</span>, <span class="ident">Layer</span>, <span class="ident">Service</span>};
 
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">error</span>::{<span class="ident">CustomError</span>, <span class="ident">ServerError</span>, <span class="ident">ServerResult</span>},
     <span class="ident">socket::Socket</span>,
+    <span class="ident">utils::HeaderMapExt</span>,
     <span class="ident">ws::WebSocketUpgrade</span>,
 };
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">bail_result_as_response</span>,
+    <span class="ident">bail</span>, <span class="ident">bail_result_as_response</span>,
     <span class="ident">body</span>::{<span class="ident">full_box_body</span>, <span class="ident">HyperBody</span>},
     <span class="ident">encode_protobuf_message</span>, <span class="ident">hrpc_header_value</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>, <span class="ident">Request</span> <span class="kw">as</span> <span class="ident">HrpcRequest</span>,
     <span class="ident">Response</span> <span class="kw">as</span> <span class="ident">HrpcResponse</span>, <span class="ident">HRPC_HEADER</span>,
@@ -271,17 +268,14 @@
     <span class="kw">let</span> (<span class="ident">parts</span>, <span class="ident">body</span>) <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into_parts</span>();
 
     <span class="kw">if</span> <span class="ident">parts</span>.<span class="ident">method</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Method::POST</span> {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ServerError::MethodNotPost</span>);
+        <span class="macro">bail!</span>((<span class="ident">StatusCode::METHOD_NOT_ALLOWED</span>, <span class="string">&quot;method must be POST&quot;</span>));
     }
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">header</span>) <span class="op">=</span> <span class="ident">parts</span>
-        .<span class="ident">headers</span>
-        .<span class="ident">get</span>(<span class="ident">http::header::CONTENT_TYPE</span>)
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">h</span><span class="op">|</span> <span class="ident">Bytes::copy_from_slice</span>(<span class="ident">h</span>.<span class="ident">as_bytes</span>()))
-    {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">header</span>.<span class="ident">eq_ignore_ascii_case</span>(<span class="ident">HRPC_HEADER</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ServerError::UnsupportedRequestType</span>(<span class="ident">header</span>));
-        }
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">parts</span>.<span class="ident">headers</span>.<span class="ident">header_eq</span>(<span class="kw-2">&amp;</span><span class="ident">header::CONTENT_TYPE</span>, <span class="ident">HRPC_HEADER</span>) {
+        <span class="macro">bail!</span>((
+            <span class="ident">StatusCode::BAD_REQUEST</span>,
+            <span class="string">&quot;request content type not supported&quot;</span>
+        ));
     }
 
     <span class="prelude-val">Ok</span>(<span class="ident">HrpcRequest</span> {
