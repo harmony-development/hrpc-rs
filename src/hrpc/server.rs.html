@@ -266,7 +266,7 @@
     <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span>;
 
     <span class="doccomment">/// Combines this server with another server.</span>
-    <span class="kw">fn</span> <span class="ident">combine_with</span><span class="op">&lt;</span><span class="ident">Other</span>, <span class="ident">OtherSvc</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="ident">Other</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ServerStack</span><span class="op">&lt;</span><span class="ident">Other</span>, <span class="self">Self</span><span class="op">&gt;</span>
+    <span class="kw">fn</span> <span class="ident">combine_with</span><span class="op">&lt;</span><span class="ident">Other</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="ident">Other</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ServerStack</span><span class="op">&lt;</span><span class="ident">Other</span>, <span class="self">Self</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">Other</span>: <span class="ident">Server</span>,
         <span class="self">Self</span>: <span class="ident">Sized</span>,
