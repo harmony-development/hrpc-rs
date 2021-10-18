@@ -91,10 +91,10 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
             }
         };
         let middleware_methods = quote! {
-            /// Filter to be run before all API operations but after API path is matched.
+            /// Optional middleware for this RPC.
             #[allow(unused_variables)]
-            fn #pre_name(&self, endpoint: &'static str) -> HrpcLayer {
-                HrpcLayer::new(Identity::new())
+            fn #pre_name(&self, endpoint: &'static str) -> Option<HrpcLayer> {
+                None
             }
         };
 
@@ -175,7 +175,10 @@ fn generate_routes<T: Service>(service: &T, proto_path: &str) -> (TokenStream, T
             let #name = {
                 #method
             };
-            let #name = service. #pre_name (#endpoint) .layer(#name);
+            let #name = match service. #pre_name (#endpoint) {
+                Some(layer) => layer.layer(#name),
+                None => Handler::new(#name),
+            };
         };
 
         comb_stream.extend(quote! { .route(#endpoint, #name) });

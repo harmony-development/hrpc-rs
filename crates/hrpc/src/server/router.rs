@@ -7,7 +7,7 @@ use super::{
 use crate::{HttpRequest, HttpResponse};
 
 use matchit::Node as Matcher;
-use tower::{Layer, Service, ServiceBuilder};
+use tower::{Layer, Service};
 
 /// Builder type for inserting [`Handler`]s before building a [`RoutesFinalized`].
 pub struct Routes {
@@ -73,12 +73,7 @@ impl Routes {
         self.handlers.append(&mut other_routes.handlers);
         self.all_layer = if let Some(layer) = self.all_layer {
             let layer = if let Some(other_layer) = other_routes.all_layer {
-                HrpcLayer::new(
-                    ServiceBuilder::new()
-                        .layer(layer)
-                        .layer(other_layer)
-                        .into_inner(),
-                )
+                HrpcLayer::stack(layer, other_layer)
             } else {
                 layer
             };

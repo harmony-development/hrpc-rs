@@ -3,6 +3,7 @@ use futures_util::{future::BoxFuture, Future};
 use http::{header, Method, StatusCode};
 use std::{convert::Infallible, future, marker::PhantomData};
 use tower::{
+    layer::util::Stack,
     service_fn,
     util::{BoxLayer, BoxService},
     Layer, Service, ServiceBuilder,
@@ -38,6 +39,11 @@ impl Handler {
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
+        // If it's already a `Handler`, just use the service in that.
+        super::utils::downcast::if_downcast_into!(S, Handler, svc, {
+            return Self { svc: svc.svc };
+        });
+
         Self {
             svc: BoxService::new(svc),
         }
@@ -50,9 +56,7 @@ impl Handler {
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
-        Self {
-            svc: BoxService::new(layer.layer(self)),
-        }
+        Handler::new(layer.layer(self))
     }
 }
 
@@ -91,6 +95,11 @@ impl HrpcLayer {
         B: http_body::Body<Data = Bytes> + Send + Sync + 'static,
         B::Error: Into<BoxError>,
     {
+        // If it's already a HrpcLayer, no need to wrap it in stuff
+        super::utils::downcast::if_downcast_into!(S, HrpcLayer, layer, {
+            return Self { inner: layer.inner };
+        });
+
         Self {
             inner: BoxLayer::new(
                 ServiceBuilder::new()
@@ -98,6 +107,12 @@ impl HrpcLayer {
                     .layer(layer)
                     .into_inner(),
             ),
+        }
+    }
+
+    pub(crate) fn stack(inner: HrpcLayer, outer: HrpcLayer) -> Self {
+        Self {
+            inner: BoxLayer::new(Stack::new(inner, outer)),
         }
     }
 }

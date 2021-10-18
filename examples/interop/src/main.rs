@@ -114,8 +114,11 @@ impl mu_server::Mu for MuService {
         response
     }
 
-    fn mu_mute_middleware(&self, _endpoint: &'static str) -> HrpcLayer {
-        HrpcLayer::new(RateLimitLayer::new(1, Duration::from_secs(5)))
+    fn mu_mute_middleware(&self, _endpoint: &'static str) -> Option<HrpcLayer> {
+        Some(HrpcLayer::new(RateLimitLayer::new(
+            1,
+            Duration::from_secs(5),
+        )))
     }
 
     async fn mu_mute(
