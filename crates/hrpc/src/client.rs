@@ -39,7 +39,7 @@ pub mod prelude {
 /// A `hyper` HTTP client that supports HTTPS.
 pub type HttpClient = hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>;
 
-/// Creates a new HttpClient that you can use.
+/// Creates a new [`HttpClient`] that you can use.
 pub fn http_client() -> HttpClient {
     let connector = hyper_rustls::HttpsConnector::with_native_roots();
     hyper::Client::builder().build(connector)

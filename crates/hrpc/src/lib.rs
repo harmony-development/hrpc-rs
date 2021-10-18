@@ -141,6 +141,7 @@ impl StdError for DecodeBodyError {
 }
 
 impl<T: PbMsg + Default> Request<T> {
+    /// Extract the body from the request and decode it into the message.
     #[inline]
     pub async fn into_message(self) -> Result<T, DecodeBodyError> {
         decode_body(box_body(self.body)).await
