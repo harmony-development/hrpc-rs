@@ -1,15 +1,8 @@
 use hello_world::{
-    hello::{
-        greeter_server::{Greeter, GreeterServer},
-        WelcomeUserRequest, WelcomeUserResponse,
-    },
+    hello::{greeter_server::*, *},
     BoxError,
 };
-use hrpc::{
-    exports::async_trait,
-    server::{error::ServerResult, Server},
-    IntoResponse, Request, Response,
-};
+use hrpc::server::prelude::*;
 
 #[derive(Clone)]
 pub struct GreeterService;

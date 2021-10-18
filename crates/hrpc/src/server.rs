@@ -27,7 +27,7 @@ pub(crate) mod ws;
 
 // Prelude used by generated code. It is not meant to be used by users.
 #[doc(hidden)]
-pub mod prelude {
+pub mod gen_prelude {
     pub use super::{
         error::ServerResult,
         handler::{unary_handler, ws_handler, Handler},
@@ -39,6 +39,18 @@ pub mod prelude {
     pub use crate::{body::box_body, Request as HrpcRequest, Response as HrpcResponse};
     pub use crate::{HttpRequest, HttpResponse};
     pub use tower::{layer::util::Identity, Layer};
+}
+
+/// Prelude that exports commonly used server types.
+pub mod prelude {
+    pub use super::{
+        error::{CustomError, ServerResult},
+        socket::Socket,
+        HrpcLayer, Server,
+    };
+    pub use crate::{IntoResponse, Request, Response};
+    pub use async_trait::async_trait;
+    pub use http::StatusCode;
 }
 
 /// The core trait of `hrpc-rs` servers. This trait acts as a `tower::MakeService`,

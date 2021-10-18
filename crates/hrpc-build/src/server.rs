@@ -19,7 +19,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     quote! {
         /// Generated server implementations.
         pub mod #server_mod {
-            use hrpc::server::prelude::*;
+            use hrpc::server::gen_prelude::*;
 
             #generated_trait
 
