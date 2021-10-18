@@ -1,4 +1,4 @@
-use std::net::ToSocketAddrs;
+use std::{net::ToSocketAddrs, time::Duration};
 
 use crate::HttpRequest;
 
@@ -56,7 +56,11 @@ where
         };
     }
 
-    let server = builder?.serve(server.into_make_service());
+    let server = builder?
+        .http1_keepalive(true)
+        .http2_keep_alive_interval(Some(Duration::from_secs(10)))
+        .http2_keep_alive_timeout(Duration::from_secs(20))
+        .serve(server.into_make_service());
     tracing::info!("serving at {}", successful_addr);
     server.await
 }
