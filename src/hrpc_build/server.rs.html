@@ -213,18 +213,18 @@
             #<span class="ident">service_doc</span>
             <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
             <span class="kw">pub</span> <span class="kw">struct</span> #<span class="ident">server_service</span><span class="op">&lt;</span><span class="ident">T</span>: #<span class="ident">server_trait</span><span class="op">&gt;</span> {
-                <span class="ident">inner</span>: <span class="ident">T</span>,
+                <span class="ident">service</span>: <span class="ident">T</span>,
             }
 
             <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: #<span class="ident">server_trait</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> #<span class="ident">server_service</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
                 <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-                    <span class="self">Self</span> { <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>() }
+                    <span class="self">Self</span> { <span class="ident">service</span>: <span class="self">self</span>.<span class="ident">service</span>.<span class="ident">clone</span>() }
                 }
             }
 
             <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: #<span class="ident">server_trait</span><span class="op">&gt;</span> <span class="ident">Server</span> <span class="kw">for</span> #<span class="ident">server_service</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
                 <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span> {
-                    <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>();
+                    <span class="kw">let</span> <span class="ident">service</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">service</span>.<span class="ident">clone</span>();
 
                     #<span class="ident">services</span>
 
@@ -234,8 +234,8 @@
 
             <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: #<span class="ident">server_trait</span><span class="op">&gt;</span> #<span class="ident">server_service</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
                 <span class="doccomment">/// Create a new service server.</span>
-                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">inner</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-                    <span class="self">Self</span> { <span class="ident">inner</span> }
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">service</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+                    <span class="self">Self</span> { <span class="ident">service</span> }
                 }
             }
         }
@@ -337,7 +337,7 @@
 
         <span class="kw">let</span> <span class="ident">method</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">streaming</span> {
             (<span class="bool-val">false</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">quote!</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">service</span>.<span class="ident">clone</span>();
 
                 <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>. #<span class="ident">name</span> (<span class="ident">request</span>) .<span class="kw">await</span> };
                 <span class="ident">unary_handler</span>(<span class="ident">handler</span>)
@@ -347,7 +347,7 @@
                 <span class="ident">package_name</span>, <span class="ident">method_name</span>
             ),
             (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">|</span> (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">quote!</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clone</span>();
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">service</span>.<span class="ident">clone</span>();
 
                 <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="ident">svr</span>.<span class="ident">clone</span>();
@@ -362,7 +362,7 @@
             <span class="kw">let</span> #<span class="ident">name</span> <span class="op">=</span> {
                 #<span class="ident">method</span>
             };
-            <span class="kw">let</span> #<span class="ident">name</span> <span class="op">=</span> <span class="ident">server</span>. #<span class="ident">pre_name</span> (#<span class="ident">endpoint</span>) .<span class="ident">layer</span>(#<span class="ident">name</span>);
+            <span class="kw">let</span> #<span class="ident">name</span> <span class="op">=</span> <span class="ident">service</span>. #<span class="ident">pre_name</span> (#<span class="ident">endpoint</span>) .<span class="ident">layer</span>(#<span class="ident">name</span>);
         };
 
         <span class="ident">comb_stream</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> { .<span class="ident">route</span>(#<span class="ident">endpoint</span>, #<span class="ident">name</span>) });
