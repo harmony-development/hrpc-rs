@@ -1,5 +1,6 @@
 [package]
 name = "hello_world"
+description = "Simple 'hello world' example for hrpc-rs."
 authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
 version = "0.1.0"
 edition = "2018"

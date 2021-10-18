@@ -29,6 +29,7 @@ pub mod error;
 /// hRPC socket used for streaming RPCs.
 pub mod socket;
 
+#[doc(hidden)]
 pub mod prelude {
     pub use super::{error::ClientResult, socket::Socket, Client, HttpClient};
     pub use crate::{exports::http::Uri, IntoRequest, Request};
