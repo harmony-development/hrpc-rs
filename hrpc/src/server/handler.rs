@@ -1,16 +1,16 @@
-use bytes::Bytes;
 use futures_util::{future::BoxFuture, Future};
-use http::{Method, StatusCode};
+use http::{header, Method, StatusCode};
 use std::{convert::Infallible, future, marker::PhantomData};
 use tower::{service_fn, util::BoxService, Layer, Service};
 
 use super::{
     error::{CustomError, ServerError, ServerResult},
     socket::Socket,
+    utils::HeaderMapExt,
     ws::WebSocketUpgrade,
 };
 use crate::{
-    bail_result_as_response,
+    bail, bail_result_as_response,
     body::{full_box_body, HyperBody},
     encode_protobuf_message, hrpc_header_value, HttpRequest, HttpResponse, Request as HrpcRequest,
     Response as HrpcResponse, HRPC_HEADER,
@@ -82,17 +82,14 @@ pub fn from_http_request<Msg: prost::Message + Default + 'static>(
     let (parts, body) = req.into_parts();
 
     if parts.method != Method::POST {
-        return Err(ServerError::MethodNotPost);
+        bail!((StatusCode::METHOD_NOT_ALLOWED, "method must be POST"));
     }
 
-    if let Some(header) = parts
-        .headers
-        .get(http::header::CONTENT_TYPE)
-        .map(|h| Bytes::copy_from_slice(h.as_bytes()))
-    {
-        if !header.eq_ignore_ascii_case(HRPC_HEADER) {
-            return Err(ServerError::UnsupportedRequestType(header));
-        }
+    if !parts.headers.header_eq(&header::CONTENT_TYPE, HRPC_HEADER) {
+        bail!((
+            StatusCode::BAD_REQUEST,
+            "request content type not supported"
+        ));
     }
 
     Ok(HrpcRequest {

@@ -47,14 +47,27 @@ impl CustomError for (StatusCode, &'static str) {
     }
 }
 
+impl CustomError for String {
+    fn as_status_message(&self) -> (StatusCode, Bytes) {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            json_err_bytes(self.clone()).into(),
+        )
+    }
+}
+
+impl CustomError for (StatusCode, String) {
+    fn as_status_message(&self) -> (StatusCode, Bytes) {
+        (self.0, json_err_bytes(self.1.clone()).into())
+    }
+}
+
 /// Shorthand type for `Result<T, ServerError>.
 pub type ServerResult<T> = Result<T, ServerError>;
 
 /// A server error.
 #[derive(Debug)]
 pub enum ServerError {
-    MethodNotPost,
-    UnsupportedRequestType(Bytes),
     SocketError(SocketError),
     DecodeBodyError(DecodeBodyError),
     Custom(Box<dyn CustomError>),
@@ -72,14 +85,9 @@ impl ServerError {
     }
 
     fn into_status_message(self) -> (StatusCode, Bytes) {
-        if let Self::Custom(err) = self {
-            return err.as_status_message();
-        }
         let code = match &self {
-            Self::Custom(_) => unreachable!(),
+            Self::Custom(err) => return err.as_status_message(),
             Self::SocketError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::MethodNotPost => StatusCode::METHOD_NOT_ALLOWED,
-            Self::UnsupportedRequestType(_) => StatusCode::BAD_REQUEST,
             Self::DecodeBodyError(_) => StatusCode::BAD_REQUEST,
         };
         (code, json_err_bytes(self.to_string()).into())
@@ -90,8 +98,6 @@ impl Display for ServerError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Custom(err) => write!(f, "error occured: {:?}", err),
-            Self::MethodNotPost => f.write_str("request method must be POST"),
-            Self::UnsupportedRequestType(ty) => write!(f, "request type not supported: {:?}", ty),
             Self::SocketError(err) => write!(f, "websocket error: {}", err),
             Self::DecodeBodyError(err) => write!(f, "failed to decode request body: {}", err),
         }
