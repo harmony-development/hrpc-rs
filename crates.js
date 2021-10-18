@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["hrpc","hrpc_build","interop"];
+window.ALL_CRATES = ["client","hello_world","hrpc","hrpc_build","interop","server"];
