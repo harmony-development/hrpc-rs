@@ -1,5 +1,5 @@
 [workspace]
-members = ["hrpc", "hrpc-build", "interop"]
+members = ["crates/*"]
 
 [workspace.metadata.nix]
 systems = ["x86_64-linux"]
