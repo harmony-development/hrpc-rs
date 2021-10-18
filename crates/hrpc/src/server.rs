@@ -61,7 +61,7 @@ pub trait Server: Send + 'static {
     fn make_routes(&self) -> Routes;
 
     /// Combines this server with another server.
-    fn combine_with<Other, OtherSvc>(self, other: Other) -> ServerStack<Other, Self>
+    fn combine_with<Other>(self, other: Other) -> ServerStack<Other, Self>
     where
         Other: Server,
         Self: Sized,

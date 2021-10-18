@@ -81,10 +81,11 @@ macro_rules! combine_services {
         {
             use $crate::server::Server;
 
-            $fsvc
+            let svc = $fsvc;
             $(
-                .combine_with($svc)
+                let svc = Server::combine_with(svc, $svc);
             )+
+            svc
         }
     };
 }
