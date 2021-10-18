@@ -231,6 +231,7 @@
 <span id="231">231</span>
 <span id="232">232</span>
 <span id="233">233</span>
+<span id="234">234</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>};
@@ -310,6 +311,7 @@
 }
 
 <span class="doccomment">/// Layer type that produces hRPC [`Handler`]s.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HrpcLayer</span> {
     <span class="ident">inner</span>: <span class="ident">BoxLayer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>, <span class="ident">Infallible</span><span class="op">&gt;</span>,
 }

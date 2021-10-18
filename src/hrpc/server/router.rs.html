@@ -115,19 +115,84 @@
 <span id="115">115</span>
 <span id="116">116</span>
 <span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">std::convert::Infallible</span>;
 
-<span class="kw">use</span> <span class="kw">super</span><span class="ident">::handler</span>::{<span class="ident">not_found</span>, <span class="ident">CallFuture</span>, <span class="ident">Handler</span>};
+<span class="kw">use</span> <span class="kw">super</span>::{
+    <span class="ident">handler</span>::{<span class="ident">not_found</span>, <span class="ident">CallFuture</span>, <span class="ident">Handler</span>},
+    <span class="ident">HrpcLayer</span>,
+};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>};
 
 <span class="kw">use</span> <span class="ident">matchit::Node</span> <span class="kw">as</span> <span class="ident">Matcher</span>;
-<span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">Layer</span>, <span class="ident">Service</span>};
+<span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">Layer</span>, <span class="ident">Service</span>, <span class="ident">ServiceBuilder</span>};
 
 <span class="doccomment">/// Builder type for inserting [`Handler`]s before building a [`RoutesFinalized`].</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Routes</span> {
     <span class="ident">handlers</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">Handler</span>)<span class="op">&gt;</span>,
     <span class="ident">any</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Handler</span><span class="op">&gt;</span>,
+    <span class="ident">all_layer</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HrpcLayer</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Routes</span> {
@@ -142,6 +207,7 @@
         <span class="self">Self</span> {
             <span class="ident">handlers</span>: <span class="ident">Vec::new</span>(),
             <span class="ident">any</span>: <span class="prelude-val">None</span>,
+            <span class="ident">all_layer</span>: <span class="prelude-val">None</span>,
         }
     }
 
@@ -169,10 +235,36 @@
         <span class="self">self</span>
     }
 
-    <span class="doccomment">/// Combine this with another [`Routes`].</span>
+    <span class="doccomment">/// Set layer for the finalized router service.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">layer_all</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">layer</span>: <span class="ident">L</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
+    <span class="kw">where</span>
+        <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">S</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">HttpResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">S::Future</span>: <span class="ident">Send</span>,
+    {
+        <span class="self">self</span>.<span class="ident">all_layer</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">HrpcLayer::new</span>(<span class="ident">layer</span>));
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Combine this with another [`Routes`]. Note that this cannot combine the `any` handler.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">combine_with</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">other_routes</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Routes</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">other_routes</span> <span class="op">=</span> <span class="ident">other_routes</span>.<span class="ident">into</span>();
         <span class="self">self</span>.<span class="ident">handlers</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">other_routes</span>.<span class="ident">handlers</span>);
+        <span class="self">self</span>.<span class="ident">all_layer</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">layer</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">all_layer</span> {
+            <span class="kw">let</span> <span class="ident">layer</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">other_layer</span>) <span class="op">=</span> <span class="ident">other_routes</span>.<span class="ident">all_layer</span> {
+                <span class="ident">HrpcLayer::new</span>(
+                    <span class="ident">ServiceBuilder::new</span>()
+                        .<span class="ident">layer</span>(<span class="ident">layer</span>)
+                        .<span class="ident">layer</span>(<span class="ident">other_layer</span>)
+                        .<span class="ident">into_inner</span>(),
+                )
+            } <span class="kw">else</span> {
+                <span class="ident">layer</span>
+            };
+            <span class="prelude-val">Some</span>(<span class="ident">layer</span>)
+        } <span class="kw">else</span> {
+            <span class="ident">other_routes</span>.<span class="ident">all_layer</span>
+        };
         <span class="self">self</span>
     }
 
@@ -197,20 +289,26 @@
             <span class="ident">matcher</span>.<span class="ident">insert</span>(<span class="ident">path</span>, <span class="ident">handler</span>).<span class="ident">expect</span>(<span class="string">&quot;invalid route path&quot;</span>);
         }
 
-        <span class="ident">RoutesFinalized</span> {
+        <span class="kw">let</span> <span class="ident">internal</span> <span class="op">=</span> <span class="ident">RoutesInternal</span> {
             <span class="ident">matcher</span>,
             <span class="ident">any</span>: <span class="self">self</span>.<span class="ident">any</span>.<span class="ident">unwrap_or_else</span>(<span class="ident">not_found</span>),
-        }
+        };
+
+        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">all_layer</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">layer</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">layer</span>.<span class="ident">layer</span>(<span class="ident">internal</span>),
+            <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Handler::new</span>(<span class="ident">internal</span>),
+        };
+
+        <span class="ident">RoutesFinalized</span> { <span class="ident">inner</span> }
     }
 }
 
-<span class="doccomment">/// Finalized [`Routes`], ready for serving as a [`Service`].</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RoutesFinalized</span> {
+<span class="kw">struct</span> <span class="ident">RoutesInternal</span> {
     <span class="ident">matcher</span>: <span class="ident">Matcher</span><span class="op">&lt;</span><span class="ident">Handler</span><span class="op">&gt;</span>,
     <span class="ident">any</span>: <span class="ident">Handler</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RoutesFinalized</span> {
+<span class="kw">impl</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RoutesInternal</span> {
     <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">HttpResponse</span>;
 
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span>;
@@ -231,6 +329,30 @@
         } <span class="kw">else</span> {
             <span class="ident">Service::call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">any</span>, <span class="ident">req</span>)
         }
+    }
+}
+
+<span class="doccomment">/// Finalized [`Routes`], ready for serving as a [`Service`].</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RoutesFinalized</span> {
+    <span class="ident">inner</span>: <span class="ident">Handler</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RoutesFinalized</span> {
+    <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">HttpResponse</span>;
+
+    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span>;
+
+    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">CallFuture</span>;
+
+    <span class="kw">fn</span> <span class="ident">poll_ready</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">_cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="self">Self</span><span class="ident">::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Ok</span>(()).<span class="ident">into</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">HttpRequest</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::Future</span> {
+        <span class="ident">Service::call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">inner</span>, <span class="ident">req</span>)
     }
 }
 </pre></div>
