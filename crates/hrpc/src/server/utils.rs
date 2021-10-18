@@ -1,8 +1,12 @@
 use std::net::ToSocketAddrs;
 
-use super::Server;
+use crate::HttpRequest;
+
+use super::{HrpcLayer, Server};
 
 use http::{header::HeaderName, HeaderMap};
+use tower::ServiceBuilder;
+use tower_http::{classify::StatusInRangeAsFailures, trace::TraceLayer};
 
 /// Helper methods for working with `HeaderMap`.
 pub trait HeaderMapExt {
@@ -55,4 +59,43 @@ where
     let server = builder?.serve(server.into_make_service());
     tracing::info!("serving at {}", successful_addr);
     server.await
+}
+
+/// A set of "recommended" layers, namely:
+/// - [`TraceLayer`] for tracing requests
+pub fn recommended_layers<F>(filter_headers: Option<F>) -> HrpcLayer
+where
+    F: Fn(&HeaderName) -> bool + Clone + Send + Sync + 'static,
+{
+    HrpcLayer::new(
+        ServiceBuilder::new()
+            .layer(
+                TraceLayer::new(StatusInRangeAsFailures::new(400..=599).into_make_classifier())
+                    .make_span_with(move |request: &HttpRequest| {
+                        let span = tracing::info_span!(
+                            "request",
+                            method = %request.method(),
+                            endpoint = %request.uri().path(),
+                            version = ?request.version(),
+                        );
+                        for (header_name, header_val) in request.headers() {
+                            if let Some(f) = &filter_headers {
+                                if f(header_name) {
+                                    span.record(
+                                        header_name.as_str(),
+                                        &String::from_utf8_lossy(header_val.as_bytes()).as_ref(),
+                                    );
+                                }
+                            } else {
+                                span.record(
+                                    header_name.as_str(),
+                                    &String::from_utf8_lossy(header_val.as_bytes()).as_ref(),
+                                );
+                            }
+                        }
+                        span
+                    }),
+            )
+            .into_inner(),
+    )
 }
