@@ -59,7 +59,7 @@ impl Routes {
     /// Set layer for the finalized router service.
     pub fn layer_all<L, S>(mut self, layer: L) -> Self
     where
-        L: Layer<Handler, Service = S> + Send + Sync + 'static,
+        L: Layer<Handler, Service = S> + Send + 'static,
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {

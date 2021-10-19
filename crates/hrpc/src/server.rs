@@ -126,7 +126,7 @@ where
 
 impl<L, S> Server for LayeredServer<L, S>
 where
-    L: Layer<Handler, Service = Handler> + Clone + Send + Sync + 'static,
+    L: Layer<Handler, Service = Handler> + Clone + Send + 'static,
     S: Server,
 {
     fn make_routes(&self) -> Routes {

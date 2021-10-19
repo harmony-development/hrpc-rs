@@ -3,10 +3,10 @@ use futures_util::{future::BoxFuture, Future};
 use http::{header, Method, StatusCode};
 use std::{convert::Infallible, future, marker::PhantomData};
 use tower::{
-    layer::util::Stack,
+    layer::{layer_fn, util::Stack},
     service_fn,
-    util::{BoxLayer, BoxService},
-    Layer, Service, ServiceBuilder,
+    util::BoxService,
+    Layer, Service,
 };
 use tower_http::map_response_body::MapResponseBodyLayer;
 
@@ -80,16 +80,15 @@ impl Service<HttpRequest> for Handler {
 }
 
 /// Layer type that produces hRPC [`Handler`]s.
-#[derive(Clone)]
 pub struct HrpcLayer {
-    inner: BoxLayer<Handler, HttpRequest, HttpResponse, Infallible>,
+    inner: Box<dyn Layer<Handler, Service = Handler> + Send + 'static>,
 }
 
 impl HrpcLayer {
     /// Create a new [`HrpcLayer`].
     pub fn new<L, S, B>(layer: L) -> Self
     where
-        L: Layer<Handler, Service = S> + Send + Sync + 'static,
+        L: Layer<Handler, Service = S> + Send + 'static,
         S: Service<HttpRequest, Response = http::Response<B>, Error = Infallible> + Send + 'static,
         S::Future: Send,
         B: http_body::Body<Data = Bytes> + Send + Sync + 'static,
@@ -100,19 +99,20 @@ impl HrpcLayer {
             return Self { inner: layer.inner };
         });
 
+        let inner_layer = layer_fn(move |svc: Handler| {
+            let svc = layer.layer(svc);
+            let svc = MapResponseBodyLayer::new(box_body).layer(svc);
+            Handler::new(svc)
+        });
+
         Self {
-            inner: BoxLayer::new(
-                ServiceBuilder::new()
-                    .layer(MapResponseBodyLayer::new(box_body))
-                    .layer(layer)
-                    .into_inner(),
-            ),
+            inner: Box::new(inner_layer),
         }
     }
 
     pub(crate) fn stack(inner: HrpcLayer, outer: HrpcLayer) -> Self {
         Self {
-            inner: BoxLayer::new(Stack::new(inner, outer)),
+            inner: Box::new(Stack::new(inner, outer)),
         }
     }
 }
@@ -125,10 +125,7 @@ where
     type Service = Handler;
 
     fn layer(&self, inner: S) -> Self::Service {
-        let handler = Handler::new(inner);
-        Handler {
-            svc: self.inner.layer(handler),
-        }
+        self.inner.layer(Handler::new(inner))
     }
 }
 
