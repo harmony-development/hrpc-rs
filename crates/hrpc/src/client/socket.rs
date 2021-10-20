@@ -105,11 +105,11 @@ where
                                 let _ = ws.close(None).await;
                                 return;
                             }
+                        } else if chan.send(Ok(())).is_err() {
+                            let _ = ws.close(None).await;
+                            return;
                         } else {
-                            if chan.send(Ok(())).is_err() {
-                                let _ = ws.close(None).await;
-                                return;
-                            }
+                            std::hint::spin_loop()
                         }
                     }
                     // If we get *anything*, it means that either the channel is closed
@@ -120,7 +120,7 @@ where
                         }
                         return;
                     }
-                    else => tokio::task::yield_now().await,
+                    else => std::hint::spin_loop(),
                 }
             }
         });
