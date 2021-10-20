@@ -228,8 +228,6 @@
 <span id="228">228</span>
 <span id="229">229</span>
 <span id="230">230</span>
-<span id="231">231</span>
-<span id="232">232</span>
 </pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">Future</span>, <span class="ident">SinkExt</span>, <span class="ident">StreamExt</span>};
@@ -341,8 +339,6 @@
                         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">chan</span>.<span class="ident">send</span>(<span class="prelude-val">Ok</span>(())).<span class="ident">is_err</span>() {
                             <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span>;
                             <span class="kw">return</span>;
-                        } <span class="kw">else</span> {
-                            <span class="ident">std::hint::spin_loop</span>()
                         }
                     }
                     <span class="comment">// If we get *anything*, it means that either the channel is closed</span>
@@ -353,7 +349,7 @@
                         }
                         <span class="kw">return</span>;
                     }
-                    <span class="kw">else</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">std::hint::spin_loop</span>(),
+                    <span class="kw">else</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tokio::task::yield_now</span>().<span class="kw">await</span>,
                 }
             }
         });
