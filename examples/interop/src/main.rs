@@ -1,6 +1,6 @@
 use hrpc::{
     bail, bail_result,
-    exports::http::StatusCode,
+    exports::{http::StatusCode, tracing::Level},
     server::{
         error::{json_err_bytes, CustomError, ServerError as HrpcServerError},
         handler::HrpcLayer,
@@ -10,6 +10,7 @@ use hrpc::{
     HttpResponse, IntoResponse, Request, Response,
 };
 use tower::limit::RateLimitLayer;
+use tracing_subscriber::{filter::Targets, prelude::*};
 
 use std::{
     fmt::{self, Display, Formatter},
@@ -20,12 +21,13 @@ hrpc::include_proto!("test");
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("hyper=error".parse().unwrap()),
-        )
-        .init();
+    let layer = tracing_subscriber::fmt::layer().with_filter(
+        Targets::default()
+            .with_target("hyper", Level::ERROR)
+            .with_default(Level::DEBUG),
+    );
+
+    tracing_subscriber::registry().with(layer).init();
 
     let is_server = std::env::args().nth(1).map_or(false, |t| t == "server");
     if is_server {
