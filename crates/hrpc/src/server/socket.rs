@@ -98,7 +98,6 @@ where
                                 return;
                             }
                         } else {
-                            debug!("responded to client socket");
                             if chan.send(Ok(())).is_err() {
                                 let _ = ws.close().await;
                                 return;
