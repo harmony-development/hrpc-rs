@@ -124,25 +124,6 @@ impl ServerError {
     pub fn as_error_response(&self) -> HttpResponse {
         self.inner.as_error_response()
     }
-
-    /// Try to downcast this error into another error. Most commonly this can
-    /// be used for downcasting to [`SocketError`] or [`DecodeBodyError`].
-    ///
-    /// # Example
-    /// ```rust
-    /// # use hrpc::server::error::{ServerError, SocketError};
-    /// let err = ServerError::from(SocketError::ConnectionClosed);
-    /// assert_eq!(err.downcast_into::<SocketError>(), Ok(SocketError::ConnectionClosed));
-    /// ```
-    pub fn downcast_into<T: 'static>(self) -> Result<T, Self> {
-        let err = self;
-
-        super::utils::downcast::if_downcast_into!(Self, T, err, {
-            return Ok(err);
-        });
-
-        Err(err)
-    }
 }
 
 impl Display for ServerError {
