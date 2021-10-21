@@ -38,7 +38,7 @@ client = [
 
 [build-dependencies]
 # Needed to compile the hRPC proto
-hrpc-build = { version = "0.23.0", path = "../hrpc-build" }
+hrpc-build = { version = "0.23.0", path = "../hrpc-build", default-features = false }
 prost-build = "0.9"
 
 [dependencies]
