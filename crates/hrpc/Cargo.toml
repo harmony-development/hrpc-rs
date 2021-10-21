@@ -1,6 +1,6 @@
 [package]
 name = "hrpc"
-version = "0.22.0"
+version = "0.23.0"
 authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -38,7 +38,7 @@ client = [
 
 [build-dependencies]
 # Needed to compile the hRPC proto
-hrpc-build = { version = "0.22.0", path = "../hrpc-build" }
+hrpc-build = { version = "0.23.0", path = "../hrpc-build" }
 prost-build = "0.9"
 
 [dependencies]
