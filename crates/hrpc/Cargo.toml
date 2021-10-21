@@ -36,6 +36,11 @@ client = [
     "tower-http/decompression-gzip",
 ]
 
+[build-dependencies]
+# Needed to compile the hRPC proto
+hrpc-build = { version = "0.22.0", path = "../hrpc-build" }
+prost-build = "0.9"
+
 [dependencies]
 # Core types, traits and utilities
 async-trait = "0.1"

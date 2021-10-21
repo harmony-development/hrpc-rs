@@ -29,7 +29,7 @@ DEALINGS IN THE SOFTWARE.
 */
 
 use super::{
-    error::{json_err_bytes, CustomError, ServerResult},
+    error::{CustomError, SocketError},
     utils::HeaderMapExt,
     HttpRequest, HttpResponse,
 };
@@ -191,11 +191,12 @@ impl Display for WebSocketUpgradeError {
 impl StdError for WebSocketUpgradeError {}
 
 impl CustomError for WebSocketUpgradeError {
-    fn as_status_message(&self) -> (StatusCode, Bytes) {
-        (
-            StatusCode::BAD_REQUEST,
-            json_err_bytes(self.to_string()).into(),
-        )
+    fn error_message(&self) -> Cow<'_, str> {
+        self.to_string().into()
+    }
+
+    fn status(&self) -> StatusCode {
+        StatusCode::BAD_REQUEST
     }
 }
 
@@ -282,18 +283,18 @@ impl WebSocket {
     /// Receive another message.
     ///
     /// Returns `None` if the stream stream has closed.
-    pub async fn recv(&mut self) -> Option<ServerResult<WsMessage>> {
-        self.inner.next().await.map(|res| res.map_err(Into::into))
+    pub async fn recv(&mut self) -> Option<Result<WsMessage, SocketError>> {
+        self.inner.next().await
     }
 
     /// Send a message.
-    pub async fn send(&mut self, msg: WsMessage) -> ServerResult<()> {
-        self.inner.send(msg).await.map_err(Into::into)
+    pub async fn send(&mut self, msg: WsMessage) -> Result<(), SocketError> {
+        self.inner.send(msg).await
     }
 
     /// Gracefully close this WebSocket.
-    pub async fn close(mut self) -> ServerResult<()> {
-        self.inner.close(None).await.map_err(Into::into)
+    pub async fn close(mut self) -> Result<(), SocketError> {
+        self.inner.close(None).await
     }
 }
 

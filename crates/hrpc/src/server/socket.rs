@@ -56,7 +56,7 @@ where
                                 match msg {
                                     WsMessage::Binary(data) => {
                                         Req::decode(data.as_slice())
-                                            .map_err(|err| ServerError::DecodeBodyError(DecodeBodyError::InvalidProtoMessage(err)))
+                                            .map_err(|err| ServerError::from(DecodeBodyError::InvalidProtoMessage(err)))
                                     }
                                     WsMessage::Ping(data) => {
                                         if let Err(err) = ws.send(WsMessage::Pong(data)).await {
@@ -65,7 +65,7 @@ where
                                         continue;
                                     }
                                     WsMessage::Close(_) => {
-                                        let _ = recv_msg_tx.send_async(Err(SocketError::ConnectionClosed.into())).await;
+                                        let _ = recv_msg_tx.send_async(Err(ServerError::from(SocketError::ConnectionClosed))).await;
                                         let _ = ws.close().await;
                                         return;
                                     },
@@ -73,7 +73,7 @@ where
                                 }
                             }
                             Err(err) => {
-                                let _ = recv_msg_tx.send_async(Err(err)).await;
+                                let _ = recv_msg_tx.send_async(Err(err.into())).await;
                                 let _ = ws.close().await;
                                 return;
                             }
@@ -91,9 +91,9 @@ where
 
                         if let Err(err) = ws.send(WsMessage::Binary(resp)).await {
                             debug!("socket send error: {}", err);
-                            let is_capped_or_queue_full = matches!(err, ServerError::SocketError(SocketError::Capacity(_) | SocketError::SendQueueFull(_)));
+                            let is_capped_or_queue_full = matches!(err, SocketError::Capacity(_) | SocketError::SendQueueFull(_));
                             if !is_capped_or_queue_full {
-                                let _ = chan.send(Err(err));
+                                let _ = chan.send(Err(err.into()));
                                 let _ = ws.close().await;
                                 return;
                             }
@@ -106,13 +106,13 @@ where
                     // or we got a close message
                     _ = close_chan_rx.recv() => {
                         if let Err(err) = ws.close().await {
-                            let _ = recv_msg_tx.send_async(Err(err)).await;
+                            let _ = recv_msg_tx.send_async(Err(err.into())).await;
                         }
                         return;
                     }
                     _ = ping_interval.tick() => {
                         if let Err(err) = ws.send(WsMessage::Ping(Vec::new())).await {
-                            let _ = recv_msg_tx.send_async(Err(err)).await;
+                            let _ = recv_msg_tx.send_async(Err(err.into())).await;
                             return;
                         }
                     }
@@ -130,10 +130,6 @@ where
 
     /// Receive a message from the socket.
     ///
-    /// ## Errors
-    /// - Returns [`SocketError::ConnectionClosed`] if the socket is closed normally.
-    /// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.
-    ///
     /// ## Notes
     /// This will block until getting a message if the socket is not closed.
     pub async fn receive_message(&self) -> Result<Req, ServerError> {
@@ -148,10 +144,6 @@ where
     }
 
     /// Send a message over the socket.
-    ///
-    /// ## Errors
-    /// - Returns [`SocketError::ConnectionClosed`] if the socket is closed normally.
-    /// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.
     ///
     /// ## Notes
     /// This will block if the inner send buffer is filled.

@@ -2,7 +2,7 @@ use hrpc::{
     bail, bail_result,
     exports::{http::StatusCode, tracing::Level},
     server::{
-        error::{json_err_bytes, CustomError, ServerError as HrpcServerError},
+        error::{CustomError, ServerError as HrpcServerError},
         handler::HrpcLayer,
         socket::Socket,
         Server,
@@ -177,10 +177,13 @@ impl Display for ServerError {
 impl std::error::Error for ServerError {}
 
 impl CustomError for ServerError {
-    fn as_status_message(&self) -> (StatusCode, prost::bytes::Bytes) {
-        let body = json_err_bytes(self.to_string()).into();
+    fn error_message(&self) -> std::borrow::Cow<'_, str> {
+        self.to_string().into()
+    }
+
+    fn status(&self) -> StatusCode {
         match self {
-            ServerError::PingEmpty => (StatusCode::BAD_REQUEST, body),
+            Self::PingEmpty => StatusCode::BAD_REQUEST,
         }
     }
 }

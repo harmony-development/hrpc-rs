@@ -185,14 +185,14 @@ where
                 Ok(request) => request,
                 Err(err) => {
                     tracing::error!("{}", err);
-                    return Ok(err.into_response());
+                    return Ok(err.as_error_response());
                 }
             };
             let response = match handler(request).await {
                 Ok(response) => response,
                 Err(err) => {
                     tracing::error!("{}", err);
-                    return Ok(err.into_response());
+                    return Ok(err.as_error_response());
                 }
             };
             Ok(into_http_request(response))

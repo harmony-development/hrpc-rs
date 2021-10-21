@@ -39,6 +39,10 @@ pub mod server;
 
 /// Body utitilies and types.
 pub mod body;
+/// The hRPC generated protocol.
+pub mod proto {
+    crate::include_proto!("hrpc.v1");
+}
 
 /// Alias for a type-erased error type.
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;

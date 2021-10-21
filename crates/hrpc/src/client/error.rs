@@ -5,7 +5,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-pub use crate::DecodeBodyError;
+pub use crate::{proto::Error as HrpcError, DecodeBodyError};
 pub use http::Error as HttpError;
 pub use hyper::Error as HyperError;
 pub use std::io::Error as IoError;
@@ -23,7 +23,7 @@ pub enum ClientError {
     Http(HyperError),
     /// Occurs if an endpoint returns an error.
     EndpointError {
-        raw_error: Bytes,
+        hrpc_error: HrpcError,
         status: StatusCode,
         endpoint: Uri,
     },
@@ -49,13 +49,13 @@ impl Display for ClientError {
                 write!(f, "an error occured within the HTTP client: {}", err)
             }
             ClientError::EndpointError {
-                raw_error,
+                hrpc_error,
                 status,
                 endpoint,
             } => write!(
                 f,
-                "endpoint {} returned an error with status code {}: {:?}",
-                endpoint, status, raw_error,
+                "endpoint {} returned an error with status code {}, error identifier '{}': {}",
+                endpoint, status, hrpc_error.identifier, hrpc_error.human_message,
             ),
             ClientError::SocketError(err) => {
                 write!(f, "an error occured within the websocket: {}", err)

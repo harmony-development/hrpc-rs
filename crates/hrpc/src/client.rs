@@ -15,6 +15,7 @@ use http::{
     uri::{PathAndQuery, Scheme},
     HeaderMap, Method, Uri,
 };
+use prost::Message;
 use tokio_rustls::webpki::DNSNameRef;
 use tokio_tungstenite::tungstenite;
 use tower::Service;
@@ -156,8 +157,13 @@ impl Client {
         let is_error = status.is_success().not();
         if is_error {
             let raw_error = hyper::body::to_bytes(resp.into_body()).await?;
+            let hrpc_error = HrpcError::decode(raw_error.as_ref()).unwrap_or_else(|_| HrpcError {
+                human_message: "the server error was an invalid hRPC error, check more_details field for the error".to_string(),
+                identifier: "invalid-hrpc-error".to_string(),
+                more_details: raw_error,
+            });
             return Err(ClientError::EndpointError {
-                raw_error,
+                hrpc_error,
                 status,
                 endpoint,
             });
