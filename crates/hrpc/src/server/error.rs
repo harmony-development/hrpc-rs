@@ -95,6 +95,10 @@ impl CustomError for SocketError {
     fn error_message(&self) -> Cow<'_, str> {
         format!("{}", self).into()
     }
+
+    fn identifier(&self) -> Cow<'_, str> {
+        Cow::Borrowed("hrpcrs.socket-error")
+    }
 }
 
 impl CustomError for DecodeBodyError {
@@ -107,6 +111,10 @@ impl CustomError for DecodeBodyError {
             DecodeBodyError::InvalidBody(_) => StatusCode::INTERNAL_SERVER_ERROR,
             DecodeBodyError::InvalidProtoMessage(_) => StatusCode::BAD_REQUEST,
         }
+    }
+
+    fn identifier(&self) -> Cow<'_, str> {
+        Cow::Borrowed("hrpcrs.decode-body-error")
     }
 }
 
@@ -123,6 +131,12 @@ impl ServerError {
     /// Convert this error into a HTTP response.
     pub fn as_error_response(&self) -> HttpResponse {
         self.inner.as_error_response()
+    }
+
+    /// Get a reference to the inner [`CustomError`] for this error.
+    #[inline]
+    pub fn as_custom_error(&self) -> &dyn CustomError {
+        self.inner.as_ref()
     }
 }
 
