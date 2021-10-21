@@ -81,13 +81,15 @@ pub trait Server: Send + 'static {
         IntoMakeService { mk_router: self }
     }
 
-    /// Layers this server with a layer that transforms handlers.
-    fn layer<L>(self, layer: L) -> LayeredServer<L, Self>
+    /// Layers this server with a layer producer that produces layers,
+    /// and those layers will be used to transforms handlers.
+    fn layer<F, L>(self, f: F) -> LayeredServer<F, L, Self>
     where
+        F: Fn() -> L + 'static,
         L: Layer<Handler, Service = Handler> + Send + 'static,
         Self: Sized,
     {
-        LayeredServer { inner: self, layer }
+        LayeredServer { inner: self, f }
     }
 
     /// Serves this server. See [`utils::serve`] for more information.
@@ -102,36 +104,39 @@ pub trait Server: Send + 'static {
 }
 
 /// Type that layers the handlers that are produced by a [`Server`].
-pub struct LayeredServer<L, S>
+pub struct LayeredServer<F, L, S>
 where
+    F: Fn() -> L + 'static,
     L: Layer<Handler, Service = Handler> + Send + 'static,
     S: Server,
 {
     inner: S,
-    layer: L,
+    f: F,
 }
 
-impl<L, S> Clone for LayeredServer<L, S>
+impl<F, L, S> Clone for LayeredServer<F, L, S>
 where
-    L: Layer<Handler, Service = Handler> + Clone + Send + 'static,
+    F: Fn() -> L + 'static + Clone,
+    L: Layer<Handler, Service = Handler> + Send + 'static,
     S: Server + Clone,
 {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
-            layer: self.layer.clone(),
+            f: self.f.clone(),
         }
     }
 }
 
-impl<L, S> Server for LayeredServer<L, S>
+impl<F, L, S> Server for LayeredServer<F, L, S>
 where
-    L: Layer<Handler, Service = Handler> + Clone + Send + 'static,
+    F: Fn() -> L + Send + 'static,
+    L: Layer<Handler, Service = Handler> + Send + 'static,
     S: Server,
 {
     fn make_routes(&self) -> Routes {
         let rb = Server::make_routes(&self.inner);
-        rb.layer_all(self.layer.clone())
+        rb.layer_all((self.f)())
     }
 }
 
@@ -200,5 +205,42 @@ impl<T, S: Server> Service<T> for IntoMakeService<S> {
 
     fn call(&mut self, _req: T) -> Self::Future {
         future::ready(Ok(self.mk_router.make_routes().build()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tower::layer::util::Identity;
+
+    use crate::server::{router::Routes, HrpcLayer, Server};
+
+    use super::utils::recommended_layers;
+
+    struct TestServer;
+
+    impl Server for TestServer {
+        fn make_routes(&self) -> Routes {
+            Routes::new()
+        }
+    }
+
+    #[test]
+    fn layered_identity() {
+        let s = TestServer;
+
+        // we can't poll it, and we don't want to anyways
+        let _ = s
+            .layer(|| HrpcLayer::new(Identity::new()))
+            .serve("127.0.0.1:2289");
+    }
+
+    #[test]
+    fn layered_recommended() {
+        let s = TestServer;
+
+        // we can't poll it, and we don't want to anyways
+        let _ = s
+            .layer(|| recommended_layers(|_| true))
+            .serve("127.0.0.1:2289");
     }
 }

@@ -67,8 +67,8 @@ where
 
 /// A set of "recommended" layers, namely:
 /// - [`TraceLayer`] for tracing requests, enables adding headers as fields by default
-///     - You can pass `Some(F)` to `filter_headers` for filtering headers by name
-pub fn recommended_layers<F>(filter_headers: Option<F>) -> HrpcLayer
+///     - pass `|_| true` if you don't want to filter any headers
+pub fn recommended_layers<F>(filter_headers: F) -> HrpcLayer
 where
     F: Fn(&HeaderName) -> bool + Clone + Send + Sync + 'static,
 {
@@ -84,14 +84,7 @@ where
                             version = ?request.version(),
                         );
                         for (header_name, header_val) in request.headers() {
-                            if let Some(f) = &filter_headers {
-                                if f(header_name) {
-                                    span.record(
-                                        header_name.as_str(),
-                                        &String::from_utf8_lossy(header_val.as_bytes()).as_ref(),
-                                    );
-                                }
-                            } else {
+                            if filter_headers(header_name) {
                                 span.record(
                                     header_name.as_str(),
                                     &String::from_utf8_lossy(header_val.as_bytes()).as_ref(),
