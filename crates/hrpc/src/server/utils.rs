@@ -66,7 +66,8 @@ where
 }
 
 /// A set of "recommended" layers, namely:
-/// - [`TraceLayer`] for tracing requests
+/// - [`TraceLayer`] for tracing requests, enables adding headers as fields by default
+///     - You can pass `Some(F)` to `filter_headers` for filtering headers by name
 pub fn recommended_layers<F>(filter_headers: Option<F>) -> HrpcLayer
 where
     F: Fn(&HeaderName) -> bool + Clone + Send + Sync + 'static,
