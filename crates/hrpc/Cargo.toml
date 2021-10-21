@@ -9,7 +9,7 @@ homepage = "https://github.com/harmony-development/hrpc-rs"
 description = "Common code for hRPC."
 keywords = ["hrpc", "harmony", "rpc", "protobuf"]
 categories = ["network-programming"]
-include = ["/src", "/build.rs", "/Cargo.toml", "/hrpc-main/protocol"]
+include = ["/src", "/build.rs", "/Cargo.toml", "/hrpc-main/protocol", "/README.md"]
 
 [package.metadata.docs.rs]
 all-features = true
