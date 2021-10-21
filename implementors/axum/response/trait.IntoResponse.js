@@ -1,3 +1,0 @@
-(function() {var implementors = {};
-implementors["hrpc"] = [{"text":"impl&lt;Msg:&nbsp;<a class=\"trait\" href=\"https://docs.rs/prost/0.8.0/prost/message/trait.Message.html\" title=\"trait prost::message::Message\">Message</a>&gt; IntoResponse for <a class=\"struct\" href=\"hrpc/struct.Response.html\" title=\"struct hrpc::Response\">Response</a>&lt;Msg&gt;","synthetic":false,"types":["hrpc::Response"]}];
-if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

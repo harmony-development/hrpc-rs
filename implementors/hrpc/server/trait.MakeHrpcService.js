@@ -1,4 +1,0 @@
-(function() {var implementors = {};
-implementors["hrpc"] = [];
-implementors["interop"] = [{"text":"impl&lt;T:&nbsp;<a class=\"trait\" href=\"interop/mu_server/trait.Mu.html\" title=\"trait interop::mu_server::Mu\">Mu</a>&gt; <a class=\"trait\" href=\"hrpc/server/trait.MakeHrpcService.html\" title=\"trait hrpc::server::MakeHrpcService\">MakeHrpcService</a> for <a class=\"struct\" href=\"interop/mu_server/struct.MuServer.html\" title=\"struct interop::mu_server::MuServer\">MuServer</a>&lt;T&gt;","synthetic":false,"types":["interop::mu_server::MuServer"]}];
-if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
