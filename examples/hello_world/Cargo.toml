@@ -3,7 +3,7 @@ name = "hello_world"
 description = "Simple 'hello world' example for hrpc-rs."
 authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 prost = "0.9"

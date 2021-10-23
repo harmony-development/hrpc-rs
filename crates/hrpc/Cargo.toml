@@ -2,7 +2,7 @@
 name = "hrpc"
 version = "0.24.0"
 authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 repository = "https://github.com/harmony-development/hrpc-rs"
 homepage = "https://github.com/harmony-development/hrpc-rs"
