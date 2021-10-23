@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/*", "examples/*"]
+resolver = "2"
 
 [workspace.metadata.nix]
 systems = ["x86_64-linux"]
