@@ -81,15 +81,16 @@ pub trait Server: Send + 'static {
         IntoMakeService { mk_router: self }
     }
 
-    /// Layers this server with a layer producer that produces layers,
-    /// and those layers will be used to transforms handlers.
-    fn layer<F, L>(self, f: F) -> LayeredServer<F, L, Self>
+    /// Layers this server with a layer.
+    ///
+    /// If your layer does not implement [`Clone`], you can wrap it using
+    /// [`HrpcLayer::new`].
+    fn layer<L>(self, layer: L) -> LayeredServer<L, Self>
     where
-        F: Fn() -> L + 'static,
-        L: Layer<Handler, Service = Handler> + Send + 'static,
+        L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
         Self: Sized,
     {
-        LayeredServer { inner: self, f }
+        LayeredServer { inner: self, layer }
     }
 
     /// Serves this server. See [`utils::serve`] for more information.
@@ -104,39 +105,36 @@ pub trait Server: Send + 'static {
 }
 
 /// Type that layers the handlers that are produced by a [`Server`].
-pub struct LayeredServer<F, L, S>
+pub struct LayeredServer<L, S>
 where
-    F: Fn() -> L + 'static,
-    L: Layer<Handler, Service = Handler> + Send + 'static,
+    L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
     S: Server,
 {
     inner: S,
-    f: F,
+    layer: L,
 }
 
-impl<F, L, S> Clone for LayeredServer<F, L, S>
+impl<L, S> Clone for LayeredServer<L, S>
 where
-    F: Fn() -> L + 'static + Clone,
-    L: Layer<Handler, Service = Handler> + Send + 'static,
+    L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
     S: Server + Clone,
 {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
-            f: self.f.clone(),
+            layer: self.layer.clone(),
         }
     }
 }
 
-impl<F, L, S> Server for LayeredServer<F, L, S>
+impl<L, S> Server for LayeredServer<L, S>
 where
-    F: Fn() -> L + Send + 'static,
-    L: Layer<Handler, Service = Handler> + Send + 'static,
+    L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
     S: Server,
 {
     fn make_routes(&self) -> Routes {
         let rb = Server::make_routes(&self.inner);
-        rb.layer_all((self.f)())
+        rb.layer_all(self.layer.clone())
     }
 }
 
@@ -230,7 +228,7 @@ mod tests {
 
         // we can't poll it, and we don't want to anyways
         let _ = s
-            .layer(|| HrpcLayer::new(Identity::new()))
+            .layer(HrpcLayer::new(Identity::new()))
             .serve("127.0.0.1:2289");
     }
 
@@ -240,7 +238,7 @@ mod tests {
 
         // we can't poll it, and we don't want to anyways
         let _ = s
-            .layer(|| recommended_layers(|_| true))
+            .layer(recommended_layers(|_| true))
             .serve("127.0.0.1:2289");
     }
 }

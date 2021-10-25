@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use futures_util::{future::BoxFuture, Future};
 use http::{header, Method, StatusCode};
-use std::{convert::Infallible, future, marker::PhantomData};
+use std::{convert::Infallible, future, marker::PhantomData, sync::Arc};
 use tower::{
     layer::{layer_fn, util::Stack},
     service_fn,
@@ -80,15 +80,16 @@ impl Service<HttpRequest> for Handler {
 }
 
 /// Layer type that produces hRPC [`Handler`]s.
+#[derive(Clone)]
 pub struct HrpcLayer {
-    inner: Box<dyn Layer<Handler, Service = Handler> + Send + 'static>,
+    inner: Arc<dyn Layer<Handler, Service = Handler> + Sync + Send + 'static>,
 }
 
 impl HrpcLayer {
     /// Create a new [`HrpcLayer`].
     pub fn new<L, S, B>(layer: L) -> Self
     where
-        L: Layer<Handler, Service = S> + Send + 'static,
+        L: Layer<Handler, Service = S> + Sync + Send + 'static,
         S: Service<HttpRequest, Response = http::Response<B>, Error = Infallible> + Send + 'static,
         S::Future: Send,
         B: http_body::Body<Data = Bytes> + Send + Sync + 'static,
@@ -106,13 +107,13 @@ impl HrpcLayer {
         });
 
         Self {
-            inner: Box::new(inner_layer),
+            inner: Arc::new(inner_layer),
         }
     }
 
     pub(crate) fn stack(inner: HrpcLayer, outer: HrpcLayer) -> Self {
         Self {
-            inner: Box::new(Stack::new(inner, outer)),
+            inner: Arc::new(Stack::new(inner, outer)),
         }
     }
 }
