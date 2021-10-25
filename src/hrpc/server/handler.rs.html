@@ -244,10 +244,11 @@
 <span id="244">244</span>
 <span id="245">245</span>
 <span id="246">246</span>
+<span id="247">247</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>};
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>, <span class="ident">Method</span>, <span class="ident">StatusCode</span>};
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>, <span class="ident">marker::PhantomData</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>, <span class="ident">marker::PhantomData</span>, <span class="ident">sync::Arc</span>};
 <span class="kw">use</span> <span class="ident">tower</span>::{
     <span class="ident">layer</span>::{<span class="ident">layer_fn</span>, <span class="ident">util::Stack</span>},
     <span class="ident">service_fn</span>,
@@ -326,15 +327,16 @@
 }
 
 <span class="doccomment">/// Layer type that produces hRPC [`Handler`]s.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HrpcLayer</span> {
-    <span class="ident">inner</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">Handler</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
+    <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">Handler</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">HrpcLayer</span> {
     <span class="doccomment">/// Create a new [`HrpcLayer`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">S</span>, <span class="ident">B</span><span class="op">&gt;</span>(<span class="ident">layer</span>: <span class="ident">L</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
     <span class="kw">where</span>
-        <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
         <span class="ident">S</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">http::Response</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
         <span class="ident">S::Future</span>: <span class="ident">Send</span>,
         <span class="ident">B</span>: <span class="ident">http_body::Body</span><span class="op">&lt;</span><span class="ident">Data</span> <span class="op">=</span> <span class="ident">Bytes</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
@@ -352,13 +354,13 @@
         });
 
         <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">inner_layer</span>),
+            <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">inner_layer</span>),
         }
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">stack</span>(<span class="ident">inner</span>: <span class="ident">HrpcLayer</span>, <span class="ident">outer</span>: <span class="ident">HrpcLayer</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">Stack::new</span>(<span class="ident">inner</span>, <span class="ident">outer</span>)),
+            <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">Stack::new</span>(<span class="ident">inner</span>, <span class="ident">outer</span>)),
         }
     }
 }
