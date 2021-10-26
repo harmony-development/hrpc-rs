@@ -135,6 +135,7 @@ impl Service<HttpRequest> for RoutesInternal {
         &mut self,
         _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
+        // TODO: fix this when able to get all values inside a matcher
         Ok(()).into()
     }
 
@@ -162,9 +163,9 @@ impl Service<HttpRequest> for RoutesFinalized {
 
     fn poll_ready(
         &mut self,
-        _cx: &mut std::task::Context<'_>,
+        cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        Ok(()).into()
+        self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, req: HttpRequest) -> Self::Future {

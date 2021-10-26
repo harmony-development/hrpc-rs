@@ -69,9 +69,9 @@ impl Service<HttpRequest> for Handler {
 
     fn poll_ready(
         &mut self,
-        _cx: &mut std::task::Context<'_>,
+        cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        Ok(()).into()
+        self.svc.poll_ready(cx)
     }
 
     fn call(&mut self, req: HttpRequest) -> Self::Future {
