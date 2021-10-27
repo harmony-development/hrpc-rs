@@ -334,7 +334,7 @@
             }
         }
     }
-    <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Mu</span><span class="op">&gt;</span> <span class="ident">Server</span> <span class="kw">for</span> <span class="ident">MuServer</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Mu</span><span class="op">&gt;</span> <span class="ident">Service</span> <span class="kw">for</span> <span class="ident">MuServer</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
         <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span> {
             <span class="kw">let</span> <span class="ident">service</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">service</span>.<span class="ident">clone</span>();
             <span class="kw">let</span> <span class="ident">mu</span> <span class="op">=</span> {

@@ -152,7 +152,7 @@
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::HttpRequest</span>;
 
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">HrpcLayer</span>, <span class="ident">Server</span>};
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">HrpcLayer</span>, <span class="ident">Service</span>};
 
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header::HeaderName</span>, <span class="ident">HeaderMap</span>};
 <span class="kw">use</span> <span class="ident">tower::ServiceBuilder</span>;
@@ -189,7 +189,7 @@
 <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">serve</span><span class="op">&lt;</span><span class="ident">A</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">S</span>, <span class="ident">address</span>: <span class="ident">A</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">hyper::Error</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">A</span>: <span class="ident">ToSocketAddrs</span>,
-    <span class="ident">S</span>: <span class="ident">Server</span>,
+    <span class="ident">S</span>: <span class="ident">Service</span>,
 {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">addrs</span> <span class="op">=</span> <span class="ident">address</span>
         .<span class="ident">to_socket_addrs</span>()
