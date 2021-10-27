@@ -5,7 +5,7 @@ use hrpc::{
         error::{CustomError, ServerError as HrpcServerError},
         handler::HrpcLayer,
         socket::Socket,
-        Server,
+        Service,
     },
     HttpResponse, IntoResponse, Request, Response,
 };

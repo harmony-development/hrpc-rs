@@ -2,7 +2,7 @@ use std::{net::ToSocketAddrs, time::Duration};
 
 use crate::HttpRequest;
 
-use super::{HrpcLayer, Server};
+use super::{HrpcLayer, Service};
 
 use http::{header::HeaderName, HeaderMap};
 use tower::ServiceBuilder;
@@ -39,7 +39,7 @@ impl HeaderMapExt for HeaderMap {
 pub async fn serve<A, S>(server: S, address: A) -> Result<(), hyper::Error>
 where
     A: ToSocketAddrs,
-    S: Server,
+    S: Service,
 {
     let mut addrs = address
         .to_socket_addrs()
