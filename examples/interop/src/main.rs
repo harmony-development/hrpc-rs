@@ -1,14 +1,15 @@
 use hrpc::{
     bail, bail_result,
     exports::{http::StatusCode, tracing::Level},
+    handler,
     server::{
         error::{CustomError, ServerError as HrpcServerError},
-        handler::HrpcLayer,
         socket::Socket,
         Service,
     },
-    HttpResponse, IntoResponse, Request, Response,
+    IntoResponse, Request, Response,
 };
+use macro_rules_attribute::apply;
 use tower::limit::RateLimitLayer;
 use tracing_subscriber::{filter::Targets, prelude::*};
 
@@ -92,8 +93,60 @@ async fn client() {
     socket.close().await;
 }
 
+#[apply(handler!)]
+async fn mu_mu(
+    _: &mut MuService,
+    req: Request<()>,
+    _: Socket<Ping, Pong>,
+) -> Result<(), HrpcServerError> {
+    println!("mu_mu: {:?}", req);
+    Ok(())
+}
+
+#[apply(handler!)]
+async fn mu(_: &mut MuService, request: Request<Ping>) -> Result<Response<Pong>, HrpcServerError> {
+    let msg = request.into_message().await?;
+    if msg.mu.is_empty() {
+        bail!(ServerError::PingEmpty);
+    }
+    Ok((Pong { mu: msg.mu }).into_response())
+}
+
+#[apply(handler!)]
+async fn mu_mute(
+    _: &mut MuService,
+    _: Request<()>,
+    sock: Socket<Ping, Pong>,
+) -> Result<(), HrpcServerError> {
+    let periodic_task = sock.spawn_task(|sock| async move {
+        let mut int = tokio::time::interval(Duration::from_secs(10));
+        int.tick().await;
+        loop {
+            int.tick().await;
+            bail_result!(
+                sock.send_message(Pong {
+                    mu: "been 10 seconds".to_string(),
+                })
+                .await
+            );
+        }
+    });
+
+    let recv_task = sock.spawn_process_task(|_sock, message| async { Ok(Pong { mu: message.mu }) });
+
+    tokio::select! {
+        res = periodic_task => res.unwrap(),
+        res = recv_task => res.unwrap(),
+    }
+}
+
 async fn server() {
     mu_server::MuServer::new(MuService)
+        .set_mu_mu_handler(mu_mu)
+        .set_mu_handler(mu)
+        .set_mu_mute_handler(mu_mute)
+        .set_mu_mute_middleware(RateLimitLayer::new(1, Duration::from_secs(5)))
+        .set_mu_mute_on_upgrade(|_, response| response)
         .serve("127.0.0.1:2289")
         .await
         .unwrap();
@@ -102,64 +155,7 @@ async fn server() {
 #[derive(Debug, Clone)]
 struct MuService;
 
-#[hrpc::exports::async_trait]
-impl mu_server::Mu for MuService {
-    async fn mu(&mut self, request: Request<Ping>) -> Result<Response<Pong>, HrpcServerError> {
-        let msg = request.into_message().await?;
-        if msg.mu.is_empty() {
-            bail!(ServerError::PingEmpty);
-        }
-        Ok((Pong { mu: msg.mu }).into_response())
-    }
-
-    fn mu_mute_on_upgrade(&mut self, response: HttpResponse) -> HttpResponse {
-        response
-    }
-
-    fn mu_mute_middleware(&self, _endpoint: &'static str) -> Option<HrpcLayer> {
-        Some(HrpcLayer::new(RateLimitLayer::new(
-            1,
-            Duration::from_secs(5),
-        )))
-    }
-
-    async fn mu_mute(
-        &mut self,
-        _request: Request<()>,
-        sock: Socket<Ping, Pong>,
-    ) -> Result<(), HrpcServerError> {
-        let periodic_task = sock.spawn_task(|sock| async move {
-            let mut int = tokio::time::interval(Duration::from_secs(10));
-            int.tick().await;
-            loop {
-                int.tick().await;
-                bail_result!(
-                    sock.send_message(Pong {
-                        mu: "been 10 seconds".to_string(),
-                    })
-                    .await
-                );
-            }
-        });
-
-        let recv_task =
-            sock.spawn_process_task(|_sock, message| async { Ok(Pong { mu: message.mu }) });
-
-        tokio::select! {
-            res = periodic_task => res.unwrap(),
-            res = recv_task => res.unwrap(),
-        }
-    }
-
-    async fn mu_mu(
-        &mut self,
-        request: Request<()>,
-        _socket: Socket<Ping, Pong>,
-    ) -> Result<(), HrpcServerError> {
-        println!("mu_mu: {:?}", request);
-        Ok(())
-    }
-}
+impl mu_server::Mu for MuService {}
 
 #[derive(Debug)]
 enum ServerError {

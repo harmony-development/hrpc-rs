@@ -35,9 +35,16 @@ pub mod gen_prelude {
         utils::serve,
         Service,
     };
-    pub use crate::{body::box_body, Request as HrpcRequest, Response as HrpcResponse};
-    pub use crate::{HttpRequest, HttpResponse};
-    pub use tower::{layer::util::Identity, Layer};
+    pub use crate::{
+        body::box_body, BoxError, HttpRequest, HttpResponse, Request as HrpcRequest,
+        Response as HrpcResponse,
+    };
+    pub use bytes::Bytes;
+    pub use futures_util::future::BoxFuture;
+    pub use http::Response as _HttpResponse;
+    pub use http_body::Body as HttpBody;
+    pub use std::{convert::Infallible, future::Future, sync::Arc};
+    pub use tower::{layer::util::Identity, Layer, Service as TowerService};
 }
 
 /// Prelude that exports commonly used server types.
