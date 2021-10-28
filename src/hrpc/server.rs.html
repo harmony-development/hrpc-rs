@@ -242,6 +242,13 @@
 <span id="242">242</span>
 <span id="243">243</span>
 <span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>, <span class="ident">net::ToSocketAddrs</span>};
 
 <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">Layer</span>, <span class="ident">Service</span> <span class="kw">as</span> <span class="ident">TowerService</span>};
@@ -279,9 +286,16 @@
         <span class="ident">utils::serve</span>,
         <span class="ident">Service</span>,
     };
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">body::box_body</span>, <span class="ident">Request</span> <span class="kw">as</span> <span class="ident">HrpcRequest</span>, <span class="ident">Response</span> <span class="kw">as</span> <span class="ident">HrpcResponse</span>};
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>};
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">layer::util::Identity</span>, <span class="ident">Layer</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{
+        <span class="ident">body::box_body</span>, <span class="ident">BoxError</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>, <span class="ident">Request</span> <span class="kw">as</span> <span class="ident">HrpcRequest</span>,
+        <span class="ident">Response</span> <span class="kw">as</span> <span class="ident">HrpcResponse</span>,
+    };
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">futures_util::future::BoxFuture</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http::Response</span> <span class="kw">as</span> <span class="ident">_HttpResponse</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http_body::Body</span> <span class="kw">as</span> <span class="ident">HttpBody</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future::Future</span>, <span class="ident">sync::Arc</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">layer::util::Identity</span>, <span class="ident">Layer</span>, <span class="ident">Service</span> <span class="kw">as</span> <span class="ident">TowerService</span>};
 }
 
 <span class="doccomment">/// Prelude that exports commonly used server types.</span>
