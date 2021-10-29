@@ -1,4 +1,4 @@
-use std::{borrow::Cow, convert::Infallible};
+use std::{borrow::Cow, convert::Infallible, task::Poll};
 
 use super::{
     handler::{not_found, CallFuture, Handler},
@@ -131,12 +131,18 @@ impl Service<HttpRequest> for RoutesInternal {
 
     type Future = CallFuture<'static>;
 
-    fn poll_ready(
-        &mut self,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        // TODO: fix this when able to get all values inside a matcher
-        Ok(()).into()
+    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+        if self.any.poll_ready(cx).is_pending() {
+            return Poll::Pending;
+        }
+
+        for handler in self.matcher.values_mut() {
+            if handler.poll_ready(cx).is_pending() {
+                return Poll::Pending;
+            }
+        }
+
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, req: HttpRequest) -> Self::Future {

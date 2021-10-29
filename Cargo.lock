@@ -623,8 +623,7 @@ checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
 [[package]]
 name = "matchit"
 version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58b6f41fdfbec185dd3dff58b51e323f5bc61692c0de38419a957b0dcfccca3c"
+source = "git+https://github.com/yusdacra/matchit.git?branch=feat/values#253421dacef7cb57703b88c6d7d6c242c91fed94"
 
 [[package]]
 name = "memchr"
