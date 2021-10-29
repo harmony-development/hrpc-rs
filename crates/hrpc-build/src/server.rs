@@ -203,9 +203,8 @@ fn generate_handlers<T: Service>(
                 });
                 handler_set.extend(quote! {
                     /// Set the handler for this endpoint.
-                    pub fn #set_name<Hndlr, HndlrFut>(mut self, handler: Hndlr) -> Self
+                    pub fn #set_name<HndlrFut>(mut self, handler: fn(&mut T, HrpcRequest<#req_message>) -> HndlrFut) -> Self
                     where
-                        Hndlr: Fn(&mut T, HrpcRequest<#req_message>) -> HndlrFut + Send + Sync + 'static,
                         HndlrFut: Future<Output = ServerResult<HrpcResponse<#res_message>>> + Send + 'static,
                     {
                         let handler = move |svr: &mut T, request: HrpcRequest<#req_message>|
@@ -247,9 +246,8 @@ fn generate_handlers<T: Service>(
                 });
                 handler_set.extend(quote! {
                     /// Set the handler for this endpoint.
-                    pub fn #set_name<Hndlr, HndlrFut>(mut self, handler: Hndlr) -> Self
+                    pub fn #set_name<HndlrFut>(mut self, handler: fn(&mut T, HrpcRequest<()>, Socket<#req_message, #res_message>) -> HndlrFut) -> Self
                     where
-                        Hndlr: Fn(&mut T, HrpcRequest<()>, Socket<#req_message, #res_message>) -> HndlrFut + Send + Sync + 'static,
                         HndlrFut: Future<Output = ServerResult<()>> + Send + 'static,
                     {
                         let handler = move |svr: &mut T, request: HrpcRequest<()>, socket: Socket<#req_message, #res_message>|
