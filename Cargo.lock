@@ -400,7 +400,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc"
-version = "0.25.1"
+version = "0.26.0"
 dependencies = [
  "ahash",
  "base64",
@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-build"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "proc-macro2",
  "prost-build",
@@ -440,7 +440,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-proc-macro"
-version = "0.1.0"
+version = "0.26.0"
 
 [[package]]
 name = "http"
