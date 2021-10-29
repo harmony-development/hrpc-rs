@@ -162,7 +162,7 @@ pub fn from_http_request<Msg: prost::Message + Default + 'static>(
 }
 
 #[doc(hidden)]
-pub fn into_http_request<Msg: prost::Message>(resp: HrpcResponse<Msg>) -> HttpResponse {
+pub fn into_http_response<Msg: prost::Message>(resp: HrpcResponse<Msg>) -> HttpResponse {
     let encoded = encode_protobuf_message(resp.data).freeze();
     http::Response::builder()
         .header(http::header::CONTENT_TYPE, hrpc_header_value())
@@ -192,7 +192,7 @@ where
 
         Box::pin(fut.map(|res| {
             let resp = match res {
-                Ok(response) => into_http_request(response),
+                Ok(response) => into_http_response(response),
                 Err(err) => {
                     tracing::error!("{}", err);
                     err.as_error_response()
