@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{borrow::Cow, convert::Infallible};
 
 use super::{
     handler::{not_found, CallFuture, Handler},
@@ -141,10 +141,20 @@ impl Service<HttpRequest> for RoutesInternal {
 
     fn call(&mut self, req: HttpRequest) -> Self::Future {
         let path = req.uri().path();
-        if let Ok(matched) = self.matcher.at_mut(path) {
-            Service::call(matched.value, req)
-        } else {
-            Service::call(&mut self.any, req)
+        match self.matcher.at_mut(path) {
+            Ok(matched) => Service::call(matched.value, req),
+            Err(err) if err.tsr() => {
+                let redirect_to = if let Some(without_tsr) = path.strip_suffix('/') {
+                    Cow::Borrowed(without_tsr)
+                } else {
+                    Cow::Owned(format!("{}/", path))
+                };
+                match self.matcher.at_mut(redirect_to.as_ref()) {
+                    Ok(matched) => Service::call(matched.value, req),
+                    _ => Service::call(&mut self.any, req),
+                }
+            }
+            _ => Service::call(&mut self.any, req),
         }
     }
 }
