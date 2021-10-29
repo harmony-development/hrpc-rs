@@ -10,9 +10,8 @@ prost = "0.9"
 hrpc = { path = "../../crates/hrpc" }
 tokio = { version = "1.8", features = ["rt", "macros", "fs"] }
 futures = "0.3"
-tracing-subscriber = "0.2"
+tracing-subscriber = "0.3"
 tower = { version = "0.4", features = ["limit", "load"] }
-macro_rules_attribute = "0.0.2"
 
 [build-dependencies]
 hrpc-build = { path = "../../crates/hrpc-build" }

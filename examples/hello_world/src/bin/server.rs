@@ -7,8 +7,8 @@ use hrpc::server::prelude::*;
 #[derive(Clone)]
 pub struct GreeterService;
 
-#[async_trait]
 impl Greeter for GreeterService {
+    #[handler]
     async fn welcome_user(
         &mut self,
         request: Request<WelcomeUserRequest>,

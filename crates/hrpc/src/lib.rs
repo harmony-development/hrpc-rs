@@ -12,8 +12,6 @@ use prost::Message as PbMsg;
 
 /// Some re-exported crates that might be useful while writing software with `hrpc`.
 pub mod exports {
-    #[doc(inline)]
-    pub use async_trait::async_trait;
     pub use bytes;
     pub use futures_util;
     pub use prost;

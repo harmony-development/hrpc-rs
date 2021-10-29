@@ -29,6 +29,7 @@ server = [
     "base64",
     "matchit",
     "tower-http/map-response-body",
+    "hrpc-proc-macro",
 ]
 client = [
     "rustls-native-certs",
@@ -44,12 +45,12 @@ prost-build = "0.9"
 
 [dependencies]
 # Core types, traits and utilities
-async-trait = "0.1"
 prost = "0.9"
 bytes = "1.0"
 http = "0.2"
 http-body = "0.4"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
+hrpc-proc-macro = { version = "0.1", path = "../hrpc-proc-macro", optional= true }
 
 # Logging
 tracing = { version = "0.1", default-features = false, features = ["std"] }

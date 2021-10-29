@@ -1,0 +1,13 @@
+[package]
+name = "hrpc-proc-macro"
+version = "0.1.0"
+edition = "2021"
+authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
+license = "MIT"
+repository = "https://github.com/harmony-development/hrpc-rs"
+homepage = "https://github.com/harmony-development/hrpc-rs"
+description = "Proc macros for hRPC."
+keywords = ["hrpc", "harmony", "rpc", "macros", "protobuf"]
+
+[lib]
+proc-macro = true

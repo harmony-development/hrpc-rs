@@ -1,5 +1,6 @@
 use std::{convert::Infallible, future, net::ToSocketAddrs};
 
+use futures_util::future::BoxFuture;
 use tower::{Layer, Service as TowerService};
 
 use crate::{HttpRequest, HttpResponse};
@@ -55,14 +56,13 @@ pub mod prelude {
         socket::Socket,
         Service,
     };
-    pub use crate::{IntoResponse, Request, Response};
-    pub use async_trait::async_trait;
+    pub use crate::{make_handler, IntoResponse, Request, Response};
+    pub use hrpc_proc_macro::handler;
     pub use http::StatusCode;
 }
 
 /// The core trait of `hrpc-rs` servers. This trait acts as a `tower::MakeService`,
 /// it can produce a set of [`Routes`] and can be combined with other [`Service`]s.
-#[async_trait::async_trait]
 pub trait Service: Send + 'static {
     /// Creates a [`Routes`], which will be used to build a [`RoutesFinalized`] instance.
     fn make_routes(&self) -> Routes;
@@ -101,13 +101,13 @@ pub trait Service: Send + 'static {
     }
 
     /// Serves this service. See [`utils::serve`] for more information.
-    async fn serve<A>(self, address: A) -> Result<(), hyper::Error>
+    fn serve<'a, A>(self, address: A) -> BoxFuture<'a, Result<(), hyper::Error>>
     where
-        A: ToSocketAddrs + Send,
+        A: ToSocketAddrs + Send + 'a,
         A::Iter: Send,
         Self: Sized,
     {
-        utils::serve(self, address).await
+        Box::pin(utils::serve(self, address))
     }
 }
 
