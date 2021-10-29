@@ -79,11 +79,11 @@ macro_rules! bail_result_as_response {
 macro_rules! combine_services {
     ($fsvc:ident, $($svc:ident),+) => {
         {
-            use $crate::server::Server;
+            use $crate::server::Service;
 
             let svc = $fsvc;
             $(
-                let svc = Server::combine_with(svc, $svc);
+                let svc = Service::combine_with(svc, $svc);
             )+
             svc
         }
