@@ -175,7 +175,6 @@
 <span id="175">175</span>
 <span id="176">176</span>
 <span id="177">177</span>
-<span id="178">178</span>
 </pre><pre class="rust"><code><span class="doccomment">/// Request used in `WelcomeUser` endpoint.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">::prost::Message</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WelcomeUserRequest</span> {
@@ -333,12 +332,11 @@
             <span class="self">self</span>
         }
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">r&quot; Set the handler for this endpoint.&quot;</span>]</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_welcome_user_handler</span><span class="op">&lt;</span><span class="ident">Hndlr</span>, <span class="ident">HndlrFut</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">handler</span>: <span class="ident">Hndlr</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_welcome_user_handler</span><span class="op">&lt;</span><span class="ident">HndlrFut</span><span class="op">&gt;</span>(
+            <span class="kw-2">mut</span> <span class="self">self</span>,
+            <span class="ident">handler</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">HrpcRequest</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::WelcomeUserRequest</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HndlrFut</span>,
+        ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
         <span class="kw">where</span>
-            <span class="ident">Hndlr</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">HrpcRequest</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::WelcomeUserRequest</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HndlrFut</span>
-                <span class="op">+</span> <span class="ident">Send</span>
-                <span class="op">+</span> <span class="ident">Sync</span>
-                <span class="op">+</span> <span class="lifetime">&#39;static</span>,
             <span class="ident">HndlrFut</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">HrpcResponse</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::WelcomeUserResponse</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>
                 <span class="op">+</span> <span class="ident">Send</span>
                 <span class="op">+</span> <span class="lifetime">&#39;static</span>,
