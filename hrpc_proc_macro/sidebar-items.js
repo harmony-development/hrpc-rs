@@ -1,0 +1,1 @@
+initSidebarItems({"attr":[["handler","An attribute macro that turns an `async fn` into a hRPC handler function."]]});

@@ -43,8 +43,8 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">GreeterService</span>;
 
-<span class="attribute">#[<span class="ident">async_trait</span>]</span>
 <span class="kw">impl</span> <span class="ident">Greeter</span> <span class="kw">for</span> <span class="ident">GreeterService</span> {
+    <span class="attribute">#[<span class="ident">handler</span>]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">welcome_user</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">WelcomeUserRequest</span><span class="op">&gt;</span>,

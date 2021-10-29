@@ -3,6 +3,7 @@ sourcesIndex["client"] = {"name":"","files":["client.rs"]};
 sourcesIndex["hello_world"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["hrpc"] = {"name":"","dirs":[{"name":"client","files":["error.rs","socket.rs"]},{"name":"server","files":["error.rs","handler.rs","macros.rs","router.rs","socket.rs","utils.rs","ws.rs"]}],"files":["body.rs","client.rs","lib.rs","server.rs"]};
 sourcesIndex["hrpc_build"] = {"name":"","files":["client.rs","lib.rs","prost.rs","server.rs"]};
+sourcesIndex["hrpc_proc_macro"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["interop"] = {"name":"","files":["main.rs"]};
 sourcesIndex["server"] = {"name":"","files":["server.rs"]};
 createSourceSidebar();

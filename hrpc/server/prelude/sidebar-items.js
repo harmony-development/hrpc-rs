@@ -1,1 +1,1 @@
-initSidebarItems({"attr":[["async_trait",""]],"struct":[["StatusCode","An HTTP status code (`status-code` in RFC 7230 et al.)."]]});
+initSidebarItems({"attr":[["handler","An attribute macro that turns an `async fn` into a hRPC handler function."]],"struct":[["StatusCode","An HTTP status code (`status-code` in RFC 7230 et al.)."]]});

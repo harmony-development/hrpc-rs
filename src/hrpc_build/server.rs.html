@@ -203,128 +203,6 @@
 <span id="203">203</span>
 <span id="204">204</span>
 <span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
-<span id="215">215</span>
-<span id="216">216</span>
-<span id="217">217</span>
-<span id="218">218</span>
-<span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
-<span id="222">222</span>
-<span id="223">223</span>
-<span id="224">224</span>
-<span id="225">225</span>
-<span id="226">226</span>
-<span id="227">227</span>
-<span id="228">228</span>
-<span id="229">229</span>
-<span id="230">230</span>
-<span id="231">231</span>
-<span id="232">232</span>
-<span id="233">233</span>
-<span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
-<span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
-<span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
-<span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
-<span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Method</span>, <span class="ident">Service</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">generate_doc_comment</span>, <span class="ident">generate_doc_comments</span>, <span class="ident">naive_snake_case</span>};
 <span class="kw">use</span> <span class="ident">proc_macro2::TokenStream</span>;
@@ -341,8 +219,7 @@
     <span class="kw">let</span> <span class="ident">server_mod</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_server&quot;</span>, <span class="ident">naive_snake_case</span>(<span class="ident">service</span>.<span class="ident">name</span>()));
     <span class="kw">let</span> <span class="ident">generated_trait</span> <span class="op">=</span> <span class="ident">generate_trait</span>(<span class="ident">service</span>, <span class="ident">proto_path</span>, <span class="ident">server_trait</span>.<span class="ident">clone</span>());
     <span class="kw">let</span> <span class="ident">service_doc</span> <span class="op">=</span> <span class="ident">generate_doc_comments</span>(<span class="ident">service</span>.<span class="ident">comment</span>());
-    <span class="kw">let</span> (<span class="ident">make_handlers</span>, <span class="ident">routes</span>, <span class="ident">handler_fields</span>, <span class="ident">handler_new</span>, <span class="ident">handler_clone</span>, <span class="ident">handler_set</span>) <span class="op">=</span>
-        <span class="ident">generate_handlers</span>(<span class="ident">service</span>, <span class="ident">proto_path</span>);
+    <span class="kw">let</span> (<span class="ident">make_handlers</span>, <span class="ident">routes</span>) <span class="op">=</span> <span class="ident">generate_handlers</span>(<span class="ident">service</span>, <span class="ident">proto_path</span>);
 
     <span class="macro">quote!</span> {
         <span class="doccomment">/// Generated server implementations.</span>
@@ -355,14 +232,12 @@
             #<span class="ident">service_doc</span>
             <span class="kw">pub</span> <span class="kw">struct</span> #<span class="ident">server_service</span><span class="op">&lt;</span><span class="ident">T</span>: #<span class="ident">server_trait</span><span class="op">&gt;</span> {
                 <span class="ident">service</span>: <span class="ident">T</span>,
-                #<span class="ident">handler_fields</span>
             }
 
             <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: #<span class="ident">server_trait</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> #<span class="ident">server_service</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
                 <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
                     <span class="self">Self</span> {
                         <span class="ident">service</span>: <span class="self">self</span>.<span class="ident">service</span>.<span class="ident">clone</span>(),
-                        #<span class="ident">handler_clone</span>
                     }
                 }
             }
@@ -378,13 +253,10 @@
                 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">service</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
                     <span class="self">Self</span> {
                         <span class="ident">service</span>,
-                        #<span class="ident">handler_new</span>
                     }
                 }
 
                 #<span class="ident">make_handlers</span>
-
-                #<span class="ident">handler_set</span>
             }
         }
     }
@@ -399,7 +271,6 @@
 
     <span class="macro">quote!</span> {
         #<span class="ident">trait_doc</span>
-        <span class="attribute">#[<span class="ident">hrpc::exports::async_trait</span>]</span>
         <span class="kw">pub</span> <span class="kw">trait</span> #<span class="ident">server_trait</span> : <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sized</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
             #<span class="ident">methods</span>
         }
@@ -438,18 +309,14 @@
                 #<span class="ident">middleware_methods</span>
 
                 #<span class="ident">method_doc</span>
-                <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">HrpcResponse</span><span class="op">&lt;</span>#<span class="ident">res_message</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-                    <span class="prelude-val">Err</span>(<span class="string">&quot;not implemented&quot;</span>.<span class="ident">into</span>())
-                }
+                <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">HrpcResponse</span><span class="op">&lt;</span>#<span class="ident">res_message</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>;
             },
             (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">|</span> (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">quote!</span> {
                 #<span class="ident">middleware_methods</span>
                 #<span class="ident">on_upgrade_method</span>
 
                 #<span class="ident">method_doc</span>
-                <span class="kw">async</span> <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">req_message</span>, #<span class="ident">res_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ServerResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-                    <span class="prelude-val">Err</span>(<span class="string">&quot;not implemented&quot;</span>.<span class="ident">into</span>())
-                }
+                <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">req_message</span>, #<span class="ident">res_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">ServerResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span>;
             },
             (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;{}: Client streaming server unary method is invalid.&quot;</span>, <span class="ident">name</span>),
         };
@@ -460,25 +327,11 @@
     <span class="ident">stream</span>
 }
 
-<span class="kw">fn</span> <span class="ident">generate_handlers</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Service</span><span class="op">&gt;</span>(
-    <span class="ident">service</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>,
-    <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-) <span class="op">-</span><span class="op">&gt;</span> (
-    <span class="ident">TokenStream</span>,
-    <span class="ident">TokenStream</span>,
-    <span class="ident">TokenStream</span>,
-    <span class="ident">TokenStream</span>,
-    <span class="ident">TokenStream</span>,
-    <span class="ident">TokenStream</span>,
-) {
+<span class="kw">fn</span> <span class="ident">generate_handlers</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Service</span><span class="op">&gt;</span>(<span class="ident">service</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">TokenStream</span>, <span class="ident">TokenStream</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">make_handlers</span> <span class="op">=</span> <span class="ident">TokenStream::new</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">routes</span> <span class="op">=</span> <span class="macro">quote!</span> {
         <span class="ident">Routes::new</span>()
     };
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">handler_fields</span> <span class="op">=</span> <span class="ident">TokenStream::new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">handler_new</span> <span class="op">=</span> <span class="ident">TokenStream::new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">handler_clone</span> <span class="op">=</span> <span class="ident">TokenStream::new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">handler_set</span> <span class="op">=</span> <span class="ident">TokenStream::new</span>();
 
     <span class="kw">for</span> <span class="ident">method</span> <span class="kw">in</span> <span class="ident">service</span>.<span class="ident">methods</span>().<span class="ident">iter</span>() {
         <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">method</span>.<span class="ident">name</span>());
@@ -501,57 +354,13 @@
         <span class="kw">let</span> <span class="ident">streaming</span> <span class="op">=</span> (<span class="ident">method</span>.<span class="ident">client_streaming</span>(), <span class="ident">method</span>.<span class="ident">server_streaming</span>());
         <span class="kw">let</span> <span class="ident">endpoint</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;/{}/{}&quot;</span>, <span class="ident">package_name</span>, <span class="ident">method_name</span>);
 
-        <span class="kw">let</span> <span class="ident">set_middleware_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;set_{}_middleware&quot;</span>, <span class="ident">name</span>);
-        <span class="kw">let</span> <span class="ident">middleware_field_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_middleware&quot;</span>, <span class="ident">name</span>);
-        <span class="ident">handler_fields</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> {
-            #<span class="ident">middleware_field_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HrpcLayer</span><span class="op">&gt;</span>,
-        });
-        <span class="ident">handler_set</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> {
-            <span class="doccomment">/// Set the middleware for this endpoint.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">set_middleware_name</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">S</span>, <span class="ident">B</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">layer</span>: <span class="ident">L</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
-            <span class="kw">where</span>
-                <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-                <span class="ident">S</span>: <span class="ident">TowerService</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">_HttpResponse</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-                <span class="ident">S::Future</span>: <span class="ident">Send</span>,
-                <span class="ident">B</span>: <span class="ident">HttpBody</span><span class="op">&lt;</span><span class="ident">Data</span> <span class="op">=</span> <span class="ident">Bytes</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-                <span class="ident">B::Error</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">BoxError</span><span class="op">&gt;</span>,
-            {
-                <span class="self">self</span>.#<span class="ident">middleware_field_name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">HrpcLayer::new</span>(<span class="ident">layer</span>));
-                <span class="self">self</span>
-            }
-        });
-
-        <span class="kw">let</span> <span class="ident">set_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;set_{}_handler&quot;</span>, <span class="ident">name</span>);
         <span class="kw">let</span> <span class="ident">make_handler_body</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">streaming</span> {
             (<span class="bool-val">false</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">handler_fields</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> {
-                    #<span class="ident">name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">HrpcRequest</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span>)
-                        <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">HrpcResponse</span><span class="op">&lt;</span>#<span class="ident">res_message</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-                });
-                <span class="ident">handler_set</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> {
-                    <span class="doccomment">/// Set the handler for this endpoint.</span>
-                    <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">set_name</span><span class="op">&lt;</span><span class="ident">HndlrFut</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">handler</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">HrpcRequest</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HndlrFut</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
-                    <span class="kw">where</span>
-                        <span class="ident">HndlrFut</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">HrpcResponse</span><span class="op">&lt;</span>#<span class="ident">res_message</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-                    {
-                        <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">svr</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span><span class="op">|</span>
-                        <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">HrpcResponse</span><span class="op">&lt;</span>#<span class="ident">res_message</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-                            <span class="ident">Box::pin</span>(<span class="ident">handler</span>(<span class="ident">svr</span>, <span class="ident">request</span>))
-                        };
-                        <span class="self">self</span>.#<span class="ident">name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Arc::new</span>(<span class="ident">handler</span>));
-                        <span class="self">self</span>
-                    }
-                });
                 <span class="macro">quote!</span> {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">service</span>.<span class="ident">clone</span>();
 
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handler</span>) <span class="op">=</span> <span class="self">self</span>.#<span class="ident">name</span>.<span class="ident">clone</span>() {
-                        <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span><span class="op">|</span> <span class="ident">handler</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">svr</span>, <span class="ident">request</span>);
-                        <span class="ident">unary_handler</span>(<span class="ident">handler</span>)
-                    } <span class="kw">else</span> {
-                        <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>. #<span class="ident">name</span> (<span class="ident">request</span>).<span class="kw">await</span> };
-                        <span class="ident">unary_handler</span>(<span class="ident">handler</span>)
-                    }
+                    <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>. #<span class="ident">name</span> (<span class="ident">request</span>).<span class="kw">await</span> };
+                    <span class="ident">unary_handler</span>(<span class="ident">handler</span>)
                 }
             }
             (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(
@@ -559,57 +368,13 @@
                 <span class="ident">package_name</span>, <span class="ident">method_name</span>
             ),
             (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">|</span> (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">on_upgrade_field_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_on_upgrade&quot;</span>, <span class="ident">name</span>);
-                <span class="kw">let</span> <span class="ident">set_on_upgrade_name</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;set_{}_on_upgrade&quot;</span>, <span class="ident">name</span>);
-
-                <span class="ident">handler_new</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> { #<span class="ident">on_upgrade_field_name</span>: <span class="prelude-val">None</span>, });
-                <span class="ident">handler_clone</span>.<span class="ident">extend</span>(
-                    <span class="macro">quote!</span> { #<span class="ident">on_upgrade_field_name</span>: <span class="self">self</span>.#<span class="ident">on_upgrade_field_name</span>.<span class="ident">clone</span>(), },
-                );
-                <span class="ident">handler_fields</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> {
-                    #<span class="ident">name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">HrpcRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">req_message</span>, #<span class="ident">res_message</span><span class="op">&gt;</span>)
-                        <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">ServerResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-                    #<span class="ident">on_upgrade_field_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">HttpResponse</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HttpResponse</span><span class="op">&gt;</span>,
-                });
-                <span class="ident">handler_set</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> {
-                    <span class="doccomment">/// Set the handler for this endpoint.</span>
-                    <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">set_name</span><span class="op">&lt;</span><span class="ident">HndlrFut</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">handler</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">HrpcRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">req_message</span>, #<span class="ident">res_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HndlrFut</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
-                    <span class="kw">where</span>
-                        <span class="ident">HndlrFut</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ServerResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-                    {
-                        <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">svr</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">req_message</span>, #<span class="ident">res_message</span><span class="op">&gt;</span><span class="op">|</span>
-                        <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">ServerResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
-                            <span class="ident">Box::pin</span>(<span class="ident">handler</span>(<span class="ident">svr</span>, <span class="ident">request</span>, <span class="ident">socket</span>))
-                        };
-                        <span class="self">self</span>.#<span class="ident">name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Arc::new</span>(<span class="ident">handler</span>));
-                        <span class="self">self</span>
-                    }
-
-                    <span class="doccomment">/// Set the on upgrade method for this endpoint.</span>
-                    <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">set_on_upgrade_name</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">on_upgrade</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">HttpResponse</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HttpResponse</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-                        <span class="self">self</span>.#<span class="ident">on_upgrade_field_name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">on_upgrade</span>);
-                        <span class="self">self</span>
-                    }
-                });
                 <span class="macro">quote!</span> {
-                    <span class="kw">let</span> <span class="ident">on_upgrade</span> <span class="op">=</span> {
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">service</span>.<span class="ident">clone</span>();
-                        <span class="kw">let</span> <span class="ident">on_upgrade</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">on_upgrade</span>) <span class="op">=</span> <span class="self">self</span>.#<span class="ident">on_upgrade_field_name</span>.<span class="ident">clone</span>() {
-                            <span class="ident">on_upgrade</span>
-                        } <span class="kw">else</span> {
-                            <span class="ident">T</span>::#<span class="ident">on_upgrade_response_name</span>
-                        };
-                        <span class="kw">move</span> <span class="op">|</span><span class="ident">response</span>: <span class="ident">HttpResponse</span><span class="op">|</span> <span class="ident">on_upgrade</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">svr</span>, <span class="ident">response</span>)
-                    };
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">service</span>.<span class="ident">clone</span>();
+                    <span class="kw">let</span> <span class="ident">on_upgrade</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">response</span>: <span class="ident">HttpResponse</span><span class="op">|</span> <span class="ident">svr</span>.#<span class="ident">on_upgrade_response_name</span>(<span class="ident">response</span>);
 
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">service</span>.<span class="ident">clone</span>();
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handler</span>) <span class="op">=</span> <span class="self">self</span>.#<span class="ident">name</span>.<span class="ident">clone</span>() {
-                        <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">req_message</span>, #<span class="ident">res_message</span><span class="op">&gt;</span><span class="op">|</span> <span class="ident">handler</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">svr</span>, <span class="ident">request</span>, <span class="ident">socket</span>);
-                        <span class="ident">ws_handler</span>(<span class="ident">handler</span>, <span class="ident">on_upgrade</span>)
-                    } <span class="kw">else</span> {
-                        <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">req_message</span>, #<span class="ident">res_message</span><span class="op">&gt;</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>. #<span class="ident">name</span> (<span class="ident">request</span>, <span class="ident">socket</span>).<span class="kw">await</span> };
-                        <span class="ident">ws_handler</span>(<span class="ident">handler</span>, <span class="ident">on_upgrade</span>)
-                    }
+                    <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">req_message</span>, #<span class="ident">res_message</span><span class="op">&gt;</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>. #<span class="ident">name</span> (<span class="ident">request</span>, <span class="ident">socket</span>).<span class="kw">await</span> };
+                    <span class="ident">ws_handler</span>(<span class="ident">handler</span>, <span class="ident">on_upgrade</span>)
                 }
             }
         };
@@ -639,18 +404,9 @@
 
         <span class="ident">routes</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> { .<span class="ident">route</span>(#<span class="ident">endpoint</span>, <span class="self">self</span>. #<span class="ident">make_handler_name</span> ()) });
         <span class="ident">make_handlers</span>.<span class="ident">extend</span>(<span class="ident">make_handler_fn</span>);
-        <span class="ident">handler_new</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> { #<span class="ident">name</span>: <span class="prelude-val">None</span>, #<span class="ident">middleware_field_name</span>: <span class="prelude-val">None</span>, });
-        <span class="ident">handler_clone</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> { #<span class="ident">name</span>: <span class="self">self</span>.#<span class="ident">name</span>.<span class="ident">clone</span>(), #<span class="ident">middleware_field_name</span>: <span class="self">self</span>.#<span class="ident">middleware_field_name</span>.<span class="ident">clone</span>(), })
     }
 
-    (
-        <span class="ident">make_handlers</span>,
-        <span class="ident">routes</span>,
-        <span class="ident">handler_fields</span>,
-        <span class="ident">handler_new</span>,
-        <span class="ident">handler_clone</span>,
-        <span class="ident">handler_set</span>,
-    )
+    (<span class="ident">make_handlers</span>, <span class="ident">routes</span>)
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="hrpc_build" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>

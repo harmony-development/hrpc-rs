@@ -251,6 +251,7 @@
 <span id="251">251</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>, <span class="ident">net::ToSocketAddrs</span>};
 
+<span class="kw">use</span> <span class="ident">futures_util::future::BoxFuture</span>;
 <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">Layer</span>, <span class="ident">Service</span> <span class="kw">as</span> <span class="ident">TowerService</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>};
@@ -306,14 +307,13 @@
         <span class="ident">socket::Socket</span>,
         <span class="ident">Service</span>,
     };
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">IntoResponse</span>, <span class="ident">Request</span>, <span class="ident">Response</span>};
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">make_handler</span>, <span class="ident">IntoResponse</span>, <span class="ident">Request</span>, <span class="ident">Response</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">hrpc_proc_macro::handler</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http::StatusCode</span>;
 }
 
 <span class="doccomment">/// The core trait of `hrpc-rs` servers. This trait acts as a `tower::MakeService`,</span>
 <span class="doccomment">/// it can produce a set of [`Routes`] and can be combined with other [`Service`]s.</span>
-<span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Service</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
     <span class="doccomment">/// Creates a [`Routes`], which will be used to build a [`RoutesFinalized`] instance.</span>
     <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span>;
@@ -352,13 +352,13 @@
     }
 
     <span class="doccomment">/// Serves this service. See [`utils::serve`] for more information.</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">serve</span><span class="op">&lt;</span><span class="ident">A</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">address</span>: <span class="ident">A</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">hyper::Error</span><span class="op">&gt;</span>
+    <span class="kw">fn</span> <span class="ident">serve</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">A</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">address</span>: <span class="ident">A</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">hyper::Error</span><span class="op">&gt;</span><span class="op">&gt;</span>
     <span class="kw">where</span>
-        <span class="ident">A</span>: <span class="ident">ToSocketAddrs</span> <span class="op">+</span> <span class="ident">Send</span>,
+        <span class="ident">A</span>: <span class="ident">ToSocketAddrs</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>,
         <span class="ident">A::Iter</span>: <span class="ident">Send</span>,
         <span class="self">Self</span>: <span class="ident">Sized</span>,
     {
-        <span class="ident">utils::serve</span>(<span class="self">self</span>, <span class="ident">address</span>).<span class="kw">await</span>
+        <span class="ident">Box::pin</span>(<span class="ident">utils::serve</span>(<span class="self">self</span>, <span class="ident">address</span>))
     }
 }
 
