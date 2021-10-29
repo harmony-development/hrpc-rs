@@ -245,8 +245,12 @@
 <span id="245">245</span>
 <span id="246">246</span>
 <span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
-<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>};
+<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>, <span class="ident">Method</span>, <span class="ident">StatusCode</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>, <span class="ident">marker::PhantomData</span>, <span class="ident">sync::Arc</span>};
 <span class="kw">use</span> <span class="ident">tower</span>::{
@@ -265,14 +269,14 @@
     <span class="ident">ws::WebSocketUpgrade</span>,
 };
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">bail</span>, <span class="ident">bail_result_as_response</span>,
+    <span class="ident">bail</span>,
     <span class="ident">body</span>::{<span class="ident">full_box_body</span>, <span class="ident">HyperBody</span>},
     <span class="ident">encode_protobuf_message</span>, <span class="ident">hrpc_header_value</span>, <span class="ident">BoxError</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>,
     <span class="ident">Request</span> <span class="kw">as</span> <span class="ident">HrpcRequest</span>, <span class="ident">Response</span> <span class="kw">as</span> <span class="ident">HrpcResponse</span>, <span class="ident">HRPC_HEADER</span>,
 };
 
 <span class="doccomment">/// Call future used by [`Handler`].</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">CallFuture</span> <span class="op">=</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HttpResponse</span>, <span class="ident">Infallible</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type</span> <span class="ident">CallFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HttpResponse</span>, <span class="ident">Infallible</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// A hRPC handler.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Handler</span> {
@@ -312,7 +316,7 @@
 
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span>;
 
-    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">CallFuture</span>;
+    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">CallFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">poll_ready</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
@@ -426,25 +430,27 @@
     <span class="ident">HandlerFut</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HrpcResponse</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">ServerError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span>,
     <span class="ident">HandlerFn</span>: <span class="ident">FnOnce</span>(<span class="ident">HrpcRequest</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HandlerFut</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">let</span> <span class="ident">service</span> <span class="op">=</span> <span class="ident">service_fn</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">req</span>: <span class="ident">HttpRequest</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="ident">handler</span>.<span class="ident">clone</span>();
-        <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">from_http_request</span>(<span class="ident">req</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">request</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">request</span>,
+    <span class="kw">let</span> <span class="ident">service</span> <span class="op">=</span> <span class="ident">service_fn</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">req</span>: <span class="ident">HttpRequest</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CallFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">from_http_request</span>(<span class="ident">req</span>) {
+            <span class="prelude-val">Ok</span>(<span class="ident">request</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">request</span>,
+            <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">tracing::error!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>);
+                <span class="kw">return</span> <span class="ident">Box::pin</span>(<span class="ident">future::ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">err</span>.<span class="ident">as_error_response</span>())));
+            }
+        };
+
+        <span class="kw">let</span> <span class="ident">fut</span> <span class="op">=</span> (<span class="ident">handler</span>.<span class="ident">clone</span>())(<span class="ident">request</span>);
+
+        <span class="ident">Box::pin</span>(<span class="ident">fut</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">res</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">res</span> {
+                <span class="prelude-val">Ok</span>(<span class="ident">response</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">into_http_request</span>(<span class="ident">response</span>),
                 <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="macro">tracing::error!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>);
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">err</span>.<span class="ident">as_error_response</span>());
+                    <span class="ident">err</span>.<span class="ident">as_error_response</span>()
                 }
             };
-            <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">handler</span>(<span class="ident">request</span>).<span class="kw">await</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">response</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">response</span>,
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">tracing::error!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>);
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">err</span>.<span class="ident">as_error_response</span>());
-                }
-            };
-            <span class="prelude-val">Ok</span>(<span class="ident">into_http_request</span>(<span class="ident">response</span>))
-        }
+            <span class="prelude-val">Ok</span>(<span class="ident">resp</span>)
+        }))
     });
     <span class="ident">Handler::new</span>(<span class="ident">service</span>)
 }
@@ -462,32 +468,34 @@
     <span class="ident">OnUpgradeFn</span>: <span class="ident">FnOnce</span>(<span class="ident">HttpResponse</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HttpResponse</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
     <span class="kw">let</span> <span class="ident">service</span> <span class="op">=</span> <span class="ident">service_fn</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">req</span>: <span class="ident">HttpRequest</span><span class="op">|</span> {
+        <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">HrpcRequest</span> {
+            <span class="ident">body</span>: <span class="ident">HyperBody::empty</span>(),
+            <span class="ident">header_map</span>: <span class="ident">req</span>.<span class="ident">headers</span>().<span class="ident">clone</span>(),
+            <span class="ident">message</span>: <span class="ident">PhantomData</span>,
+        };
+
+        <span class="kw">let</span> <span class="ident">websocket_upgrade</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">WebSocketUpgrade::from_request</span>(<span class="ident">req</span>) {
+            <span class="prelude-val">Ok</span>(<span class="ident">upgrade</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">upgrade</span>,
+            <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">tracing::error!</span>(<span class="string">&quot;web socket upgrade error: {}&quot;</span>, <span class="ident">err</span>);
+                <span class="kw">return</span> <span class="ident">future::ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">err</span>.<span class="ident">as_error_response</span>()));
+            }
+        };
+
         <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="ident">handler</span>.<span class="ident">clone</span>();
+        <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">websocket_upgrade</span>
+            .<span class="ident">on_upgrade</span>(<span class="op">|</span><span class="ident">ws</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> {
+                <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">Socket::new</span>(<span class="ident">ws</span>);
+                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">handler</span>(<span class="ident">request</span>, <span class="ident">socket</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">res</span> {
+                    <span class="macro">tracing::error!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>);
+                }
+                <span class="ident">socket</span>.<span class="ident">close</span>().<span class="kw">await</span>;
+            })
+            .<span class="ident">into_response</span>();
+
         <span class="kw">let</span> <span class="ident">on_upgrade</span> <span class="op">=</span> <span class="ident">on_upgrade</span>.<span class="ident">clone</span>();
-        <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">HrpcRequest</span> {
-                <span class="ident">body</span>: <span class="ident">HyperBody::empty</span>(),
-                <span class="ident">header_map</span>: <span class="ident">req</span>.<span class="ident">headers</span>().<span class="ident">clone</span>(),
-                <span class="ident">message</span>: <span class="ident">PhantomData</span>,
-            };
-            <span class="kw">let</span> <span class="ident">websocket_upgrade</span> <span class="op">=</span>
-                <span class="macro">bail_result_as_response!</span>(<span class="ident">WebSocketUpgrade::from_request</span>(<span class="ident">req</span>), <span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
-                    <span class="macro">tracing::error!</span>(<span class="string">&quot;web socket upgrade error: {}&quot;</span>, <span class="ident">err</span>);
-                });
-
-            <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">websocket_upgrade</span>
-                .<span class="ident">on_upgrade</span>(<span class="op">|</span><span class="ident">ws</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> {
-                    <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">Socket::new</span>(<span class="ident">ws</span>);
-                    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">handler</span>(<span class="ident">request</span>, <span class="ident">socket</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">res</span> {
-                        <span class="macro">tracing::error!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>);
-                    }
-                    <span class="ident">socket</span>.<span class="ident">close</span>().<span class="kw">await</span>;
-                })
-                .<span class="ident">into_response</span>();
-
-            <span class="prelude-val">Ok</span>(<span class="ident">on_upgrade</span>(<span class="ident">response</span>))
-        }
+        <span class="ident">future::ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">on_upgrade</span>(<span class="ident">response</span>)))
     });
 
     <span class="ident">Handler::new</span>(<span class="ident">service</span>)
