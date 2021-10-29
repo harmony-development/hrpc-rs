@@ -129,7 +129,7 @@ impl Service<HttpRequest> for RoutesInternal {
 
     type Error = Infallible;
 
-    type Future = CallFuture;
+    type Future = CallFuture<'static>;
 
     fn poll_ready(
         &mut self,
@@ -159,7 +159,7 @@ impl Service<HttpRequest> for RoutesFinalized {
 
     type Error = Infallible;
 
-    type Future = CallFuture;
+    type Future = CallFuture<'static>;
 
     fn poll_ready(
         &mut self,

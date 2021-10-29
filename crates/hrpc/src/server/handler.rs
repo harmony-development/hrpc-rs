@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use futures_util::{future::BoxFuture, Future};
+use futures_util::{future::BoxFuture, Future, FutureExt};
 use http::{header, Method, StatusCode};
 use std::{convert::Infallible, future, marker::PhantomData, sync::Arc};
 use tower::{
@@ -18,14 +18,14 @@ use super::{
     ws::WebSocketUpgrade,
 };
 use crate::{
-    bail, bail_result_as_response,
+    bail,
     body::{full_box_body, HyperBody},
     encode_protobuf_message, hrpc_header_value, BoxError, HttpRequest, HttpResponse,
     Request as HrpcRequest, Response as HrpcResponse, HRPC_HEADER,
 };
 
 /// Call future used by [`Handler`].
-pub type CallFuture = BoxFuture<'static, Result<HttpResponse, Infallible>>;
+pub(crate) type CallFuture<'a> = BoxFuture<'a, Result<HttpResponse, Infallible>>;
 
 /// A hRPC handler.
 pub struct Handler {
@@ -65,7 +65,7 @@ impl Service<HttpRequest> for Handler {
 
     type Error = Infallible;
 
-    type Future = CallFuture;
+    type Future = CallFuture<'static>;
 
     fn poll_ready(
         &mut self,
@@ -179,25 +179,27 @@ where
     HandlerFut: Future<Output = Result<HrpcResponse<Resp>, ServerError>> + Send,
     HandlerFn: FnOnce(HrpcRequest<Req>) -> HandlerFut + Clone + Send + 'static,
 {
-    let service = service_fn(move |req: HttpRequest| {
-        let handler = handler.clone();
-        async move {
-            let request = match from_http_request(req) {
-                Ok(request) => request,
+    let service = service_fn(move |req: HttpRequest| -> CallFuture<'_> {
+        let request = match from_http_request(req) {
+            Ok(request) => request,
+            Err(err) => {
+                tracing::error!("{}", err);
+                return Box::pin(future::ready(Ok(err.as_error_response())));
+            }
+        };
+
+        let fut = (handler.clone())(request);
+
+        Box::pin(fut.map(|res| {
+            let resp = match res {
+                Ok(response) => into_http_request(response),
                 Err(err) => {
                     tracing::error!("{}", err);
-                    return Ok(err.as_error_response());
+                    err.as_error_response()
                 }
             };
-            let response = match handler(request).await {
-                Ok(response) => response,
-                Err(err) => {
-                    tracing::error!("{}", err);
-                    return Ok(err.as_error_response());
-                }
-            };
-            Ok(into_http_request(response))
-        }
+            Ok(resp)
+        }))
     });
     Handler::new(service)
 }
@@ -215,32 +217,34 @@ where
     OnUpgradeFn: FnOnce(HttpResponse) -> HttpResponse + Clone + Send + 'static,
 {
     let service = service_fn(move |req: HttpRequest| {
+        let request = HrpcRequest {
+            body: HyperBody::empty(),
+            header_map: req.headers().clone(),
+            message: PhantomData,
+        };
+
+        let websocket_upgrade = match WebSocketUpgrade::from_request(req) {
+            Ok(upgrade) => upgrade,
+            Err(err) => {
+                tracing::error!("web socket upgrade error: {}", err);
+                return future::ready(Ok(err.as_error_response()));
+            }
+        };
+
         let handler = handler.clone();
+        let response = websocket_upgrade
+            .on_upgrade(|ws| async move {
+                let socket = Socket::new(ws);
+                let res = handler(request, socket.clone()).await;
+                if let Err(err) = res {
+                    tracing::error!("{}", err);
+                }
+                socket.close().await;
+            })
+            .into_response();
+
         let on_upgrade = on_upgrade.clone();
-        async move {
-            let request = HrpcRequest {
-                body: HyperBody::empty(),
-                header_map: req.headers().clone(),
-                message: PhantomData,
-            };
-            let websocket_upgrade =
-                bail_result_as_response!(WebSocketUpgrade::from_request(req), |err| {
-                    tracing::error!("web socket upgrade error: {}", err);
-                });
-
-            let response = websocket_upgrade
-                .on_upgrade(|ws| async move {
-                    let socket = Socket::new(ws);
-                    let res = handler(request, socket.clone()).await;
-                    if let Err(err) = res {
-                        tracing::error!("{}", err);
-                    }
-                    socket.close().await;
-                })
-                .into_response();
-
-            Ok(on_upgrade(response))
-        }
+        future::ready(Ok(on_upgrade(response)))
     });
 
     Handler::new(service)
