@@ -110,9 +110,6 @@
 <span id="110">110</span>
 <span id="111">111</span>
 <span id="112">112</span>
-<span id="113">113</span>
-<span id="114">114</span>
-<span id="115">115</span>
 </pre><pre class="rust"><code><span class="doccomment">/// Request used in `WelcomeUser` endpoint.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">::prost::Message</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WelcomeUserRequest</span> {
@@ -201,16 +198,6 @@
     }
     <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Greeter</span><span class="op">&gt;</span> <span class="ident">Service</span> <span class="kw">for</span> <span class="ident">GreeterServer</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
         <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span> {
-            <span class="ident">Routes::new</span>().<span class="ident">route</span>(<span class="string">&quot;/hello.Greeter/WelcomeUser&quot;</span>, <span class="self">self</span>.<span class="ident">welcome_user_handler</span>())
-        }
-    }
-    <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Greeter</span><span class="op">&gt;</span> <span class="ident">GreeterServer</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">r&quot; Create a new service server.&quot;</span>]</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">service</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-            <span class="self">Self</span> { <span class="ident">service</span> }
-        }
-        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot;Creates a new `Handler` for this endpoint (`/hello.Greeter/WelcomeUser`).&quot;</span>]</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">welcome_user_handler</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Handler</span> {
             <span class="kw">let</span> <span class="ident">welcome_user</span> <span class="op">=</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">svr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">service</span>.<span class="ident">clone</span>();
                 <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::WelcomeUserRequest</span><span class="op">&gt;</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> {
@@ -218,13 +205,20 @@
                 };
                 <span class="ident">unary_handler</span>(<span class="ident">handler</span>)
             };
-            <span class="kw">match</span> <span class="self">self</span>
+            <span class="kw">let</span> <span class="ident">welcome_user</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>
                 .<span class="ident">service</span>
                 .<span class="ident">welcome_user_middleware</span>(<span class="string">&quot;/hello.Greeter/WelcomeUser&quot;</span>)
             {
                 <span class="prelude-val">Some</span>(<span class="ident">layer</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">layer</span>.<span class="ident">layer</span>(<span class="ident">welcome_user</span>),
                 <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Handler::new</span>(<span class="ident">welcome_user</span>),
-            }
+            };
+            <span class="ident">Routes::new</span>().<span class="ident">route</span>(<span class="string">&quot;/hello.Greeter/WelcomeUser&quot;</span>, <span class="ident">welcome_user</span>)
+        }
+    }
+    <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Greeter</span><span class="op">&gt;</span> <span class="ident">GreeterServer</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">r&quot; Create a new service server.&quot;</span>]</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">service</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="self">Self</span> { <span class="ident">service</span> }
         }
     }
 }

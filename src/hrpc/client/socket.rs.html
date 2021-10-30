@@ -228,6 +228,8 @@
 <span id="228">228</span>
 <span id="229">229</span>
 <span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">Future</span>, <span class="ident">SinkExt</span>, <span class="ident">StreamExt</span>};
 <span class="kw">use</span> <span class="ident">tokio</span>::{
@@ -367,7 +369,9 @@
     <span class="doccomment">/// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ## Notes</span>
-    <span class="doccomment">/// This will block until getting a message if the socket is not closed.</span>
+    <span class="doccomment">/// - This will block until getting a message if the socket is not closed.</span>
+    <span class="doccomment">/// - Cloning a [`Socket`] will NOT make you able to receive a message on all of the sockets.</span>
+    <span class="doccomment">/// You will only receive a message on one of the sockets.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_closed</span>() {
             <span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">SocketError::ConnectionClosed</span>))

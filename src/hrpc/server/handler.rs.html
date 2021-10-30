@@ -284,7 +284,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Handler</span> {
-    <span class="doccomment">/// Create a new handler from a [`Service`].</span>
+    <span class="doccomment">/// Create a new handler from a [`tower::Service`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">svc</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
     <span class="kw">where</span>
         <span class="ident">S</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">HttpResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
@@ -337,7 +337,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">HrpcLayer</span> {
-    <span class="doccomment">/// Create a new [`HrpcLayer`].</span>
+    <span class="doccomment">/// Create a new [`HrpcLayer`] from a [`tower::Layer`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">S</span>, <span class="ident">B</span><span class="op">&gt;</span>(<span class="ident">layer</span>: <span class="ident">L</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
     <span class="kw">where</span>
         <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Handler</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
@@ -389,7 +389,7 @@
 }
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_http_request</span><span class="op">&lt;</span><span class="ident">Msg</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_http_request</span><span class="op">&lt;</span><span class="ident">Msg</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span>(
     <span class="ident">req</span>: <span class="ident">HttpRequest</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">HrpcRequest</span><span class="op">&lt;</span><span class="ident">Msg</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">let</span> (<span class="ident">parts</span>, <span class="ident">body</span>) <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into_parts</span>();
@@ -425,7 +425,7 @@
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">unary_handler</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span>, <span class="ident">HandlerFn</span>, <span class="ident">HandlerFut</span><span class="op">&gt;</span>(<span class="ident">handler</span>: <span class="ident">HandlerFn</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Handler</span>
 <span class="kw">where</span>
-    <span class="ident">Req</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">Req</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span>,
     <span class="ident">Resp</span>: <span class="ident">prost::Message</span>,
     <span class="ident">HandlerFut</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HrpcResponse</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">ServerError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span>,
     <span class="ident">HandlerFn</span>: <span class="ident">FnOnce</span>(<span class="ident">HrpcRequest</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HandlerFut</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
