@@ -63,6 +63,8 @@ pub mod prelude {
 
 /// The core trait of `hrpc-rs` servers. This trait acts as a `tower::MakeService`,
 /// it can produce a set of [`Routes`] and can be combined with other [`Service`]s.
+///
+/// Not to be confused with [`tower::Service`].
 pub trait Service: Send + 'static {
     /// Creates a [`Routes`], which will be used to build a [`RoutesFinalized`] instance.
     fn make_routes(&self) -> Routes;

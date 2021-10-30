@@ -33,7 +33,7 @@ pub struct Handler {
 }
 
 impl Handler {
-    /// Create a new handler from a [`Service`].
+    /// Create a new handler from a [`tower::Service`].
     pub fn new<S>(svc: S) -> Self
     where
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
@@ -86,7 +86,7 @@ pub struct HrpcLayer {
 }
 
 impl HrpcLayer {
-    /// Create a new [`HrpcLayer`].
+    /// Create a new [`HrpcLayer`] from a [`tower::Layer`].
     pub fn new<L, S, B>(layer: L) -> Self
     where
         L: Layer<Handler, Service = S> + Sync + Send + 'static,
@@ -138,7 +138,7 @@ pub fn not_found() -> Handler {
 }
 
 #[doc(hidden)]
-pub fn from_http_request<Msg: prost::Message + Default + 'static>(
+pub fn from_http_request<Msg: prost::Message + Default>(
     req: HttpRequest,
 ) -> ServerResult<HrpcRequest<Msg>> {
     let (parts, body) = req.into_parts();
@@ -174,7 +174,7 @@ pub fn into_http_response<Msg: prost::Message>(resp: HrpcResponse<Msg>) -> HttpR
 #[doc(hidden)]
 pub fn unary_handler<Req, Resp, HandlerFn, HandlerFut>(handler: HandlerFn) -> Handler
 where
-    Req: prost::Message + Default + 'static,
+    Req: prost::Message + Default,
     Resp: prost::Message,
     HandlerFut: Future<Output = Result<HrpcResponse<Resp>, ServerError>> + Send,
     HandlerFn: FnOnce(HrpcRequest<Req>) -> HandlerFut + Clone + Send + 'static,
