@@ -14,7 +14,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let server_mod = quote::format_ident!("{}_server", naive_snake_case(service.name()));
     let generated_trait = generate_trait(service, proto_path, server_trait.clone());
     let service_doc = generate_doc_comments(service.comment());
-    let (make_handlers, routes) = generate_handlers(service, proto_path);
+    let (handlers, routes) = generate_handlers(service, proto_path);
 
     quote! {
         /// Generated server implementations.
@@ -39,6 +39,8 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
             impl<T: #server_trait> Service for #server_service<T> {
                 fn make_routes(&self) -> Routes {
+                    #handlers
+
                     #routes
                 }
             }
@@ -50,8 +52,6 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                         service,
                     }
                 }
-
-                #make_handlers
             }
         }
     }
@@ -123,7 +123,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
 }
 
 fn generate_handlers<T: Service>(service: &T, proto_path: &str) -> (TokenStream, TokenStream) {
-    let mut make_handlers = TokenStream::new();
+    let mut handlers = TokenStream::new();
     let mut routes = quote! {
         Routes::new()
     };
@@ -149,7 +149,7 @@ fn generate_handlers<T: Service>(service: &T, proto_path: &str) -> (TokenStream,
         let streaming = (method.client_streaming(), method.server_streaming());
         let endpoint = format!("/{}/{}", package_name, method_name);
 
-        let make_handler_body = match streaming {
+        let handler_body = match streaming {
             (false, false) => {
                 quote! {
                     let mut svr = self.service.clone();
@@ -175,31 +175,19 @@ fn generate_handlers<T: Service>(service: &T, proto_path: &str) -> (TokenStream,
         };
 
         // Apply middleware
-        let make_handler_body = quote! {
+        let handler = quote! {
             let #name = {
-                #make_handler_body
+                #handler_body
             };
-            match self.service. #pre_name (#endpoint) {
+            let #name = match self.service. #pre_name (#endpoint) {
                 Some(layer) => layer.layer(#name),
                 None => Handler::new(#name),
-            }
+            };
         };
 
-        let make_handler_name = quote::format_ident!("{}_handler", name);
-        let doc_comment = generate_doc_comment(format!(
-            "Creates a new `Handler` for this endpoint (`{}`).",
-            endpoint
-        ));
-        let make_handler_fn = quote! {
-            #doc_comment
-            pub fn #make_handler_name(&self) -> Handler {
-                #make_handler_body
-            }
-        };
-
-        routes.extend(quote! { .route(#endpoint, self. #make_handler_name ()) });
-        make_handlers.extend(make_handler_fn);
+        routes.extend(quote! { .route(#endpoint, #name) });
+        handlers.extend(handler);
     }
 
-    (make_handlers, routes)
+    (handlers, routes)
 }
