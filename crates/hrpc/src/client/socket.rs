@@ -137,7 +137,9 @@ where
     /// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.
     ///
     /// ## Notes
-    /// This will block until getting a message if the socket is not closed.
+    /// - This will block until getting a message if the socket is not closed.
+    /// - Cloning a [`Socket`] will NOT make you able to receive a message on all of the sockets.
+    /// You will only receive a message on one of the sockets.
     pub async fn receive_message(&self) -> ClientResult<Resp> {
         if self.is_closed() {
             Err(ClientError::SocketError(SocketError::ConnectionClosed))

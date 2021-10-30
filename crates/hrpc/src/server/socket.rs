@@ -131,7 +131,9 @@ where
     /// Receive a message from the socket.
     ///
     /// ## Notes
-    /// This will block until getting a message if the socket is not closed.
+    /// - This will block until getting a message if the socket is not closed.
+    /// - Cloning a [`Socket`] will NOT make you able to receive a message on all of the sockets.
+    /// You will only receive a message on one of the sockets.
     pub async fn receive_message(&self) -> Result<Req, ServerError> {
         if self.is_closed() {
             Err(SocketError::AlreadyClosed.into())
@@ -146,7 +148,7 @@ where
     /// Send a message over the socket.
     ///
     /// ## Notes
-    /// This will block if the inner send buffer is filled.
+    /// - This will block if the inner send buffer is filled.
     pub async fn send_message(&self, resp: Resp) -> Result<(), ServerError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         if self.is_closed() || self.tx.send((resp, resp_tx)).await.is_err() {
