@@ -52,6 +52,12 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                         service,
                     }
                 }
+
+                /// Serves the service with `hyper`.
+                pub async fn serve<Addr: ToSocketAddrs>(self, addr: Addr) -> Result<(), <Hyper<Addr> as Transport>::Error> {
+                    let transport = Hyper::new(addr);
+                    transport.serve(self).await
+                }
             }
         }
     }

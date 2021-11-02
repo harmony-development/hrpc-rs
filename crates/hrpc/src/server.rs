@@ -1,6 +1,5 @@
-use std::{convert::Infallible, future, net::ToSocketAddrs};
+use std::{convert::Infallible, future};
 
-use futures_util::future::BoxFuture;
 use tower::{Layer, Service as TowerService};
 
 use crate::{HttpRequest, HttpResponse};
@@ -17,6 +16,10 @@ pub mod handler;
 pub mod router;
 /// Socket used by hRPC for "streaming" RPCs.
 pub mod socket;
+/// Transports for hRPC services.
+///
+/// The only available transport (for now) is [`Hyper`].
+pub mod transport;
 /// Other useful types, traits and functions used by hRPC.
 pub mod utils;
 
@@ -33,7 +36,7 @@ pub mod gen_prelude {
         handler::{unary_handler, ws_handler, Handler, HrpcLayer},
         router::Routes,
         socket::Socket,
-        utils::serve,
+        transport::{Hyper, Transport},
         Service,
     };
     pub use crate::{
@@ -44,7 +47,7 @@ pub mod gen_prelude {
     pub use futures_util::future::BoxFuture;
     pub use http::Response as _HttpResponse;
     pub use http_body::Body as HttpBody;
-    pub use std::{convert::Infallible, future::Future, sync::Arc};
+    pub use std::{convert::Infallible, future::Future, net::ToSocketAddrs, sync::Arc};
     pub use tower::{layer::util::Identity, Layer, Service as TowerService};
 }
 
@@ -54,6 +57,7 @@ pub mod prelude {
         error::{CustomError, ServerResult},
         handler::HrpcLayer,
         socket::Socket,
+        transport::{Hyper, Transport},
         Service,
     };
     pub use crate::{make_handler, IntoResponse, Request, Response};
@@ -100,16 +104,6 @@ pub trait Service: Send + 'static {
         Self: Sized,
     {
         LayeredService { inner: self, layer }
-    }
-
-    /// Serves this service. See [`utils::serve`] for more information.
-    fn serve<'a, A>(self, address: A) -> BoxFuture<'a, Result<(), hyper::Error>>
-    where
-        A: ToSocketAddrs + Send + 'a,
-        A::Iter: Send,
-        Self: Sized,
-    {
-        Box::pin(utils::serve(self, address))
     }
 }
 
@@ -236,9 +230,7 @@ mod tests {
         let s = TestServer;
 
         // we can't poll it, and we don't want to anyways
-        let _ = s
-            .layer(HrpcLayer::new(Identity::new()))
-            .serve("127.0.0.1:2289");
+        let _ = s.layer(HrpcLayer::new(Identity::new()));
     }
 
     #[test]
@@ -246,8 +238,6 @@ mod tests {
         let s = TestServer;
 
         // we can't poll it, and we don't want to anyways
-        let _ = s
-            .layer(recommended_layers(|_| true))
-            .serve("127.0.0.1:2289");
+        let _ = s.layer(recommended_layers(|_| true));
     }
 }

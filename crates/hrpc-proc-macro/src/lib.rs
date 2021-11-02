@@ -1,3 +1,6 @@
+//! Utility proc macros for `hrpc`.
+#![deny(missing_docs)]
+
 use proc_macro::{Delimiter, Group, Ident, Punct, Span, TokenStream, TokenTree};
 
 /// An attribute macro that turns an `async fn` into a hRPC handler function.

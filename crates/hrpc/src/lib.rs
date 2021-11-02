@@ -1,4 +1,6 @@
 //! Common code used in hRPC code generation.
+#![deny(missing_docs)]
+
 use std::{
     error::Error as StdError,
     fmt::{self, Display, Formatter},

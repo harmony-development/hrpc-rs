@@ -1,3 +1,6 @@
+//! Code generation for `hrpc`.
+#![deny(missing_docs)]
+
 use proc_macro2::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream};
 use quote::TokenStreamExt;
 

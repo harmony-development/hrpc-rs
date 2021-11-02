@@ -23,8 +23,11 @@ pub enum ClientError {
     Http(HyperError),
     /// Occurs if an endpoint returns an error.
     EndpointError {
+        /// The hRPC error.
         hrpc_error: HrpcError,
+        /// The HTTP status of the error.
         status: StatusCode,
+        /// The endpoint for which this error happened.
         endpoint: Uri,
     },
     /// Occurs if a websocket returns an error.
