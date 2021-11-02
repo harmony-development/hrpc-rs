@@ -139,6 +139,9 @@
 <span id="139">139</span>
 <span id="140">140</span>
 <span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">StatusCode</span>, <span class="ident">Uri</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -164,8 +167,11 @@
     <span class="ident">Http</span>(<span class="ident">HyperError</span>),
     <span class="doccomment">/// Occurs if an endpoint returns an error.</span>
     <span class="ident">EndpointError</span> {
+        <span class="doccomment">/// The hRPC error.</span>
         <span class="ident">hrpc_error</span>: <span class="ident">HrpcError</span>,
+        <span class="doccomment">/// The HTTP status of the error.</span>
         <span class="ident">status</span>: <span class="ident">StatusCode</span>,
+        <span class="doccomment">/// The endpoint for which this error happened.</span>
         <span class="ident">endpoint</span>: <span class="ident">Uri</span>,
     },
     <span class="doccomment">/// Occurs if a websocket returns an error.</span>

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Hyper","A transport based on [`hyper`]."]],"trait":[["Transport","Trait for enabling generic transport implementations over a [`Service`]."]]});
