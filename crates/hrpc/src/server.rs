@@ -60,7 +60,7 @@ pub mod prelude {
         transport::{Hyper, Transport},
         Service,
     };
-    pub use crate::{make_handler, IntoResponse, Request, Response};
+    pub use crate::{make_handler, proto::Error as HrpcError, IntoResponse, Request, Response};
     pub use hrpc_proc_macro::handler;
     pub use http::StatusCode;
 }

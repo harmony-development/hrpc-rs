@@ -25,13 +25,10 @@ impl Chat for ChatService {
         // Extract the message from the request
         let message = request.into_message().await?;
 
-        // Try to broadcast the message, fail otherwise and return a custom error
-        self.message_broadcast.send(message).map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "couldn't broadcast message",
-            )
-        })?;
+        // Try to broadcast the message, if it fails return an error
+        self.message_broadcast
+            .send(message)
+            .map_err(|_| HrpcError::new_internal_server_error("couldn't broadcast message"))?;
 
         Ok((Empty {}).into_response())
     }
