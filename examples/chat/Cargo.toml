@@ -9,6 +9,7 @@ edition = "2021"
 prost = "0.9"
 hrpc = { path = "../../crates/hrpc" }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
+tower-http = { version = "0.1", features = ["set-header"] }
 
 [build-dependencies]
 hrpc-build = { path = "../../crates/hrpc-build" }

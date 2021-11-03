@@ -121,6 +121,7 @@ dependencies = [
  "hrpc-build",
  "prost",
  "tokio",
+ "tower-http",
 ]
 
 [[package]]

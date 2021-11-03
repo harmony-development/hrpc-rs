@@ -2,8 +2,12 @@ use chat::{
     chat::{chat_server::*, *},
     BoxError,
 };
-use hrpc::server::prelude::*;
+use hrpc::{
+    exports::http::{self, HeaderValue},
+    server::prelude::*,
+};
 use tokio::sync::broadcast;
+use tower_http::set_header::SetResponseHeaderLayer;
 
 pub struct ChatService {
     message_broadcast: broadcast::Sender<Message>,
@@ -52,11 +56,20 @@ impl Chat for ChatService {
 
 #[tokio::main]
 async fn main() -> Result<(), BoxError> {
+    // CORS layer for adding CORS header
+    let cors_layer = HrpcLayer::new(SetResponseHeaderLayer::<_, ()>::if_not_present(
+        http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        HeaderValue::from_static("*"),
+    ));
+
     // Create our chat service
-    let service = ChatService::new();
+    let service = ChatServer::new(ChatService::new()).layer(cors_layer);
+
+    // Create our transport that we will use to server our service
+    let transport = Hyper::new("127.0.0.1:2289");
 
     // Serve our service
-    ChatServer::new(service).serve("127.0.0.1:2289").await?;
+    transport.serve(service).await?;
 
     Ok(())
 }
