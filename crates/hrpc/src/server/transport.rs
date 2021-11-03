@@ -4,13 +4,13 @@ use futures_util::future::BoxFuture;
 
 use super::MakeRoutes;
 
-/// Trait for enabling generic transport implementations over a [`Service`].
+/// Trait for enabling generic transport implementations over a [`MakeRoutes`].
 pub trait Transport: Sized {
     /// The type of the error returned by a transport if it fails.
     type Error;
 
-    /// Start serving a [`Service`].
-    fn serve<S>(self, service: S) -> BoxFuture<'static, Result<(), Self::Error>>
+    /// Start serving a [`MakeRoutes`].
+    fn serve<S>(self, mk_routes: S) -> BoxFuture<'static, Result<(), Self::Error>>
     where
         S: MakeRoutes;
 }
@@ -31,7 +31,7 @@ impl<Addr: ToSocketAddrs> Hyper<Addr> {
 impl<Addr: ToSocketAddrs> Transport for Hyper<Addr> {
     type Error = hyper::Error;
 
-    fn serve<S>(self, service: S) -> BoxFuture<'static, Result<(), Self::Error>>
+    fn serve<S>(self, mk_routes: S) -> BoxFuture<'static, Result<(), Self::Error>>
     where
         S: MakeRoutes,
     {
@@ -57,7 +57,7 @@ impl<Addr: ToSocketAddrs> Transport for Hyper<Addr> {
                     .http1_keepalive(true)
                     .http2_keep_alive_interval(Some(Duration::from_secs(10)))
                     .http2_keep_alive_timeout(Duration::from_secs(20))
-                    .serve(service.into_make_service());
+                    .serve(mk_routes.into_make_service());
 
                 tracing::info!("serving at {}", successful_addr);
 

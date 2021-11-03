@@ -67,7 +67,7 @@ macro_rules! bail_result_as_response {
     };
 }
 
-/// Combines a list of services that implement `Server`.
+/// Combines a list of services that implement `MakeRoutes`.
 ///
 /// # Example
 /// ```rust,ignore

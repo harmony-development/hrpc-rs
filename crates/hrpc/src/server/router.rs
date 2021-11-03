@@ -9,7 +9,7 @@ use crate::{HttpRequest, HttpResponse};
 use matchit::Node as Matcher;
 use tower::{Layer, Service};
 
-/// Builder type for inserting [`Handler`]s before building a [`RoutesFinalized`].
+/// Builder type for inserting [`HrpcService`]s before building a [`RoutesFinalized`].
 pub struct Routes {
     handlers: Vec<(Cow<'static, str>, HrpcService)>,
     any: Option<HrpcService>,

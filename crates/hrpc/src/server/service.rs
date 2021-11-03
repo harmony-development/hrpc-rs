@@ -24,7 +24,7 @@ use crate::{
     Request as HrpcRequest, Response as HrpcResponse, HRPC_HEADER,
 };
 
-/// Call future used by [`Handler`].
+/// Call future used by [`HrpcService`].
 pub(crate) type CallFuture<'a> = BoxFuture<'a, Result<HttpResponse, Infallible>>;
 
 /// A hRPC handler.
@@ -39,7 +39,7 @@ impl HrpcService {
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
-        // If it's already a `Handler`, just use the service in that.
+        // If it's already a `HrpcService`, just use the service in that.
         super::utils::downcast::if_downcast_into!(S, HrpcService, svc, {
             return Self { svc: svc.svc };
         });
@@ -79,7 +79,7 @@ impl Service<HttpRequest> for HrpcService {
     }
 }
 
-/// Layer type that produces hRPC [`Handler`]s.
+/// Layer type that produces [`HrpcService`]s.
 #[derive(Clone)]
 pub struct HrpcLayer {
     inner: Arc<dyn Layer<HrpcService, Service = HrpcService> + Sync + Send + 'static>,
