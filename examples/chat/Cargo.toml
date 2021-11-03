@@ -1,0 +1,20 @@
+[package]
+name = "chat"
+description = "Simple chat example for hrpc-rs."
+authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+prost = "0.9"
+hrpc = { path = "../../crates/hrpc" }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
+
+[build-dependencies]
+hrpc-build = { path = "../../crates/hrpc-build" }
+
+[[bin]]
+name = "client"
+
+[[bin]]
+name = "server"
