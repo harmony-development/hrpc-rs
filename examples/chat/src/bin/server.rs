@@ -45,16 +45,12 @@ impl Chat for ChatService {
         // Subscribe to the message broadcaster
         let mut message_receiver = self.message_broadcast.subscribe();
 
-        // Spawn a task to process the received messages and send them to client
-        let task = socket.spawn_task(move |socket| async move {
-            while let Ok(message) = message_receiver.recv().await {
-                socket.send_message(message).await?;
-            }
+        // Process the received messages and send them to client
+        while let Ok(message) = message_receiver.recv().await {
+            socket.send_message(message).await?;
+        }
 
-            Ok(())
-        });
-
-        task.await.unwrap()
+        Ok(())
     }
 }
 
