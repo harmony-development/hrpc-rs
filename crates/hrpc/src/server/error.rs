@@ -118,6 +118,24 @@ impl CustomError for DecodeBodyError {
     }
 }
 
+impl CustomError for HrpcError {
+    fn error_message(&self) -> Cow<'_, str> {
+        Cow::Borrowed(&self.human_message)
+    }
+
+    fn identifier(&self) -> Cow<'_, str> {
+        Cow::Borrowed(&self.identifier)
+    }
+
+    fn more_details(&self) -> Bytes {
+        self.more_details.clone()
+    }
+
+    fn as_hrpc_error(&self) -> HrpcError {
+        self.clone()
+    }
+}
+
 /// Shorthand type for `Result<T, ServerError>.
 pub type ServerResult<T> = Result<T, ServerError>;
 
