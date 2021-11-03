@@ -85,37 +85,25 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
         let streaming = (method.client_streaming(), method.server_streaming());
 
         let name = quote::format_ident!("{}", method.name());
-        let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
         let pre_name = quote::format_ident!("{}_middleware", name);
 
         let (req_message, res_message) = method.request_response_name(proto_path);
 
         let method_doc = generate_doc_comments(method.comment());
-        let on_upgrade_method = quote! {
-            /// Method that can be used to modify the response sent when the WebSocket is upgraded.
-            fn #on_upgrade_response_name(&mut self, response: HttpResponse) -> HttpResponse {
-                response
-            }
-        };
-        let middleware_methods = quote! {
+        stream.extend(quote! {
             /// Optional middleware for this RPC.
             #[allow(unused_variables)]
             fn #pre_name(&self, endpoint: &'static str) -> Option<HrpcLayer> {
                 None
             }
-        };
+        });
 
         let method = match streaming {
             (false, false) => quote! {
-                #middleware_methods
-
                 #method_doc
                 fn #name(&mut self, request: HrpcRequest<#req_message>) -> BoxFuture<'_, ServerResult<HrpcResponse<#res_message>>>;
             },
             (true, true) | (false, true) => quote! {
-                #middleware_methods
-                #on_upgrade_method
-
                 #method_doc
                 fn #name(&mut self, request: HrpcRequest<()>, socket: Socket<#req_message, #res_message>) -> BoxFuture<'_, ServerResult<()>>;
             },
@@ -136,7 +124,6 @@ fn generate_handlers<T: Service>(service: &T, proto_path: &str) -> (TokenStream,
 
     for method in service.methods().iter() {
         let name = quote::format_ident!("{}", method.name());
-        let on_upgrade_response_name = quote::format_ident!("{}_on_upgrade", name);
         let pre_name = quote::format_ident!("{}_middleware", name);
 
         let package_name = format!(
@@ -159,7 +146,6 @@ fn generate_handlers<T: Service>(service: &T, proto_path: &str) -> (TokenStream,
             (false, false) => {
                 quote! {
                     let mut svr = self.service.clone();
-
                     let handler = move |request: HrpcRequest<#req_message>| async move { svr. #name (request).await };
                     unary_handler(handler)
                 }
@@ -171,11 +157,8 @@ fn generate_handlers<T: Service>(service: &T, proto_path: &str) -> (TokenStream,
             (true, true) | (false, true) => {
                 quote! {
                     let mut svr = self.service.clone();
-                    let on_upgrade = move |response: HttpResponse| svr.#on_upgrade_response_name(response);
-
-                    let mut svr = self.service.clone();
                     let handler = move |request: HrpcRequest<()>, socket: Socket<#req_message, #res_message>| async move { svr. #name (request, socket).await };
-                    ws_handler(handler, on_upgrade)
+                    ws_handler(handler)
                 }
             }
         };

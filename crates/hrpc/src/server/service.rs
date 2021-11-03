@@ -205,16 +205,12 @@ where
 }
 
 #[doc(hidden)]
-pub fn ws_handler<Req, Resp, HandlerFn, HandlerFut, OnUpgradeFn>(
-    handler: HandlerFn,
-    on_upgrade: OnUpgradeFn,
-) -> HrpcService
+pub fn ws_handler<Req, Resp, HandlerFn, HandlerFut>(handler: HandlerFn) -> HrpcService
 where
     Req: prost::Message + Default + 'static,
     Resp: prost::Message + 'static,
     HandlerFut: Future<Output = Result<(), ServerError>> + Send,
     HandlerFn: FnOnce(HrpcRequest<()>, Socket<Req, Resp>) -> HandlerFut + Clone + Send + 'static,
-    OnUpgradeFn: FnOnce(HttpResponse) -> HttpResponse + Clone + Send + 'static,
 {
     let service = service_fn(move |req: HttpRequest| {
         let request = HrpcRequest {
@@ -243,8 +239,7 @@ where
             })
             .into_response();
 
-        let on_upgrade = on_upgrade.clone();
-        future::ready(Ok(on_upgrade(response)))
+        future::ready(Ok(response))
     });
 
     HrpcService::new(service)
