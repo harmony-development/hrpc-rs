@@ -3,17 +3,17 @@ use std::{convert::Infallible, future};
 use tower::{Layer, Service as TowerService};
 
 use crate::{HttpRequest, HttpResponse};
-use handler::Handler;
 use router::Routes;
+use service::HrpcService;
 
 use self::router::RoutesFinalized;
 
 /// Error types used by hRPC.
 pub mod error;
-/// Handler type and handlers used by hRPC.
-pub mod handler;
 /// The router used by hRPC.
 pub mod router;
+/// Handler type and handlers used by hRPC.
+pub mod service;
 /// Socket used by hRPC for "streaming" RPCs.
 pub mod socket;
 /// Transports for hRPC services.
@@ -26,15 +26,15 @@ pub mod utils;
 mod macros;
 pub(crate) mod ws;
 
-pub use handler::HrpcLayer;
+pub use service::HrpcLayer;
 
 // Prelude used by generated code. It is not meant to be used by users.
 #[doc(hidden)]
 pub mod gen_prelude {
     pub use super::{
         error::ServerResult,
-        handler::{unary_handler, ws_handler, Handler, HrpcLayer},
         router::Routes,
+        service::{unary_handler, ws_handler, HrpcLayer, HrpcService},
         socket::Socket,
         transport::{Hyper, Transport},
         MakeRoutes,
@@ -55,7 +55,7 @@ pub mod gen_prelude {
 pub mod prelude {
     pub use super::{
         error::{CustomError, ServerResult},
-        handler::HrpcLayer,
+        service::HrpcLayer,
         socket::Socket,
         transport::{Hyper, Transport},
         MakeRoutes,
@@ -100,7 +100,7 @@ pub trait MakeRoutes: Send + 'static {
     /// [`HrpcLayer::new`].
     fn layer<L>(self, layer: L) -> LayeredService<L, Self>
     where
-        L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
+        L: Layer<HrpcService, Service = HrpcService> + Clone + Sync + Send + 'static,
         Self: Sized,
     {
         LayeredService { inner: self, layer }
@@ -110,7 +110,7 @@ pub trait MakeRoutes: Send + 'static {
 /// Type that layers the handlers that are produced by a [`MakeRoutes`].
 pub struct LayeredService<L, S>
 where
-    L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
+    L: Layer<HrpcService, Service = HrpcService> + Clone + Sync + Send + 'static,
     S: MakeRoutes,
 {
     inner: S,
@@ -119,7 +119,7 @@ where
 
 impl<L, S> Clone for LayeredService<L, S>
 where
-    L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
+    L: Layer<HrpcService, Service = HrpcService> + Clone + Sync + Send + 'static,
     S: MakeRoutes + Clone,
 {
     fn clone(&self) -> Self {
@@ -132,7 +132,7 @@ where
 
 impl<L, S> MakeRoutes for LayeredService<L, S>
 where
-    L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
+    L: Layer<HrpcService, Service = HrpcService> + Clone + Sync + Send + 'static,
     S: MakeRoutes,
 {
     fn make_routes(&self) -> Routes {

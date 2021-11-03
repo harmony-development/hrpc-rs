@@ -1,7 +1,7 @@
 use std::{borrow::Cow, convert::Infallible};
 
 use super::{
-    handler::{not_found, CallFuture, Handler},
+    service::{not_found, CallFuture, HrpcService},
     HrpcLayer,
 };
 use crate::{HttpRequest, HttpResponse};
@@ -11,8 +11,8 @@ use tower::{Layer, Service};
 
 /// Builder type for inserting [`Handler`]s before building a [`RoutesFinalized`].
 pub struct Routes {
-    handlers: Vec<(Cow<'static, str>, Handler)>,
-    any: Option<Handler>,
+    handlers: Vec<(Cow<'static, str>, HrpcService)>,
+    any: Option<HrpcService>,
     all_layer: Option<HrpcLayer>,
 }
 
@@ -38,14 +38,14 @@ impl Routes {
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
-        self.handlers.push((path.into(), Handler::new(handler)));
+        self.handlers.push((path.into(), HrpcService::new(handler)));
         self
     }
 
     /// Layer the routes that were added until this.
     pub fn layer<L, S>(mut self, layer: L) -> Self
     where
-        L: Layer<Handler, Service = S>,
+        L: Layer<HrpcService, Service = S>,
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
@@ -59,7 +59,7 @@ impl Routes {
     /// Set layer for the finalized router service.
     pub fn layer_all<L, S>(mut self, layer: L) -> Self
     where
-        L: Layer<Handler, Service = S> + Sync + Send + 'static,
+        L: Layer<HrpcService, Service = S> + Sync + Send + 'static,
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
@@ -90,7 +90,7 @@ impl Routes {
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
-        self.any = Some(Handler::new(handler));
+        self.any = Some(HrpcService::new(handler));
         self
     }
 
@@ -112,7 +112,7 @@ impl Routes {
 
         let inner = match self.all_layer {
             Some(layer) => layer.layer(internal),
-            None => Handler::new(internal),
+            None => HrpcService::new(internal),
         };
 
         RoutesFinalized { inner }
@@ -120,8 +120,8 @@ impl Routes {
 }
 
 struct RoutesInternal {
-    matcher: Matcher<Handler>,
-    any: Handler,
+    matcher: Matcher<HrpcService>,
+    any: HrpcService,
 }
 
 impl Service<HttpRequest> for RoutesInternal {
@@ -161,7 +161,7 @@ impl Service<HttpRequest> for RoutesInternal {
 
 /// Finalized [`Routes`], ready for serving as a [`Service`].
 pub struct RoutesFinalized {
-    inner: Handler,
+    inner: HrpcService,
 }
 
 impl Service<HttpRequest> for RoutesFinalized {

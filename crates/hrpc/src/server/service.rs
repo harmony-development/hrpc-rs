@@ -28,11 +28,11 @@ use crate::{
 pub(crate) type CallFuture<'a> = BoxFuture<'a, Result<HttpResponse, Infallible>>;
 
 /// A hRPC handler.
-pub struct Handler {
+pub struct HrpcService {
     svc: BoxService<HttpRequest, HttpResponse, Infallible>,
 }
 
-impl Handler {
+impl HrpcService {
     /// Create a new handler from a [`tower::Service`].
     pub fn new<S>(svc: S) -> Self
     where
@@ -40,7 +40,7 @@ impl Handler {
         S::Future: Send,
     {
         // If it's already a `Handler`, just use the service in that.
-        super::utils::downcast::if_downcast_into!(S, Handler, svc, {
+        super::utils::downcast::if_downcast_into!(S, HrpcService, svc, {
             return Self { svc: svc.svc };
         });
 
@@ -56,11 +56,11 @@ impl Handler {
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
-        Handler::new(layer.layer(self))
+        HrpcService::new(layer.layer(self))
     }
 }
 
-impl Service<HttpRequest> for Handler {
+impl Service<HttpRequest> for HrpcService {
     type Response = HttpResponse;
 
     type Error = Infallible;
@@ -82,14 +82,14 @@ impl Service<HttpRequest> for Handler {
 /// Layer type that produces hRPC [`Handler`]s.
 #[derive(Clone)]
 pub struct HrpcLayer {
-    inner: Arc<dyn Layer<Handler, Service = Handler> + Sync + Send + 'static>,
+    inner: Arc<dyn Layer<HrpcService, Service = HrpcService> + Sync + Send + 'static>,
 }
 
 impl HrpcLayer {
     /// Create a new [`HrpcLayer`] from a [`tower::Layer`].
     pub fn new<L, S, B>(layer: L) -> Self
     where
-        L: Layer<Handler, Service = S> + Sync + Send + 'static,
+        L: Layer<HrpcService, Service = S> + Sync + Send + 'static,
         S: Service<HttpRequest, Response = http::Response<B>, Error = Infallible> + Send + 'static,
         S::Future: Send,
         B: http_body::Body<Data = Bytes> + Send + Sync + 'static,
@@ -100,10 +100,10 @@ impl HrpcLayer {
             return Self { inner: layer.inner };
         });
 
-        let inner_layer = layer_fn(move |svc: Handler| {
+        let inner_layer = layer_fn(move |svc: HrpcService| {
             let svc = layer.layer(svc);
             let svc = MapResponseBodyLayer::new(box_body).layer(svc);
-            Handler::new(svc)
+            HrpcService::new(svc)
         });
 
         Self {
@@ -123,16 +123,16 @@ where
     S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
     S::Future: Send,
 {
-    type Service = Handler;
+    type Service = HrpcService;
 
     fn layer(&self, inner: S) -> Self::Service {
-        self.inner.layer(Handler::new(inner))
+        self.inner.layer(HrpcService::new(inner))
     }
 }
 
 /// A handler that responses to any request with not found.
-pub fn not_found() -> Handler {
-    Handler::new(service_fn(|_| {
+pub fn not_found() -> HrpcService {
+    HrpcService::new(service_fn(|_| {
         future::ready(Ok((StatusCode::NOT_FOUND, "not found").as_error_response()))
     }))
 }
@@ -172,7 +172,7 @@ pub fn into_http_response<Msg: prost::Message>(resp: HrpcResponse<Msg>) -> HttpR
 }
 
 #[doc(hidden)]
-pub fn unary_handler<Req, Resp, HandlerFn, HandlerFut>(handler: HandlerFn) -> Handler
+pub fn unary_handler<Req, Resp, HandlerFn, HandlerFut>(handler: HandlerFn) -> HrpcService
 where
     Req: prost::Message + Default,
     Resp: prost::Message,
@@ -201,14 +201,14 @@ where
             Ok(resp)
         }))
     });
-    Handler::new(service)
+    HrpcService::new(service)
 }
 
 #[doc(hidden)]
 pub fn ws_handler<Req, Resp, HandlerFn, HandlerFut, OnUpgradeFn>(
     handler: HandlerFn,
     on_upgrade: OnUpgradeFn,
-) -> Handler
+) -> HrpcService
 where
     Req: prost::Message + Default + 'static,
     Resp: prost::Message + 'static,
@@ -247,5 +247,5 @@ where
         future::ready(Ok(on_upgrade(response)))
     });
 
-    Handler::new(service)
+    HrpcService::new(service)
 }
