@@ -40,31 +40,7 @@ pub mod server;
 /// Body utitilies and types.
 pub mod body;
 /// The hRPC generated protocol.
-pub mod proto {
-    use bytes::Bytes;
-
-    crate::include_proto!("hrpc.v1");
-
-    impl Error {
-        /// Set the "more details" of this hRPC error.
-        pub fn with_details(mut self, details: impl Into<Bytes>) -> Self {
-            self.more_details = details.into();
-            self
-        }
-
-        /// Set the "identifier" of this hRPC error.
-        pub fn with_identifier(mut self, identifier: impl Into<String>) -> Self {
-            self.identifier = identifier.into();
-            self
-        }
-
-        /// Set the "human message" of this hRPC error.
-        pub fn with_message(mut self, message: impl Into<String>) -> Self {
-            self.human_message = message.into();
-            self
-        }
-    }
-}
+pub mod proto;
 
 /// Alias for a type-erased error type.
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;

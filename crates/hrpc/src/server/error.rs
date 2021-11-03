@@ -123,6 +123,15 @@ impl CustomError for HrpcError {
         Cow::Borrowed(&self.human_message)
     }
 
+    fn status(&self) -> StatusCode {
+        match self.identifier.as_str() {
+            "hrpc.resource-exhausted" => StatusCode::TOO_MANY_REQUESTS,
+            "hrpc.not-implemented" => StatusCode::NOT_IMPLEMENTED,
+            "hrpc.not-found" => StatusCode::NOT_FOUND,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
     fn identifier(&self) -> Cow<'_, str> {
         Cow::Borrowed(&self.identifier)
     }
