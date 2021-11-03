@@ -26,7 +26,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
             #service_doc
             pub struct #server_service<T: #server_trait> {
-                service: T,
+                service: Arc<T>,
             }
 
             impl<T: #server_trait> Clone for #server_service<T> {
@@ -49,7 +49,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 /// Create a new service server.
                 pub fn new(service: T) -> Self {
                     Self {
-                        service,
+                        service: Arc::new(service),
                     }
                 }
 
@@ -72,7 +72,7 @@ fn generate_trait<T: Service>(service: &T, proto_path: &str, server_trait: Ident
 
     quote! {
         #trait_doc
-        pub trait #server_trait : Clone + Send + Sized + 'static {
+        pub trait #server_trait : Sync + Send + 'static {
             #methods
         }
     }
@@ -101,11 +101,11 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
         let method = match streaming {
             (false, false) => quote! {
                 #method_doc
-                fn #name(&mut self, request: HrpcRequest<#req_message>) -> BoxFuture<'_, ServerResult<HrpcResponse<#res_message>>>;
+                fn #name(&self, request: HrpcRequest<#req_message>) -> BoxFuture<'_, ServerResult<HrpcResponse<#res_message>>>;
             },
             (true, true) | (false, true) => quote! {
                 #method_doc
-                fn #name(&mut self, request: HrpcRequest<()>, socket: Socket<#req_message, #res_message>) -> BoxFuture<'_, ServerResult<()>>;
+                fn #name(&self, request: HrpcRequest<()>, socket: Socket<#req_message, #res_message>) -> BoxFuture<'_, ServerResult<()>>;
             },
             (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
         };
@@ -145,7 +145,7 @@ fn generate_handlers<T: Service>(service: &T, proto_path: &str) -> (TokenStream,
         let handler_body = match streaming {
             (false, false) => {
                 quote! {
-                    let mut svr = self.service.clone();
+                    let svr = self.service.clone();
                     let handler = move |request: HrpcRequest<#req_message>| async move { svr. #name (request).await };
                     unary_handler(handler)
                 }
@@ -156,7 +156,7 @@ fn generate_handlers<T: Service>(service: &T, proto_path: &str) -> (TokenStream,
             ),
             (true, true) | (false, true) => {
                 quote! {
-                    let mut svr = self.service.clone();
+                    let svr = self.service.clone();
                     let handler = move |request: HrpcRequest<()>, socket: Socket<#req_message, #res_message>| async move { svr. #name (request, socket).await };
                     ws_handler(handler)
                 }

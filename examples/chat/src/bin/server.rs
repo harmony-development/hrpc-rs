@@ -21,7 +21,7 @@ impl ChatService {
 
 impl Chat for ChatService {
     #[handler]
-    async fn send_message(&mut self, request: Request<Message>) -> ServerResult<Response<Empty>> {
+    async fn send_message(&self, request: Request<Message>) -> ServerResult<Response<Empty>> {
         // Extract the message from the request
         let message = request.into_message().await?;
 
@@ -35,7 +35,7 @@ impl Chat for ChatService {
 
     #[handler]
     async fn stream_messages(
-        &mut self,
+        &self,
         _request: Request<()>,
         socket: Socket<Empty, Message>,
     ) -> ServerResult<()> {

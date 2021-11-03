@@ -98,7 +98,7 @@ struct MuService;
 
 impl mu_server::Mu for MuService {
     #[handler]
-    async fn mu_mu(&mut self, req: Request<()>, _: Socket<Ping, Pong>) -> ServerResult<()> {
+    async fn mu_mu(&self, req: Request<()>, _: Socket<Ping, Pong>) -> ServerResult<()> {
         println!("mu_mu: {:?}", req);
         Ok(())
     }
@@ -111,7 +111,7 @@ impl mu_server::Mu for MuService {
     }
 
     #[handler]
-    async fn mu(&mut self, request: Request<Ping>) -> ServerResult<Response<Pong>> {
+    async fn mu(&self, request: Request<Ping>) -> ServerResult<Response<Pong>> {
         let msg = request.into_message().await?;
         if msg.mu.is_empty() {
             bail!(ServerError::PingEmpty);
@@ -120,7 +120,7 @@ impl mu_server::Mu for MuService {
     }
 
     #[handler]
-    async fn mu_mute(&mut self, _: Request<()>, sock: Socket<Ping, Pong>) -> ServerResult<()> {
+    async fn mu_mute(&self, _: Request<()>, sock: Socket<Ping, Pong>) -> ServerResult<()> {
         let periodic_task = sock.spawn_task(|sock| async move {
             let mut int = tokio::time::interval(Duration::from_secs(10));
             int.tick().await;

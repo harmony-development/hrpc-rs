@@ -10,7 +10,7 @@ pub struct GreeterService;
 impl Greeter for GreeterService {
     #[handler]
     async fn welcome_user(
-        &mut self,
+        &self,
         request: Request<WelcomeUserRequest>,
     ) -> ServerResult<Response<WelcomeUserResponse>> {
         // Extract the message from the request
