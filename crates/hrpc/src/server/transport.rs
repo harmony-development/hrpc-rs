@@ -2,7 +2,7 @@ use std::{future, net::ToSocketAddrs, time::Duration};
 
 use futures_util::future::BoxFuture;
 
-use super::Service;
+use super::MakeRoutes;
 
 /// Trait for enabling generic transport implementations over a [`Service`].
 pub trait Transport: Sized {
@@ -12,7 +12,7 @@ pub trait Transport: Sized {
     /// Start serving a [`Service`].
     fn serve<S>(self, service: S) -> BoxFuture<'static, Result<(), Self::Error>>
     where
-        S: Service;
+        S: MakeRoutes;
 }
 
 /// A transport based on [`hyper`].
@@ -33,7 +33,7 @@ impl<Addr: ToSocketAddrs> Transport for Hyper<Addr> {
 
     fn serve<S>(self, service: S) -> BoxFuture<'static, Result<(), Self::Error>>
     where
-        S: Service,
+        S: MakeRoutes,
     {
         let mut addrs = self
             .addr

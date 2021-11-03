@@ -37,7 +37,7 @@ pub mod gen_prelude {
         router::Routes,
         socket::Socket,
         transport::{Hyper, Transport},
-        Service,
+        MakeRoutes,
     };
     pub use crate::{
         body::box_body, BoxError, HttpRequest, HttpResponse, Request as HrpcRequest,
@@ -58,7 +58,7 @@ pub mod prelude {
         handler::HrpcLayer,
         socket::Socket,
         transport::{Hyper, Transport},
-        Service,
+        MakeRoutes,
     };
     pub use crate::{make_handler, proto::Error as HrpcError, IntoResponse, Request, Response};
     pub use hrpc_proc_macro::handler;
@@ -66,17 +66,17 @@ pub mod prelude {
 }
 
 /// The core trait of `hrpc-rs` servers. This trait acts as a `tower::MakeService`,
-/// it can produce a set of [`Routes`] and can be combined with other [`Service`]s.
+/// it can produce a set of [`Routes`] and can be combined with other [`MakeRoutes`]s.
 ///
 /// Not to be confused with [`tower::Service`].
-pub trait Service: Send + 'static {
+pub trait MakeRoutes: Send + 'static {
     /// Creates a [`Routes`], which will be used to build a [`RoutesFinalized`] instance.
     fn make_routes(&self) -> Routes;
 
     /// Combines this server with another server.
     fn combine_with<Other>(self, other: Other) -> ServiceStack<Other, Self>
     where
-        Other: Service,
+        Other: MakeRoutes,
         Self: Sized,
     {
         ServiceStack {
@@ -107,11 +107,11 @@ pub trait Service: Send + 'static {
     }
 }
 
-/// Type that layers the handlers that are produced by a [`Service`].
+/// Type that layers the handlers that are produced by a [`MakeRoutes`].
 pub struct LayeredService<L, S>
 where
     L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
-    S: Service,
+    S: MakeRoutes,
 {
     inner: S,
     layer: L,
@@ -120,7 +120,7 @@ where
 impl<L, S> Clone for LayeredService<L, S>
 where
     L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
-    S: Service + Clone,
+    S: MakeRoutes + Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -130,22 +130,22 @@ where
     }
 }
 
-impl<L, S> Service for LayeredService<L, S>
+impl<L, S> MakeRoutes for LayeredService<L, S>
 where
     L: Layer<Handler, Service = Handler> + Clone + Sync + Send + 'static,
-    S: Service,
+    S: MakeRoutes,
 {
     fn make_routes(&self) -> Routes {
-        let rb = Service::make_routes(&self.inner);
+        let rb = MakeRoutes::make_routes(&self.inner);
         rb.layer_all(self.layer.clone())
     }
 }
 
-/// Type that contains two [`Service`]s and stacks (combines) them.
+/// Type that contains two [`MakeRoutes`]s and stacks (combines) them.
 pub struct ServiceStack<Outer, Inner>
 where
-    Outer: Service,
-    Inner: Service,
+    Outer: MakeRoutes,
+    Inner: MakeRoutes,
 {
     outer: Outer,
     inner: Inner,
@@ -153,8 +153,8 @@ where
 
 impl<Outer, Inner> Clone for ServiceStack<Outer, Inner>
 where
-    Outer: Service + Clone,
-    Inner: Service + Clone,
+    Outer: MakeRoutes + Clone,
+    Inner: MakeRoutes + Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -164,25 +164,25 @@ where
     }
 }
 
-impl<Outer, Inner> Service for ServiceStack<Outer, Inner>
+impl<Outer, Inner> MakeRoutes for ServiceStack<Outer, Inner>
 where
-    Outer: Service,
-    Inner: Service,
+    Outer: MakeRoutes,
+    Inner: MakeRoutes,
 {
     fn make_routes(&self) -> Routes {
-        let outer_rb = Service::make_routes(&self.outer);
-        let inner_rb = Service::make_routes(&self.inner);
+        let outer_rb = MakeRoutes::make_routes(&self.outer);
+        let inner_rb = MakeRoutes::make_routes(&self.inner);
         outer_rb.combine_with(inner_rb)
     }
 }
 
-/// Type that contains a [`Service`] and implements `tower::MakeService` to
+/// Type that contains a [`MakeRoutes`] and implements `tower::MakeService` to
 /// create [`RoutesFinalized`] instances.
-pub struct IntoMakeService<S: Service> {
+pub struct IntoMakeService<S: MakeRoutes> {
     mk_router: S,
 }
 
-impl<S: Service + Clone> Clone for IntoMakeService<S> {
+impl<S: MakeRoutes + Clone> Clone for IntoMakeService<S> {
     fn clone(&self) -> Self {
         Self {
             mk_router: self.mk_router.clone(),
@@ -190,7 +190,7 @@ impl<S: Service + Clone> Clone for IntoMakeService<S> {
     }
 }
 
-impl<T, S: Service> TowerService<T> for IntoMakeService<S> {
+impl<T, S: MakeRoutes> TowerService<T> for IntoMakeService<S> {
     type Response = RoutesFinalized;
 
     type Error = Infallible;
@@ -213,13 +213,13 @@ impl<T, S: Service> TowerService<T> for IntoMakeService<S> {
 mod tests {
     use tower::layer::util::Identity;
 
-    use crate::server::{router::Routes, HrpcLayer, Service};
+    use crate::server::{router::Routes, HrpcLayer, MakeRoutes};
 
     use super::utils::recommended_layers;
 
     struct TestServer;
 
-    impl Service for TestServer {
+    impl MakeRoutes for TestServer {
         fn make_routes(&self) -> Routes {
             Routes::new()
         }
