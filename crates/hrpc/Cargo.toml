@@ -1,6 +1,6 @@
 [package]
 name = "hrpc"
-version = "0.26.0"
+version = "0.27.0"
 authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -40,7 +40,7 @@ client = [
 
 [build-dependencies]
 # Needed to compile the hRPC proto
-hrpc-build = { version = "0.26.0", path = "../hrpc-build", default-features = false }
+hrpc-build = { version = "0.27.0", path = "../hrpc-build", default-features = false }
 prost-build = "0.9"
 
 [dependencies]
@@ -50,7 +50,7 @@ bytes = "1.0"
 http = "0.2"
 http-body = "0.4"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
-hrpc-proc-macro = { version = "0.26.0", path = "../hrpc-proc-macro", optional= true }
+hrpc-proc-macro = { version = "0.27.0", path = "../hrpc-proc-macro", optional= true }
 
 # Logging
 tracing = { version = "0.1", default-features = false, features = ["std"] }
