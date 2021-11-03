@@ -5,7 +5,6 @@ use chat::{
 use hrpc::server::prelude::*;
 use tokio::sync::broadcast;
 
-#[derive(Clone)]
 pub struct ChatService {
     message_broadcast: broadcast::Sender<Message>,
 }

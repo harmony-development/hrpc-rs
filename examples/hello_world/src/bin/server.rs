@@ -4,7 +4,6 @@ use hello_world::{
 };
 use hrpc::server::prelude::*;
 
-#[derive(Clone)]
 pub struct GreeterService;
 
 impl Greeter for GreeterService {

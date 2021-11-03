@@ -6,10 +6,7 @@ use hrpc::{
 use tower::limit::RateLimitLayer;
 use tracing_subscriber::{filter::Targets, prelude::*};
 
-use std::{
-    fmt::{self, Display, Formatter},
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 hrpc::include_proto!("test");
 
@@ -93,7 +90,6 @@ async fn server() {
         .unwrap();
 }
 
-#[derive(Debug, Clone)]
 struct MuService;
 
 impl mu_server::Mu for MuService {
@@ -114,7 +110,7 @@ impl mu_server::Mu for MuService {
     async fn mu(&self, request: Request<Ping>) -> ServerResult<Response<Pong>> {
         let msg = request.into_message().await?;
         if msg.mu.is_empty() {
-            bail!(ServerError::PingEmpty);
+            bail!((StatusCode::BAD_REQUEST, "empty ping"));
         }
         Ok((Pong { mu: msg.mu }).into_response())
     }
@@ -141,33 +137,6 @@ impl mu_server::Mu for MuService {
         tokio::select! {
             res = periodic_task => res.unwrap(),
             res = recv_task => res.unwrap(),
-        }
-    }
-}
-
-#[derive(Debug)]
-enum ServerError {
-    PingEmpty,
-}
-
-impl Display for ServerError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            ServerError::PingEmpty => write!(f, "sent empty ping"),
-        }
-    }
-}
-
-impl std::error::Error for ServerError {}
-
-impl CustomError for ServerError {
-    fn error_message(&self) -> std::borrow::Cow<'_, str> {
-        self.to_string().into()
-    }
-
-    fn status(&self) -> StatusCode {
-        match self {
-            Self::PingEmpty => StatusCode::BAD_REQUEST,
         }
     }
 }
