@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 hrpc::include_proto!("test");
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() {
     let layer = tracing_subscriber::fmt::layer().with_filter(
         Targets::default()
