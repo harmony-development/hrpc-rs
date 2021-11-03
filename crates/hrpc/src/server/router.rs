@@ -11,7 +11,7 @@ use tower::{Layer, Service};
 
 /// Builder type for inserting [`Handler`]s before building a [`RoutesFinalized`].
 pub struct Routes {
-    handlers: Vec<(String, Handler)>,
+    handlers: Vec<(Cow<'static, str>, Handler)>,
     any: Option<Handler>,
     all_layer: Option<HrpcLayer>,
 }
@@ -33,7 +33,7 @@ impl Routes {
     }
 
     /// Add a new route.
-    pub fn route<S>(mut self, path: impl Into<String>, handler: S) -> Self
+    pub fn route<S>(mut self, path: impl Into<Cow<'static, str>>, handler: S) -> Self
     where
         S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
@@ -97,7 +97,7 @@ impl Routes {
     /// Build the routes.
     ///
     /// ## Panics
-    /// - This can panic if one of the paths of the inserted routes are invalid.
+    /// - This can panic if one of the paths of the inserted routes is invalid.
     pub fn build(self) -> RoutesFinalized {
         let mut matcher = Matcher::new();
 

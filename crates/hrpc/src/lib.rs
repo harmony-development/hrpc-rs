@@ -46,7 +46,7 @@ pub mod proto {
     crate::include_proto!("hrpc.v1");
 
     impl Error {
-        /// Set the "more details" of this hRPC error. 
+        /// Set the "more details" of this hRPC error.
         pub fn with_details(mut self, details: impl Into<Bytes>) -> Self {
             self.more_details = details.into();
             self
