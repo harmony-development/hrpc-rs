@@ -86,13 +86,13 @@ macro_rules! combine_services {
         ),+
     ) => {
         {
-            use $crate::server::Service;
+            use $crate::server::MakeRoutes;
 
             $( #[$fattr] )*
             let svc = $fsvc;
             $(
                 $( #[$attr] )*
-                let svc = Service::combine_with(svc, $svc);
+                let svc = MakeRoutes::combine_with(svc, $svc);
             )+
             svc
         }
