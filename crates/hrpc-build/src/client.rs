@@ -10,9 +10,51 @@ use quote::{format_ident, quote};
 pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let service_ident = quote::format_ident!("{}Client", service.name());
     let client_mod = quote::format_ident!("{}_client", naive_snake_case(service.name()));
-    let methods = generate_methods(service, proto_path);
+    let mut methods = generate_methods(service, proto_path);
 
     let service_doc = generate_doc_comments(service.comment());
+
+    methods.extend(quote! {
+        /// Create a new client using the provided transport.
+        pub fn new_transport(transport: Inner) -> Self {
+            Self {
+                inner: Client::new(transport)
+            }
+        }
+
+        /// Create a new client using the provided generic client.
+        pub fn new_inner(client: Client<Inner>) -> Self {
+            Self {
+                inner: client,
+            }
+        }
+    });
+
+    #[allow(unused_variables)]
+    let def_transport_impl = TokenStream::new();
+
+    #[cfg(feature = "default_transport_http")]
+    let def_transport_impl = quote! {
+        use hrpc::{client::transport::http::Hyper, exports::http::Uri};
+
+        impl #service_ident<Hyper> {
+            /// Create a new client using HTTP transport.
+            ///
+            /// Panics if the passed URI is invalid.
+            pub fn new<U>(server: U) -> ClientResult<Self, <Hyper as Transport>::Error>
+            where
+                U: TryInto<Uri>,
+                U::Error: Debug,
+            {
+                let transport =
+                    Hyper::new(server.try_into().expect("invalid URL"))
+                        .map_err(ClientError::Transport)?;
+                Ok(Self {
+                    inner: Client::new(transport),
+                })
+            }
+        }
+    };
 
     quote! {
         /// Generated client implementations.
@@ -22,36 +64,15 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
             #service_doc
             #[derive(Debug, Clone)]
-            pub struct #service_ident {
-                inner: Client,
+            pub struct #service_ident<Inner: Transport> {
+                inner: Client<Inner>,
             }
 
-            impl #service_ident {
-                /// Create a new client.
-                pub fn new<U>(host: U) -> ClientResult<Self>
-                where
-                    U: TryInto<Uri>,
-                    U::Error: Debug,
-                {
-                    Ok(Self {
-                        inner: Client::new(host.try_into().expect("invalid URL"))?,
-                    })
-                }
-
-                /// Create a new client using an already created hRPC generic client.
-                pub fn new_inner(inner: Client) -> Self {
-                    Self { inner }
-                }
-
-                /// Create a new client using an hRPC HTTP client and host URL.
-                pub fn new_http(http: HttpClient, host_url: Uri) -> ClientResult<Self> {
-                    Ok(Self {
-                        inner: Client::new_inner(http, host_url)?,
-                    })
-                }
-
+            impl<Inner: Transport> #service_ident<Inner> {
                 #methods
             }
+
+            #def_transport_impl
         }
     }
 }
@@ -91,11 +112,13 @@ fn generate_unary<T: Method>(method: &T, proto_path: &str, path: String) -> Toke
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<#response>
+        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<Response<#response>, Inner::Error>
         where
             Req: IntoRequest<#request>,
         {
-            self.inner.execute_request(#path, req.into_request()).await
+            let mut req = req.into_request();
+            *req.endpoint_mut() = Cow::Borrowed(#path);
+            self.inner.execute_request(req).await
         }
     }
 }
@@ -105,11 +128,13 @@ fn generate_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> 
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<Socket<#request, #response>>
+        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<Socket<#request, #response>, Inner::Error>
         where
             Req: IntoRequest<()>,
         {
-            self.inner.connect_socket(#path, req.into_request()).await
+            let mut req = req.into_request();
+            *req.endpoint_mut() = Cow::Borrowed(#path);
+            self.inner.connect_socket(req).await
         }
     }
 }
@@ -119,11 +144,13 @@ fn generate_server_streaming<T: Method>(method: &T, proto_path: &str, path: Stri
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<Socket<#request, #response>>
+        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<Socket<#request, #response>, Inner::Error>
         where
             Req: IntoRequest<#request>,
         {
-            self.inner.connect_socket_req(#path, req.into_request()).await
+            let mut req = req.into_request();
+            *req.endpoint_mut() = Cow::Borrowed(#path);
+            self.inner.connect_socket_req(req).await
         }
     }
 }

@@ -13,6 +13,8 @@ async fn main() -> Result<(), BoxError> {
         .welcome_user(WelcomeUserRequest {
             user_name: "joe".to_string(),
         })
+        .await?
+        .into_message()
         .await?;
 
     // Print the welcome message

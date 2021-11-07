@@ -2,9 +2,9 @@
 ///
 /// # Example
 /// ```rust,no_run
-/// # use hrpc::{bail, server::error::ServerError, exports::http::StatusCode};
-/// # fn main() -> Result<(), ServerError> {
-///     bail!((StatusCode::BAD_REQUEST, "method must be POST"));
+/// # use hrpc::{bail, proto::Error as HrpcError};
+/// # fn main() -> Result<(), HrpcError> {
+///     bail!(("some-error", "a very bad error occured!"));
 /// #   Ok(())
 /// # }
 /// ```
@@ -22,8 +22,7 @@ macro_rules! bail {
 /// ```rust,ignore
 /// async fn handler(&mut self, request: Request<TRequest>) -> ServerResult<Response<TResponse>> {
 ///     // ...
-///     let some_computation_result = some_computation();
-///     bail_result!(some_computation_result);
+///     bail_result!(some_computation());
 ///     // ...
 /// }
 /// ```
@@ -41,27 +40,6 @@ macro_rules! bail_result {
             Err($err) => {
                 $func
                 return Err(err);
-            },
-        }
-    };
-}
-
-/// Takes a `Result`, returns the error as a HTTP response if it's `Err`,
-/// otherwise returns the `Ok` value.
-#[macro_export]
-macro_rules! bail_result_as_response {
-    ($res:expr) => {
-        match $res {
-            Ok(val) => val,
-            Err(err) => return Ok($crate::server::error::CustomError::as_error_response(&err)),
-        }
-    };
-    ($res:expr, |$err:ident| $func:expr) => {
-        match $res {
-            Ok(val) => val,
-            Err($err) => {
-                $func
-                return Ok($crate::server::error::CustomError::as_error_response(&$err));
             },
         }
     };

@@ -18,7 +18,7 @@ async fn main() -> Result<(), BoxError> {
         })
         .await?;
 
-    // Wait messages and post them
+    // Wait for messages and post them
     while let Ok(message) = socket.receive_message().await {
         println!("got: {}", message.content);
     }

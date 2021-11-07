@@ -7,11 +7,19 @@ edition = "2021"
 
 [dependencies]
 prost = "0.9"
-hrpc = { path = "../../crates/hrpc" }
+hrpc = { path = "../../crates/hrpc", features = [
+    "server",
+    "client",
+    "recommended",
+] }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
 
 [build-dependencies]
-hrpc-build = { path = "../../crates/hrpc-build" }
+hrpc-build = { path = "../../crates/hrpc-build", features = [
+    "server",
+    "client",
+    "recommended",
+] }
 
 [[bin]]
 name = "client"

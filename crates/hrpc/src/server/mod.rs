@@ -1,10 +1,11 @@
-use std::{convert::Infallible, future};
+use std::convert::Infallible;
 
 use tower::{Layer, Service as TowerService};
 
-use crate::{HttpRequest, HttpResponse};
 use router::Routes;
 use service::HrpcService;
+
+use crate::common::fut;
 
 use self::router::RoutesFinalized;
 
@@ -17,14 +18,11 @@ pub mod service;
 /// Socket used by hRPC for "streaming" RPCs.
 pub mod socket;
 /// Transports for hRPC services.
-///
-/// The only available transport (for now) is [`Hyper`].
 pub mod transport;
 /// Other useful types, traits and functions used by hRPC.
 pub mod utils;
 
 mod macros;
-pub(crate) mod ws;
 
 pub use service::HrpcLayer;
 
@@ -36,17 +34,12 @@ pub mod gen_prelude {
         router::Routes,
         service::{unary_handler, ws_handler, HrpcLayer, HrpcService},
         socket::Socket,
-        transport::{Hyper, Transport},
+        transport::Transport,
         MakeRoutes,
     };
-    pub use crate::{
-        body::box_body, BoxError, HttpRequest, HttpResponse, Request as HrpcRequest,
-        Response as HrpcResponse,
-    };
+    pub use crate::{BoxError, Request as HrpcRequest, Response as HrpcResponse};
     pub use bytes::Bytes;
     pub use futures_util::future::BoxFuture;
-    pub use http::Response as _HttpResponse;
-    pub use http_body::Body as HttpBody;
     pub use std::{convert::Infallible, future::Future, net::ToSocketAddrs, sync::Arc};
     pub use tower::{layer::util::Identity, Layer, Service as TowerService};
 }
@@ -54,15 +47,14 @@ pub mod gen_prelude {
 /// Prelude that exports commonly used server types.
 pub mod prelude {
     pub use super::{
-        error::{CustomError, ServerResult},
+        error::{HrpcError, ServerResult},
         service::HrpcLayer,
         socket::Socket,
-        transport::{Hyper, Transport},
+        transport::Transport,
         MakeRoutes,
     };
-    pub use crate::{make_handler, proto::Error as HrpcError, IntoResponse, Request, Response};
+    pub use crate::{make_handler, response::IntoResponse, Request, Response};
     pub use hrpc_proc_macro::handler;
-    pub use http::StatusCode;
 }
 
 /// The core trait of `hrpc-rs` servers. This trait acts as a `tower::MakeService`,
@@ -195,7 +187,7 @@ impl<T, S: MakeRoutes> TowerService<T> for IntoMakeService<S> {
 
     type Error = Infallible;
 
-    type Future = future::Ready<Result<RoutesFinalized, Infallible>>;
+    type Future = fut::Ready<Result<RoutesFinalized, Infallible>>;
 
     fn poll_ready(
         &mut self,
@@ -205,7 +197,7 @@ impl<T, S: MakeRoutes> TowerService<T> for IntoMakeService<S> {
     }
 
     fn call(&mut self, _req: T) -> Self::Future {
-        future::ready(Ok(self.mk_router.make_routes().build()))
+        fut::ready(Ok(self.mk_router.make_routes().build()))
     }
 }
 
@@ -214,8 +206,6 @@ mod tests {
     use tower::layer::util::Identity;
 
     use crate::server::{router::Routes, HrpcLayer, MakeRoutes};
-
-    use super::utils::recommended_layers;
 
     struct TestServer;
 
@@ -231,13 +221,5 @@ mod tests {
 
         // we can't poll it, and we don't want to anyways
         let _ = s.layer(HrpcLayer::new(Identity::new()));
-    }
-
-    #[test]
-    fn layered_recommended() {
-        let s = TestServer;
-
-        // we can't poll it, and we don't want to anyways
-        let _ = s.layer(recommended_layers(|_| true));
     }
 }

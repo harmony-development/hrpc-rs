@@ -28,15 +28,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-use super::{
-    error::{CustomError, SocketError},
-    utils::HeaderMapExt,
-    HttpRequest, HttpResponse,
-};
-use crate::body::empty_box_body;
-
 use bytes::Bytes;
-use futures_util::{sink::SinkExt, stream::StreamExt};
 use http::{
     header::{self, HeaderValue},
     Method, StatusCode,
@@ -55,8 +47,9 @@ use std::{
     future::Future,
 };
 
-#[doc(inline)]
-pub(crate) use tokio_tungstenite::tungstenite::Message as WsMessage;
+use crate::common::transport::http::{
+    box_body, HeaderMapExt, HttpRequest, HttpResponse, WebSocket,
+};
 
 /// Extractor for establishing WebSocket connections.
 #[derive(Debug)]
@@ -111,7 +104,7 @@ impl WebSocketUpgrade {
     /// the stream.
     pub(crate) fn on_upgrade<F, Fut>(self, callback: F) -> WebSocketUpgradeResponse<F>
     where
-        F: FnOnce(WebSocket) -> Fut + Send + 'static,
+        F: FnOnce(WebSocket<Upgraded>) -> Fut + Send + 'static,
         Fut: Future + Send + 'static,
     {
         WebSocketUpgradeResponse {
@@ -120,38 +113,37 @@ impl WebSocketUpgrade {
         }
     }
 
-    pub(crate) fn from_request(req: HttpRequest) -> Result<Self, WebSocketUpgradeError> {
-        let (mut parts, _) = req.into_parts();
-
-        if parts.method != Method::GET {
+    pub(crate) fn from_request(req: &mut HttpRequest) -> Result<Self, WebSocketUpgradeError> {
+        if req.method() != Method::GET {
             return Err(WebSocketUpgradeError::MethodNotGet);
         }
 
-        if !parts
-            .headers
+        if !req
+            .headers()
             .header_contains_str(&header::CONNECTION, "upgrade")
         {
             return Err(WebSocketUpgradeError::InvalidConnectionHeader);
         }
 
-        if !parts.headers.header_eq(&header::UPGRADE, b"websocket") {
+        if !req.headers().header_eq(&header::UPGRADE, b"websocket") {
             return Err(WebSocketUpgradeError::InvalidUpgradeHeader);
         }
 
-        if !parts
-            .headers
+        if !req
+            .headers()
             .header_eq(&header::SEC_WEBSOCKET_VERSION, b"13")
         {
             return Err(WebSocketUpgradeError::InvalidWebsocketVersionHeader);
         }
 
-        let sec_websocket_key = if let Some(key) = parts.headers.remove(header::SEC_WEBSOCKET_KEY) {
-            key
-        } else {
-            return Err(WebSocketUpgradeError::WebsocketKeyHeaderMissing);
-        };
-        let on_upgrade = parts.extensions.remove::<OnUpgrade>().unwrap();
-        let sec_websocket_protocol = parts.headers.remove(header::SEC_WEBSOCKET_PROTOCOL);
+        let sec_websocket_key =
+            if let Some(key) = req.headers_mut().remove(header::SEC_WEBSOCKET_KEY) {
+                key
+            } else {
+                return Err(WebSocketUpgradeError::WebsocketKeyHeaderMissing);
+            };
+        let on_upgrade = req.extensions_mut().remove::<OnUpgrade>().unwrap();
+        let sec_websocket_protocol = req.headers_mut().remove(header::SEC_WEBSOCKET_PROTOCOL);
 
         Ok(Self {
             config: Default::default(),
@@ -190,13 +182,18 @@ impl Display for WebSocketUpgradeError {
 
 impl StdError for WebSocketUpgradeError {}
 
-impl CustomError for WebSocketUpgradeError {
-    fn error_message(&self) -> Cow<'_, str> {
-        self.to_string().into()
-    }
+impl From<WebSocketUpgradeError> for HttpResponse {
+    fn from(err: WebSocketUpgradeError) -> HttpResponse {
+        let message = err.to_string();
+        let status = match err {
+            WebSocketUpgradeError::MethodNotGet => StatusCode::METHOD_NOT_ALLOWED,
+            _ => StatusCode::BAD_REQUEST,
+        };
 
-    fn status(&self) -> StatusCode {
-        StatusCode::BAD_REQUEST
+        http::Response::builder()
+            .status(status)
+            .body(box_body(http_body::Full::new(message.into_bytes().into())))
+            .unwrap()
     }
 }
 
@@ -207,7 +204,7 @@ pub(crate) struct WebSocketUpgradeResponse<F> {
 
 impl<F, Fut> WebSocketUpgradeResponse<F>
 where
-    F: FnOnce(WebSocket) -> Fut + Send + 'static,
+    F: FnOnce(WebSocket<Upgraded>) -> Fut + Send + 'static,
     Fut: Future + Send + 'static,
 {
     pub(crate) fn into_response(self) -> HttpResponse {
@@ -230,11 +227,12 @@ where
                 if let Ok(protocol) = HeaderValue::from_str(protocol) {
                     Some(protocol)
                 } else {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        "`Sec-Websocket-Protocol` header is invalid",
-                    )
-                        .as_error_response();
+                    return http::Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(box_body(http_body::Full::new(Bytes::from_static(
+                            b"`Sec-Websocket-Protocol` header is invalid",
+                        ))))
+                        .unwrap();
                 }
             }
             None => None,
@@ -249,8 +247,7 @@ where
             let socket =
                 WebSocketStream::from_raw_socket(upgraded, protocol::Role::Server, Some(config))
                     .await;
-            let socket = WebSocket { inner: socket };
-            callback(socket).await;
+            callback(WebSocket::new(socket)).await;
         });
 
         let mut builder = http::Response::builder()
@@ -269,32 +266,7 @@ where
             builder = builder.header(header::SEC_WEBSOCKET_PROTOCOL, protocol);
         }
 
-        builder.body(empty_box_body()).unwrap()
-    }
-}
-
-/// A stream of WebSocket messages.
-#[derive(Debug)]
-pub struct WebSocket {
-    inner: WebSocketStream<Upgraded>,
-}
-
-impl WebSocket {
-    /// Receive another message.
-    ///
-    /// Returns `None` if the stream stream has closed.
-    pub async fn recv(&mut self) -> Option<Result<WsMessage, SocketError>> {
-        self.inner.next().await
-    }
-
-    /// Send a message.
-    pub async fn send(&mut self, msg: WsMessage) -> Result<(), SocketError> {
-        self.inner.send(msg).await
-    }
-
-    /// Gracefully close this WebSocket.
-    pub async fn close(mut self) -> Result<(), SocketError> {
-        self.inner.close(None).await
+        builder.body(box_body(http_body::Empty::new())).unwrap()
     }
 }
 

@@ -1,19 +1,13 @@
-use std::{future, net::ToSocketAddrs, time::Duration};
-
 use futures_util::future::BoxFuture;
+use std::{future, net::ToSocketAddrs, time::Duration};
+use tower::Layer;
 
-use super::MakeRoutes;
+use super::Transport;
+use crate::server::MakeRoutes;
 
-/// Trait for enabling generic transport implementations over a [`MakeRoutes`].
-pub trait Transport: Sized {
-    /// The type of the error returned by a transport if it fails.
-    type Error;
-
-    /// Start serving a [`MakeRoutes`].
-    fn serve<S>(self, mk_routes: S) -> BoxFuture<'static, Result<(), Self::Error>>
-    where
-        S: MakeRoutes;
-}
+/// Utilities for working with this transport.
+pub mod utils;
+mod ws;
 
 /// A transport based on [`hyper`].
 #[non_exhaustive]
@@ -57,7 +51,7 @@ impl<Addr: ToSocketAddrs> Transport for Hyper<Addr> {
                     .http1_keepalive(true)
                     .http2_keep_alive_interval(Some(Duration::from_secs(10)))
                     .http2_keep_alive_timeout(Duration::from_secs(20))
-                    .serve(mk_routes.into_make_service());
+                    .serve(utils::MakeRoutesToHttpLayer.layer(mk_routes.into_make_service()));
 
                 tracing::info!("serving at {}", successful_addr);
 

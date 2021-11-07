@@ -1,22 +1,20 @@
 use std::time::Duration;
 
 use bytes::BytesMut;
-use futures_util::Future;
+use futures_util::{future::BoxFuture, Future, Sink, SinkExt, Stream, StreamExt};
 use tokio::{
     sync::{mpsc, oneshot},
     task::JoinHandle,
 };
-use tokio_tungstenite::tungstenite::Error as SocketError;
 use tracing::{debug, error};
 
-use crate::DecodeBodyError;
-
-use super::{
-    error::ServerError,
-    ws::{WebSocket, WsMessage},
+use super::error::{HrpcError, ServerResult};
+use crate::{
+    common::socket::{BoxedWsRx, BoxedWsTx, SocketError, SocketMessage},
+    decode::DecodeBodyError,
 };
 
-type SenderChanWithReq<Resp> = (Resp, oneshot::Sender<Result<(), ServerError>>);
+type SenderChanWithReq<Resp> = (Resp, oneshot::Sender<ServerResult<()>>);
 
 // This does not implement "close-on-drop" since socket instances may be sent across threads
 // by the user. This is done to prevent user mistakes.
@@ -27,7 +25,7 @@ where
     Req: prost::Message + Default + 'static,
     Resp: prost::Message + 'static,
 {
-    rx: flume::Receiver<Result<Req, ServerError>>,
+    rx: flume::Receiver<ServerResult<Req>>,
     tx: mpsc::Sender<SenderChanWithReq<Resp>>,
     close_chan: mpsc::Sender<()>,
 }
@@ -37,7 +35,11 @@ where
     Req: prost::Message + Default + 'static,
     Resp: prost::Message + 'static,
 {
-    pub(crate) fn new(mut ws: WebSocket) -> Self {
+    pub(crate) fn new<WsRx, WsTx>(ws_rx: WsRx, ws_tx: WsTx) -> Self
+    where
+        WsRx: Stream<Item = ServerResult<SocketMessage>> + Send + 'static,
+        WsTx: Sink<SocketMessage, Error = HrpcError> + Send + 'static,
+    {
         let (recv_msg_tx, recv_msg_rx) = flume::bounded(64);
         let (send_msg_tx, mut send_msg_rx): (
             mpsc::Sender<SenderChanWithReq<Resp>>,
@@ -48,71 +50,71 @@ where
             let mut buf = BytesMut::new();
             // Send a ping every 5 seconds
             let mut ping_interval = tokio::time::interval(Duration::from_secs(5));
+            futures_util::pin_mut!(ws_rx);
+            futures_util::pin_mut!(ws_tx);
             loop {
                 tokio::select! {
-                    Some(res_msg) = ws.recv() => {
+                    Some(res_msg) = ws_rx.next() => {
                         let resp = match res_msg {
                             Ok(msg) => {
                                 match msg {
-                                    WsMessage::Binary(data) => {
+                                    SocketMessage::Binary(data) => {
                                         Req::decode(data.as_slice())
-                                            .map_err(|err| ServerError::from(DecodeBodyError::InvalidProtoMessage(err)))
+                                            .map_err(|err| HrpcError::from(DecodeBodyError::InvalidProtoMessage(err)))
                                     }
-                                    WsMessage::Ping(data) => {
-                                        if let Err(err) = ws.send(WsMessage::Pong(data)).await {
+                                    SocketMessage::Ping(data) => {
+                                        if let Err(err) = ws_tx.send(SocketMessage::Pong(data)).await {
                                             error!("error sending websocket pong: {}", err);
                                         }
                                         continue;
                                     }
-                                    WsMessage::Close(_) => {
-                                        let _ = recv_msg_tx.send_async(Err(ServerError::from(SocketError::ConnectionClosed))).await;
-                                        let _ = ws.close().await;
+                                    SocketMessage::Close => {
+                                        let _ = recv_msg_tx.send_async(Err(HrpcError::from(SocketError::Closed))).await;
+                                        let _ = ws_tx.send(SocketMessage::Close).await;
                                         return;
                                     },
                                     _ => continue,
                                 }
                             }
                             Err(err) => {
-                                let _ = recv_msg_tx.send_async(Err(err.into())).await;
-                                let _ = ws.close().await;
+                                let _ = recv_msg_tx.send_async(Err(err)).await;
+                                let _ = ws_tx.send(SocketMessage::Close).await;
                                 return;
                             }
                         };
                         if recv_msg_tx.send_async(resp).await.is_err() {
-                            let _ = ws.close().await;
+                            let _ = ws_tx.send(SocketMessage::Close).await;
                             return;
                         }
                     }
                     Some((resp, chan)) = send_msg_rx.recv() => {
                         let resp = {
-                            crate::encode_protobuf_message_to(&mut buf, resp);
+                            crate::encode::encode_protobuf_message_to(&mut buf, &resp);
+                            // TODO: don't allocate here?
                             buf.to_vec()
                         };
 
-                        if let Err(err) = ws.send(WsMessage::Binary(resp)).await {
+                        if let Err(err) = ws_tx.send(SocketMessage::Binary(resp)).await {
                             debug!("socket send error: {}", err);
-                            let is_capped_or_queue_full = matches!(err, SocketError::Capacity(_) | SocketError::SendQueueFull(_));
-                            if !is_capped_or_queue_full {
-                                let _ = chan.send(Err(err.into()));
-                                let _ = ws.close().await;
-                                return;
-                            }
+                            let _ = chan.send(Err(err));
+                            let _ = ws_tx.send(SocketMessage::Close).await;
+                            return;
                         } else if chan.send(Ok(())).is_err() {
-                            let _ = ws.close().await;
+                            let _ = ws_tx.send(SocketMessage::Close).await;
                             return;
                         }
                     }
                     // If we get *anything*, it means that either the channel is closed
                     // or we got a close message
                     _ = close_chan_rx.recv() => {
-                        if let Err(err) = ws.close().await {
-                            let _ = recv_msg_tx.send_async(Err(err.into())).await;
+                        if let Err(err) = ws_tx.send(SocketMessage::Close).await {
+                            let _ = recv_msg_tx.send_async(Err(err)).await;
                         }
                         return;
                     }
                     _ = ping_interval.tick() => {
-                        if let Err(err) = ws.send(WsMessage::Ping(Vec::new())).await {
-                            let _ = recv_msg_tx.send_async(Err(err.into())).await;
+                        if let Err(err) = ws_tx.send(SocketMessage::Ping(Vec::new())).await {
+                            let _ = recv_msg_tx.send_async(Err(err)).await;
                             return;
                         }
                     }
@@ -134,14 +136,14 @@ where
     /// - This will block until getting a message if the socket is not closed.
     /// - Cloning a [`Socket`] will NOT make you able to receive a message on all of the sockets.
     /// You will only receive a message on one of the sockets.
-    pub async fn receive_message(&self) -> Result<Req, ServerError> {
+    pub async fn receive_message(&self) -> ServerResult<Req> {
         if self.is_closed() {
             Err(SocketError::AlreadyClosed.into())
         } else {
             self.rx
                 .recv_async()
                 .await
-                .unwrap_or_else(|_| Err(SocketError::ConnectionClosed.into()))
+                .unwrap_or_else(|_| Err(SocketError::Closed.into()))
         }
     }
 
@@ -149,14 +151,14 @@ where
     ///
     /// ## Notes
     /// - This will block if the inner send buffer is filled.
-    pub async fn send_message(&self, resp: Resp) -> Result<(), ServerError> {
+    pub async fn send_message(&self, resp: Resp) -> ServerResult<()> {
         let (resp_tx, resp_rx) = oneshot::channel();
         if self.is_closed() || self.tx.send((resp, resp_tx)).await.is_err() {
             Err(SocketError::AlreadyClosed.into())
         } else {
             resp_rx
                 .await
-                .unwrap_or_else(|_| Err(SocketError::ConnectionClosed.into()))
+                .unwrap_or_else(|_| Err(SocketError::Closed.into()))
         }
     }
 
@@ -172,13 +174,10 @@ where
     }
 
     /// Spawns a parallel task that processes a socket.
-    pub fn spawn_task<T, Handler, HandlerFut>(
-        &self,
-        f: Handler,
-    ) -> JoinHandle<Result<T, ServerError>>
+    pub fn spawn_task<T, Handler, HandlerFut>(&self, f: Handler) -> JoinHandle<ServerResult<T>>
     where
         Handler: FnOnce(Self) -> HandlerFut + 'static,
-        HandlerFut: Future<Output = Result<T, ServerError>> + Send + 'static,
+        HandlerFut: Future<Output = ServerResult<T>> + Send + 'static,
         T: Send + 'static,
     {
         let sock = self.clone();
@@ -191,10 +190,10 @@ where
     pub fn spawn_process_task<ProcessFn, ProcessFut>(
         &self,
         f: ProcessFn,
-    ) -> JoinHandle<Result<(), ServerError>>
+    ) -> JoinHandle<ServerResult<()>>
     where
         ProcessFn: for<'a> Fn(&'a Self, Req) -> ProcessFut + Send + Sync + 'static,
-        ProcessFut: Future<Output = Result<Resp, ServerError>> + Send,
+        ProcessFut: Future<Output = ServerResult<Resp>> + Send,
     {
         let sock = self.clone();
         tokio::spawn(async move {
@@ -219,4 +218,10 @@ where
             tx: self.tx.clone(),
         }
     }
+}
+
+pub(crate) struct SocketHandler {
+    #[allow(dead_code)]
+    pub(crate) inner:
+        Box<dyn FnOnce(BoxedWsRx, BoxedWsTx) -> BoxFuture<'static, ()> + Send + Sync + 'static>,
 }

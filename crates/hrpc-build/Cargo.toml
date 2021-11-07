@@ -17,10 +17,14 @@ quote = "1.0"
 proc-macro2 = "1.0"
 
 [features]
-default = ["rustfmt", "client", "server"]
+default = ["rustfmt"]
 rustfmt = []
+
 server = []
 client = []
+recommended = ["default_transport_http"]
+
+default_transport_http = []
 
 [package.metadata.docs.rs]
 all-features = true

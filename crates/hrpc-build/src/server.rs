@@ -16,6 +16,26 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let service_doc = generate_doc_comments(service.comment());
     let (handlers, routes) = generate_handlers(service, proto_path);
 
+    let mut methods = TokenStream::new();
+
+    methods.extend(quote! {
+        /// Create a new service server.
+        pub fn new(service: T) -> Self {
+            Self {
+                service: Arc::new(service),
+            }
+        }
+    });
+
+    #[cfg(feature = "default_transport_http")]
+    methods.extend(quote! {
+        /// Serves the service with HTTP transport.
+        pub async fn serve<Addr: ToSocketAddrs>(self, addr: Addr) -> Result<(), <hrpc::server::transport::http::Hyper<Addr> as Transport>::Error> {
+            let transport = hrpc::server::transport::http::Hyper::new(addr);
+            transport.serve(self).await
+        }
+    });
+
     quote! {
         /// Generated server implementations.
         #[allow(unused_variables)]
@@ -46,18 +66,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             }
 
             impl<T: #server_trait> #server_service<T> {
-                /// Create a new service server.
-                pub fn new(service: T) -> Self {
-                    Self {
-                        service: Arc::new(service),
-                    }
-                }
-
-                /// Serves the service with `hyper`.
-                pub async fn serve<Addr: ToSocketAddrs>(self, addr: Addr) -> Result<(), <Hyper<Addr> as Transport>::Error> {
-                    let transport = Hyper::new(addr);
-                    transport.serve(self).await
-                }
+                #methods
             }
         }
     }

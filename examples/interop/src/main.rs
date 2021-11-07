@@ -1,8 +1,4 @@
-use hrpc::{
-    bail, bail_result,
-    exports::{http::StatusCode, tracing::Level},
-    server::prelude::*,
-};
+use hrpc::{bail, bail_result, exports::tracing::Level, server::prelude::*, BoxError};
 use tower::limit::RateLimitLayer;
 use tracing_subscriber::{filter::Targets, prelude::*};
 
@@ -24,18 +20,20 @@ async fn main() {
     if is_server {
         server().await
     } else {
-        client().await
+        client().await.unwrap()
     }
 }
 
-async fn client() {
+async fn client() -> Result<(), BoxError> {
     let mut client = mu_client::MuClient::new("http://localhost:2289").unwrap();
 
     let resp = client
         .mu(Ping {
             mu: "123".to_string(),
         })
-        .await;
+        .await?
+        .into_message()
+        .await?;
     println!("{:#?}", resp);
 
     let resp = client.mu(Ping { mu: "".to_string() }).await;
@@ -71,8 +69,8 @@ async fn client() {
             Err(err) => {
                 eprintln!("failed to send message: {}", err);
             }
-            Ok(pong) => {
-                println!("got {:#?}", pong);
+            Ok(resp) => {
+                println!("got {:#?}", resp.into_message().await?);
             }
         }
         println!("sent in {}", ins.elapsed().as_secs_f64());
@@ -81,6 +79,8 @@ async fn client() {
     }
 
     socket.close().await;
+
+    Ok(())
 }
 
 async fn server() {
@@ -110,7 +110,7 @@ impl mu_server::Mu for MuService {
     async fn mu(&self, request: Request<Ping>) -> ServerResult<Response<Pong>> {
         let msg = request.into_message().await?;
         if msg.mu.is_empty() {
-            bail!((StatusCode::BAD_REQUEST, "empty ping"));
+            bail!(("interop.empty-ping", "empty ping"));
         }
         Ok((Pong { mu: msg.mu }).into_response())
     }

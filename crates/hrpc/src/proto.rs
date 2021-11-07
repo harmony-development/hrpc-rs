@@ -1,4 +1,8 @@
+use std::{error::Error as StdError, fmt::Display, str::FromStr};
+
 use bytes::Bytes;
+
+use crate::{response::BoxResponse, BoxError, Response};
 
 crate::include_proto!("hrpc.v1");
 
@@ -27,6 +31,44 @@ impl AsRef<str> for HrpcErrorIdentifier {
     fn as_ref(&self) -> &str {
         self.as_id()
     }
+}
+
+/// Error produced when trying to parse a string as a [`HrpcErrorIdentifier`].
+#[derive(Debug)]
+#[non_exhaustive]
+pub struct NotHrpcErrorIdentifier;
+
+impl FromStr for HrpcErrorIdentifier {
+    type Err = NotHrpcErrorIdentifier;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        compare_if_ret::compare_if_ret! {
+            s,
+            Self::NotImplemented,
+            Self::ResourceExhausted,
+            Self::InternalServerError,
+            Self::Unavailable,
+            Self::NotFound,
+        }
+    }
+}
+
+mod compare_if_ret {
+    macro_rules! compare_if_ret {
+        ($var:ident, $variant:expr, $( $variant2:expr, )+) => {
+            if $variant.compare($var) {
+                return Ok($variant);
+            } $(
+                else if $variant2.compare($var) {
+                    return Ok($variant2);
+                }
+            )* else {
+                return Err(NotHrpcErrorIdentifier);
+            }
+        };
+    }
+
+    pub(crate) use compare_if_ret;
 }
 
 impl HrpcErrorIdentifier {
@@ -69,6 +111,13 @@ impl Error {
             .with_message(message)
     }
 
+    /// Create a new hRPC error representing a not found error ([`HrpcErrorIdentifier::NotFound`]).
+    pub fn new_not_found(message: impl Into<String>) -> Self {
+        Self::default()
+            .with_identifier(HrpcErrorIdentifier::NotFound)
+            .with_message(message)
+    }
+
     /// Set the "more details" of this hRPC error.
     pub fn with_details(mut self, details: impl Into<Bytes>) -> Self {
         self.more_details = details.into();
@@ -87,3 +136,53 @@ impl Error {
         self
     }
 }
+
+impl From<&'static str> for Error {
+    fn from(msg: &'static str) -> Self {
+        Error::default()
+            .with_identifier(HrpcErrorIdentifier::InternalServerError)
+            .with_message(msg)
+    }
+}
+
+impl From<(&'static str, &'static str)> for Error {
+    fn from((id, msg): (&'static str, &'static str)) -> Self {
+        Error::default().with_identifier(id).with_message(msg)
+    }
+}
+
+impl From<BoxError> for Error {
+    fn from(err: BoxError) -> Self {
+        Error::default().with_message(err.to_string())
+    }
+}
+
+impl From<(&'static str, BoxError)> for Error {
+    fn from((id, err): (&'static str, BoxError)) -> Self {
+        Error::default()
+            .with_identifier(id)
+            .with_message(err.to_string())
+    }
+}
+
+impl From<Error> for Response<Error> {
+    fn from(err: Error) -> Self {
+        let mut resp = Response::new(&err);
+        resp.extensions_mut().insert(err);
+        resp
+    }
+}
+
+impl From<Error> for BoxResponse {
+    fn from(err: Error) -> Self {
+        Response::<Error>::from(err).map::<()>()
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "error '{}': {}", self.identifier, self.human_message)
+    }
+}
+
+impl StdError for Error {}

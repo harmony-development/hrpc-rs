@@ -9,7 +9,13 @@ homepage = "https://github.com/harmony-development/hrpc-rs"
 description = "Common code for hRPC."
 keywords = ["hrpc", "harmony", "rpc", "protobuf"]
 categories = ["network-programming"]
-include = ["/src", "/build.rs", "/Cargo.toml", "/hrpc-main/protocol", "/README.md"]
+include = [
+    "/src",
+    "/build.rs",
+    "/Cargo.toml",
+    "/hrpc-main/protocol",
+    "/README.md",
+]
 
 [package.metadata.docs.rs]
 all-features = true
@@ -19,23 +25,40 @@ build = true
 library = true
 
 [features]
-default = ["server", "client"]
+default = []
+
+recommended = ["http_server", "http_client"]
+
 server = [
-    "ahash",
-    "dashmap",
+    "tokio/sync",
+    "tokio/rt",
     "tokio/macros",
+    "tokio/time",
+    "matchit",
+    "hrpc-proc-macro",
+    "flume",
+]
+client = ["tokio/sync", "tokio/rt", "tokio/macros", "flume"]
+
+# HTTP transport
+http_server = [
+    "http",
+    "http-body",
+    "hyper",
     "hyper/server",
+    "tokio-tungstenite",
     "sha-1",
     "base64",
-    "matchit",
-    "tower-http/map-response-body",
-    "hrpc-proc-macro",
 ]
-client = [
+http_client = [
+    "http",
+    "http-body",
     "rustls-native-certs",
     "tokio-rustls",
+    "tokio-tungstenite",
+    "hyper",
+    "hyper-rustls",
     "hyper/client",
-    "tower-http/decompression-gzip",
 ]
 
 [build-dependencies]
@@ -47,10 +70,14 @@ prost-build = "0.9"
 # Core types, traits and utilities
 prost = "0.9"
 bytes = "1.0"
-http = "0.2"
-http-body = "0.4"
-futures-util = { version = "0.3", default-features = false, features = ["std"] }
-hrpc-proc-macro = { version = "0.27.0", path = "../hrpc-proc-macro", optional= true }
+http = { version = "0.2", optional = true }
+http-body = { version = "0.4", optional = true }
+futures-util = { version = "0.3", default-features = false, features = [
+    "std",
+    "sink",
+] }
+hrpc-proc-macro = { version = "0.27.0", path = "../hrpc-proc-macro", optional = true }
+tower = { version = "0.4", default-features = false, features = ["util"] }
 
 # Logging
 tracing = { version = "0.1", default-features = false, features = ["std"] }
@@ -65,23 +92,19 @@ hyper = { version = "0.14", default-features = false, features = [
     "http1",
     "http2",
     "runtime",
-] }
+    "stream",
+], optional = true }
 hyper-rustls = { version = "0.22", default-features = false, features = [
     "native-tokio",
-] }
-tower-http = { version = "0.1", default-features = false, features = ["trace"] }
-tower = { version = "0.4", default-features = false, features = ["util"] }
+], optional = true }
 tokio-tungstenite = { version = "0.15", default-features = false, features = [
     "rustls-tls",
-] }
+], optional = true }
 
 # Only used by client to discover certs for WS
 rustls-native-certs = { version = "0.5", default-features = false, optional = true }
 # Used by client to connect with TLS
 tokio-rustls = { version = "0.22", default-features = false, optional = true }
-
-dashmap = { version = "4.0", default-features = false, optional = true }
-ahash = { version = "0.7", default-features = false, optional = true }
 
 # Used by server for routing
 matchit = { version = "0.4", default-features = false, optional = true }
@@ -97,4 +120,4 @@ flume = { version = "0.10", default-features = false, features = [
     "async",
     # TODO(yusdacra): Do we need eventual fairness?
     "eventual-fairness",
-] }
+], optional = true }

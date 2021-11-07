@@ -2,11 +2,12 @@ use std::{
     borrow::Cow, convert::Infallible, mem::ManuallyDrop, ops::DerefMut, ptr::NonNull, task::Poll,
 };
 
+use crate::{request::BoxRequest, response::BoxResponse};
+
 use super::{
     service::{not_found, CallFuture, HrpcService},
     HrpcLayer,
 };
-use crate::{HttpRequest, HttpResponse};
 
 use matchit::Node as Matcher;
 use tower::{Layer, Service};
@@ -37,7 +38,7 @@ impl Routes {
     /// Add a new route.
     pub fn route<S>(mut self, path: impl Into<Cow<'static, str>>, handler: S) -> Self
     where
-        S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
+        S: Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
         self.handlers.push((path.into(), HrpcService::new(handler)));
@@ -48,7 +49,7 @@ impl Routes {
     pub fn layer<L, S>(mut self, layer: L) -> Self
     where
         L: Layer<HrpcService, Service = S>,
-        S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
+        S: Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
         for (path, handler) in self.handlers.drain(..).collect::<Vec<_>>() {
@@ -62,7 +63,7 @@ impl Routes {
     pub fn layer_all<L, S>(mut self, layer: L) -> Self
     where
         L: Layer<HrpcService, Service = S> + Sync + Send + 'static,
-        S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
+        S: Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
         self.all_layer = Some(HrpcLayer::new(layer));
@@ -89,7 +90,7 @@ impl Routes {
     /// Set the service that will be used if no routes are matched.
     pub fn any<S>(mut self, handler: S) -> Self
     where
-        S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
+        S: Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
         self.any = Some(HrpcService::new(handler));
@@ -147,8 +148,8 @@ impl Drop for RoutesInternal {
     }
 }
 
-impl Service<HttpRequest> for RoutesInternal {
-    type Response = HttpResponse;
+impl Service<BoxRequest> for RoutesInternal {
+    type Response = BoxResponse;
 
     type Error = Infallible;
 
@@ -158,15 +159,17 @@ impl Service<HttpRequest> for RoutesInternal {
         for route_ptr in &mut self.all_routes {
             // SAFETY: our ptr is always initialized
             let route = unsafe { route_ptr.as_mut() };
-            if Service::poll_ready(route.deref_mut(), cx).is_pending() {
-                return Poll::Pending;
+            match Service::poll_ready(route.deref_mut(), cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
+                _ => continue,
             }
         }
         Service::poll_ready(&mut self.any, cx)
     }
 
-    fn call(&mut self, req: HttpRequest) -> Self::Future {
-        let path = req.uri().path();
+    fn call(&mut self, req: BoxRequest) -> Self::Future {
+        let path = req.endpoint();
         match self.matcher.at_mut(path) {
             Ok(matched) => Service::call(
                 // SAFETY: our ptr is always initialized
@@ -197,11 +200,11 @@ impl Service<HttpRequest> for RoutesInternal {
 
 /// Finalized [`Routes`], ready for serving as a [`Service`].
 pub struct RoutesFinalized {
-    inner: HrpcService,
+    pub(crate) inner: HrpcService,
 }
 
-impl Service<HttpRequest> for RoutesFinalized {
-    type Response = HttpResponse;
+impl Service<BoxRequest> for RoutesFinalized {
+    type Response = BoxResponse;
 
     type Error = Infallible;
 
@@ -214,7 +217,7 @@ impl Service<HttpRequest> for RoutesFinalized {
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: HttpRequest) -> Self::Future {
+    fn call(&mut self, req: BoxRequest) -> Self::Future {
         Service::call(&mut self.inner, req)
     }
 }
