@@ -7,15 +7,18 @@ edition = "2021"
 
 [dependencies]
 prost = "0.9"
+# Enable hrpc's server and client features, and the recommended transport
 hrpc = { path = "../../crates/hrpc", features = [
     "server",
     "client",
     "recommended",
 ] }
+# Enable tokio's macros so we can mark our main function, and multi threaded
+# runtime
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
-tower-http = { version = "0.1", features = ["set-header"] }
 
 [build-dependencies]
+# Enable the features corresponding to what we enabled for hrpc
 hrpc-build = { path = "../../crates/hrpc-build", features = [
     "server",
     "client",

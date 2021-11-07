@@ -12,7 +12,12 @@ use tokio_tungstenite::{
     WebSocketStream,
 };
 
-use crate::{BoxError, HRPC_HEADER, Request, Response, body::Body, common::{extensions::Extensions, socket::SocketMessage}, proto::{Error as HrpcError, HrpcErrorIdentifier}, request, response};
+use crate::{
+    body::Body,
+    common::{extensions::Extensions, socket::SocketMessage},
+    proto::{Error as HrpcError, HrpcErrorIdentifier},
+    request, response, BoxError, Request, Response, HRPC_HEADER,
+};
 
 /// A boxed HTTP body. This is used to unify response bodies.
 pub type BoxBody = http_body::combinators::BoxBody<Bytes, BoxError>;
@@ -309,9 +314,7 @@ impl From<WsError> for HrpcError {
 impl From<HrpcErrorIdentifier> for StatusCode {
     fn from(id: HrpcErrorIdentifier) -> Self {
         match id {
-            HrpcErrorIdentifier::InternalServerError => {
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
+            HrpcErrorIdentifier::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
             HrpcErrorIdentifier::NotFound => StatusCode::NOT_FOUND,
             HrpcErrorIdentifier::NotImplemented => StatusCode::NOT_IMPLEMENTED,
             HrpcErrorIdentifier::ResourceExhausted => StatusCode::TOO_MANY_REQUESTS,

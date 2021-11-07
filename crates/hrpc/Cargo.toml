@@ -27,6 +27,7 @@ library = true
 [features]
 default = []
 
+# Recommended transport
 recommended = ["http_server", "http_client"]
 
 server = [

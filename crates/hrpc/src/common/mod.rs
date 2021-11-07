@@ -4,7 +4,7 @@ pub(crate) mod buf;
 pub mod extensions;
 /// Common future types used by `hrpc-rs`.
 pub mod fut;
-/// Common code to work with transports.
-pub mod transport;
 /// Common code to work with sockets.
 pub mod socket;
+/// Common code to work with transports.
+pub mod transport;

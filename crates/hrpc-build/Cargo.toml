@@ -22,6 +22,8 @@ rustfmt = []
 
 server = []
 client = []
+
+# Recommended transport, enable this if you enable `hrpc`'s `recommended` feature
 recommended = ["default_transport_http"]
 
 default_transport_http = []
