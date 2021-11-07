@@ -116,9 +116,6 @@ impl<T> Request<T> {
 
 impl<T: PbMsg> Request<T> {
     /// Create a new request with the specified message.
-    ///
-    /// This adds the [`HRPC_HEADER`] to the [`http::header::CONTENT_TYPE`]
-    /// header for hRPC unary requests.
     pub fn new(msg: &T) -> Self {
         let encoded = encode_protobuf_message(msg).freeze();
         Self::new_with_body(Body::full(encoded))

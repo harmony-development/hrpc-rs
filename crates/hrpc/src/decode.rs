@@ -16,7 +16,7 @@ pub(crate) async fn decode_body<T: PbMsg + Default>(body: Body) -> Result<T, Dec
     Ok(decoded)
 }
 
-/// Errors that can occur while decoding the body of a [`Request`].
+/// Errors that can occur while decoding the body of a [`crate::Request`].
 #[derive(Debug)]
 pub enum DecodeBodyError {
     /// The body contained an invalid protobuf message.
