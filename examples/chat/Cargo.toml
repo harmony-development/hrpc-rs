@@ -16,6 +16,8 @@ hrpc = { path = "../../crates/hrpc", features = [
 # Enable tokio's macros so we can mark our main function, and multi threaded
 # runtime
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
+# We will use rustyline to read messages from user on our client
+rustyline = "9"
 
 [build-dependencies]
 # Enable the features corresponding to what we enabled for hrpc

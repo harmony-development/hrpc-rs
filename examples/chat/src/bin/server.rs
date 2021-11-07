@@ -55,7 +55,7 @@ async fn main() -> Result<(), BoxError> {
     // Create our chat service
     let service = ChatServer::new(ChatService::new());
 
-    // Create our transport that we will use to server our service
+    // Create our transport that we will use to serve our service
     let transport = Hyper::new("127.0.0.1:2289");
 
     // Serve our service
