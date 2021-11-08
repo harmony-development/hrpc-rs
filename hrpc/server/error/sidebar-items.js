@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["SocketError","Possible WebSocket errors."]],"struct":[["ServerError","A server error."]],"trait":[["CustomError","Trait that needs to be implemented to use an error type with a generated service server."]],"type":[["ServerResult","Shorthand type for `Result<T, ServerError>."]]});
+initSidebarItems({"type":[["ServerResult","Shorthand type for `Result<T, HrpcError>."]]});

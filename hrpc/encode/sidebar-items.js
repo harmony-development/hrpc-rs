@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["encode_protobuf_message","Encodes a protobuf message into a new `BytesMut` buffer."],["encode_protobuf_message_to","Encodes a protobuf message into the given `BytesMut` buffer."]]});

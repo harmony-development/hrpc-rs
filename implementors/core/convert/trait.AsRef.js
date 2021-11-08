@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["hrpc"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.56.1/core/convert/trait.AsRef.html\" title=\"trait core::convert::AsRef\">AsRef</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.56.1/std/primitive.str.html\">str</a>&gt; for <a class=\"enum\" href=\"hrpc/proto/enum.HrpcErrorIdentifier.html\" title=\"enum hrpc::proto::HrpcErrorIdentifier\">HrpcErrorIdentifier</a>","synthetic":false,"types":["hrpc::proto::HrpcErrorIdentifier"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

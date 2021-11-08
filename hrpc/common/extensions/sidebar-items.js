@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Extensions","A type map of protocol extensions."]]});

@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Hyper","A transport based on [`hyper`]."]],"trait":[["Transport","Trait for enabling generic transport implementations over a [`Service`]."]]});
+initSidebarItems({"mod":[["http","Server implementation for a HTTP transport."]],"trait":[["Transport","Trait for enabling generic transport implementations over a [`MakeRoutes`]."]]});

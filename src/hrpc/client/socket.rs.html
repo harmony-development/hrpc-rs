@@ -213,38 +213,21 @@
 <span id="213">213</span>
 <span id="214">214</span>
 <span id="215">215</span>
-<span id="216">216</span>
-<span id="217">217</span>
-<span id="218">218</span>
-<span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
-<span id="222">222</span>
-<span id="223">223</span>
-<span id="224">224</span>
-<span id="225">225</span>
-<span id="226">226</span>
-<span id="227">227</span>
-<span id="228">228</span>
-<span id="229">229</span>
-<span id="230">230</span>
-<span id="231">231</span>
-<span id="232">232</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
-<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">Future</span>, <span class="ident">SinkExt</span>, <span class="ident">StreamExt</span>};
+<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">Future</span>, <span class="ident">Sink</span>, <span class="ident">SinkExt</span>, <span class="ident">Stream</span>, <span class="ident">StreamExt</span>};
 <span class="kw">use</span> <span class="ident">tokio</span>::{
     <span class="ident">sync</span>::{<span class="ident">mpsc</span>, <span class="ident">oneshot</span>},
     <span class="ident">task::JoinHandle</span>,
 };
-<span class="kw">use</span> <span class="ident">tokio_tungstenite::tungstenite</span>::{<span class="self">self</span>, <span class="ident">error::Error</span> <span class="kw">as</span> <span class="ident">SocketError</span>};
 <span class="kw">use</span> <span class="ident">tracing::debug</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::error</span>::{<span class="ident">ClientError</span>, <span class="ident">ClientResult</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::DecodeBodyError</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::error::HrpcError</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">common::socket</span>::{<span class="ident">SocketError</span>, <span class="ident">SocketMessage</span>},
+    <span class="ident">decode::DecodeBodyError</span>,
+};
 
-<span class="kw">type</span> <span class="ident">SenderChanWithReq</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="ident">Req</span>, <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ClientError</span><span class="op">&gt;</span><span class="op">&gt;</span>);
-<span class="kw">type</span> <span class="ident">WebSocket</span> <span class="op">=</span>
-    <span class="ident">tokio_tungstenite::WebSocketStream</span><span class="op">&lt;</span><span class="ident">tokio_tungstenite::MaybeTlsStream</span><span class="op">&lt;</span><span class="ident">tokio::net::TcpStream</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="kw">type</span> <span class="ident">SenderChanWithReq</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="ident">Req</span>, <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span>);
 
 <span class="comment">// This does not implement &quot;close-on-drop&quot; since socket instances may be sent across threads</span>
 <span class="comment">// by the user. This is done to prevent user mistakes.</span>
@@ -255,7 +238,7 @@
     <span class="ident">Req</span>: <span class="ident">prost::Message</span>,
     <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span>,
 {
-    <span class="ident">rx</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Resp</span>, <span class="ident">ClientError</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">rx</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Resp</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">tx</span>: <span class="ident">mpsc::Sender</span><span class="op">&lt;</span><span class="ident">SenderChanWithReq</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">close_chan</span>: <span class="ident">mpsc::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
 }
@@ -265,7 +248,12 @@
     <span class="ident">Req</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="kw-2">mut</span> <span class="ident">ws</span>: <span class="ident">WebSocket</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">WsRx</span>, <span class="ident">WsTx</span><span class="op">&gt;</span>(<span class="ident">ws_rx</span>: <span class="ident">WsRx</span>, <span class="ident">ws_tx</span>: <span class="ident">WsTx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
+    <span class="kw">where</span>
+        <span class="ident">WsRx</span>: <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">WsTx</span>: <span class="ident">Sink</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">HrpcError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    {
         <span class="kw">let</span> (<span class="ident">recv_msg_tx</span>, <span class="ident">recv_msg_rx</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">64</span>);
         <span class="kw">let</span> (<span class="ident">send_msg_tx</span>, <span class="kw-2">mut</span> <span class="ident">send_msg_rx</span>): (
             <span class="ident">mpsc::Sender</span><span class="op">&lt;</span><span class="ident">SenderChanWithReq</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -274,79 +262,68 @@
         <span class="kw">let</span> (<span class="ident">close_chan_tx</span>, <span class="kw-2">mut</span> <span class="ident">close_chan_rx</span>) <span class="op">=</span> <span class="ident">mpsc::channel</span>(<span class="number">1</span>);
         <span class="ident">tokio::spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">BytesMut::new</span>();
+            <span class="macro">futures_util::pin_mut!</span>(<span class="ident">ws_rx</span>);
+            <span class="macro">futures_util::pin_mut!</span>(<span class="ident">ws_tx</span>);
             <span class="kw">loop</span> {
                 <span class="macro">tokio::select!</span> {
-                    <span class="prelude-val">Some</span>(<span class="ident">res_msg</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">next</span>() <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="prelude-val">Some</span>(<span class="ident">res_msg</span>) <span class="op">=</span> <span class="ident">ws_rx</span>.<span class="ident">next</span>() <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">res_msg</span> {
                             <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                <span class="kw">use</span> <span class="ident">tungstenite::Message</span>;
-
                                 <span class="kw">match</span> <span class="ident">msg</span> {
-                                    <span class="ident">Message::Binary</span>(<span class="ident">raw</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                                    <span class="ident">SocketMessage::Binary</span>(<span class="ident">raw</span>) <span class="op">=</span><span class="op">&gt;</span> {
                                         <span class="ident">Resp::decode</span>(<span class="ident">Bytes::from</span>(<span class="ident">raw</span>))
-                                            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">ClientError::MessageDecode</span>(<span class="ident">DecodeBodyError::InvalidProtoMessage</span>(<span class="ident">err</span>)))
+                                            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">DecodeBodyError::InvalidProtoMessage</span>(<span class="ident">err</span>).<span class="ident">into</span>())
                                     }
-                                    <span class="ident">Message::Close</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">tungstenite::Error::ConnectionClosed</span>.<span class="ident">into</span>())).<span class="kw">await</span>;
-                                        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span>;
+                                    <span class="ident">SocketMessage::Close</span> <span class="op">=</span><span class="op">&gt;</span> {
+                                        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>.<span class="ident">into</span>())).<span class="kw">await</span>;
+                                        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws_tx</span>.<span class="ident">send</span>(<span class="ident">SocketMessage::Close</span>).<span class="kw">await</span>;
                                         <span class="kw">return</span>;
                                     },
-                                    <span class="ident">Message::Ping</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                        <span class="kw">let</span> <span class="ident">pong_res</span> <span class="op">=</span> <span class="ident">ws</span>
-                                            .<span class="ident">send</span>(<span class="ident">tungstenite::Message::Pong</span>(<span class="ident">data</span>))
+                                    <span class="ident">SocketMessage::Ping</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                                        <span class="kw">let</span> <span class="ident">pong_res</span> <span class="op">=</span> <span class="ident">ws_tx</span>
+                                            .<span class="ident">send</span>(<span class="ident">SocketMessage::Pong</span>(<span class="ident">data</span>))
                                             .<span class="kw">await</span>;
                                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">pong_res</span> {
-                                            <span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">err</span>))
+                                            <span class="prelude-val">Err</span>(<span class="ident">err</span>)
                                         } <span class="kw">else</span> {
                                             <span class="kw">continue</span>;
                                         }
                                     },
-                                    <span class="ident">Message::Pong</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Message::Text</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">continue</span>,
+                                    <span class="ident">SocketMessage::Pong</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">SocketMessage::Text</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">continue</span>,
                                 }
                             }
                             <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                <span class="kw">let</span> <span class="ident">is_capped</span> <span class="op">=</span> <span class="macro">matches!</span>(<span class="ident">err</span>, <span class="ident">tungstenite::Error::Capacity</span>(<span class="kw">_</span>));
-                                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">err</span>));
-                                <span class="kw">if</span> <span class="op">!</span><span class="ident">is_capped</span> {
-                                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="ident">res</span>).<span class="kw">await</span>;
-                                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span>;
-                                    <span class="kw">return</span>;
-                                } <span class="kw">else</span> {
-                                    <span class="ident">res</span>
-                                }
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)).<span class="kw">await</span>;
+                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws_tx</span>.<span class="ident">send</span>(<span class="ident">SocketMessage::Close</span>).<span class="kw">await</span>;
+                                <span class="kw">return</span>;
                             },
                         };
                         <span class="kw">if</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="ident">resp</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
-                            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span>;
+                            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws_tx</span>.<span class="ident">send</span>(<span class="ident">SocketMessage::Close</span>).<span class="kw">await</span>;
                             <span class="kw">return</span>;
                         }
                     }
                     <span class="prelude-val">Some</span>((<span class="ident">req</span>, <span class="ident">chan</span>)) <span class="op">=</span> <span class="ident">send_msg_rx</span>.<span class="ident">recv</span>() <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> {
-                            <span class="ident"><span class="kw">crate</span>::encode_protobuf_message_to</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>, <span class="ident">req</span>);
+                            <span class="ident"><span class="kw">crate</span>::encode::encode_protobuf_message_to</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>, <span class="kw-2">&amp;</span><span class="ident">req</span>);
+                            <span class="comment">// TODO: don&#39;t allocate here?</span>
                             <span class="ident">buf</span>.<span class="ident">to_vec</span>()
                         };
 
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">send</span>(<span class="ident">tungstenite::Message::binary</span>(<span class="ident">req</span>)).<span class="kw">await</span> {
+                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">ws_tx</span>.<span class="ident">send</span>(<span class="ident">SocketMessage::Binary</span>(<span class="ident">req</span>)).<span class="kw">await</span> {
                             <span class="macro">debug!</span>(<span class="string">&quot;socket send error: {}&quot;</span>, <span class="ident">e</span>);
-                            <span class="kw">let</span> <span class="ident">is_capped_or_queue_full</span> <span class="op">=</span> <span class="macro">matches!</span>(<span class="ident">e</span>, <span class="ident">tungstenite::Error::SendQueueFull</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">tungstenite::Error::Capacity</span>(<span class="kw">_</span>));
-                            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">chan</span>.<span class="ident">send</span>(<span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">e</span>)));
-                            <span class="comment">// Don&#39;t close socket if only the send queue is full</span>
-                            <span class="comment">// or our message is bigger than the default max capacity</span>
-                            <span class="kw">if</span> <span class="op">!</span><span class="ident">is_capped_or_queue_full</span> {
-                                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span>;
-                                <span class="kw">return</span>;
-                            }
+                            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws_tx</span>.<span class="ident">send</span>(<span class="ident">SocketMessage::Close</span>).<span class="kw">await</span>;
+                            <span class="kw">return</span>;
                         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">chan</span>.<span class="ident">send</span>(<span class="prelude-val">Ok</span>(())).<span class="ident">is_err</span>() {
-                            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span>;
+                            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">ws_tx</span>.<span class="ident">send</span>(<span class="ident">SocketMessage::Close</span>).<span class="kw">await</span>;
                             <span class="kw">return</span>;
                         }
                     }
                     <span class="comment">// If we get *anything*, it means that either the channel is closed</span>
                     <span class="comment">// or we got a close message</span>
                     <span class="kw">_</span> <span class="op">=</span> <span class="ident">close_chan_rx</span>.<span class="ident">recv</span>() <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">close</span>(<span class="prelude-val">None</span>).<span class="kw">await</span> {
-                            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">err</span>))).<span class="kw">await</span>;
+                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">ws_tx</span>.<span class="ident">send</span>(<span class="ident">SocketMessage::Close</span>).<span class="kw">await</span> {
+                            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_msg_tx</span>.<span class="ident">send_async</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)).<span class="kw">await</span>;
                         }
                         <span class="kw">return</span>;
                     }
@@ -364,41 +341,33 @@
 
     <span class="doccomment">/// Receive a message from the socket.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// ## Errors</span>
-    <span class="doccomment">/// - Returns [`SocketError::ConnectionClosed`] if the socket is closed normally.</span>
-    <span class="doccomment">/// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.</span>
-    <span class="doccomment">///</span>
     <span class="doccomment">/// ## Notes</span>
     <span class="doccomment">/// - This will block until getting a message if the socket is not closed.</span>
     <span class="doccomment">/// - Cloning a [`Socket`] will NOT make you able to receive a message on all of the sockets.</span>
     <span class="doccomment">/// You will only receive a message on one of the sockets.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Resp</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_closed</span>() {
-            <span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">SocketError::ConnectionClosed</span>))
+            <span class="prelude-val">Err</span>(<span class="ident">SocketError::AlreadyClosed</span>.<span class="ident">into</span>())
         } <span class="kw">else</span> {
             <span class="self">self</span>.<span class="ident">rx</span>
                 .<span class="ident">recv_async</span>()
                 .<span class="kw">await</span>
-                .<span class="ident">unwrap_or</span>(<span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">SocketError::ConnectionClosed</span>)))
+                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>.<span class="ident">into</span>()))
         }
     }
 
     <span class="doccomment">/// Send a message over the socket.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// ## Errors</span>
-    <span class="doccomment">/// - Returns [`SocketError::ConnectionClosed`] if the socket is closed normally.</span>
-    <span class="doccomment">/// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.</span>
-    <span class="doccomment">///</span>
     <span class="doccomment">/// ## Notes</span>
     <span class="doccomment">/// This will block if the inner send buffer is filled.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">req_tx</span>, <span class="ident">req_rx</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_closed</span>() <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">send</span>((<span class="ident">req</span>, <span class="ident">req_tx</span>)).<span class="kw">await</span>.<span class="ident">is_err</span>() {
-            <span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">SocketError::ConnectionClosed</span>))
+            <span class="prelude-val">Err</span>(<span class="ident">SocketError::AlreadyClosed</span>.<span class="ident">into</span>())
         } <span class="kw">else</span> {
             <span class="ident">req_rx</span>
                 .<span class="kw">await</span>
-                .<span class="ident">unwrap_or</span>(<span class="prelude-val">Err</span>(<span class="ident">ClientError::SocketError</span>(<span class="ident">SocketError::ConnectionClosed</span>)))
+                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>.<span class="ident">into</span>()))
         }
     }
 
@@ -414,13 +383,10 @@
     }
 
     <span class="doccomment">/// Spawns a parallel task that processes a socket.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">spawn_task</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Handler</span>, <span class="ident">HandlerFut</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">f</span>: <span class="ident">Handler</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">JoinHandle</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">ClientError</span><span class="op">&gt;</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">spawn_task</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Handler</span>, <span class="ident">HandlerFut</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="ident">Handler</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">JoinHandle</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">Handler</span>: <span class="ident">FnOnce</span>(<span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HandlerFut</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-        <span class="ident">HandlerFut</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">ClientError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">HandlerFut</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
         <span class="ident">T</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     {
         <span class="kw">let</span> <span class="ident">sock</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
@@ -433,10 +399,10 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">spawn_process_task</span><span class="op">&lt;</span><span class="ident">ProcessFn</span>, <span class="ident">ProcessFut</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">f</span>: <span class="ident">ProcessFn</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">JoinHandle</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ClientError</span><span class="op">&gt;</span><span class="op">&gt;</span>
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">JoinHandle</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">ProcessFn</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">Self</span>, <span class="ident">Resp</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ProcessFut</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-        <span class="ident">ProcessFut</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">ClientError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span>,
+        <span class="ident">ProcessFut</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span>,
     {
         <span class="kw">let</span> <span class="ident">sock</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
         <span class="ident">tokio::spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {

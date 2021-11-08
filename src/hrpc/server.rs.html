@@ -241,8 +241,19 @@
 <span id="241">241</span>
 <span id="242">242</span>
 <span id="243">243</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>};
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future</span>, <span class="ident">net::ToSocketAddrs</span>};
 
+<span class="kw">use</span> <span class="ident">futures_util::future::BoxFuture</span>;
 <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">Layer</span>, <span class="ident">Service</span> <span class="kw">as</span> <span class="ident">TowerService</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>};
@@ -259,10 +270,6 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">router</span>;
 <span class="doccomment">/// Socket used by hRPC for &quot;streaming&quot; RPCs.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">socket</span>;
-<span class="doccomment">/// Transports for hRPC services.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The only available transport (for now) is [`Hyper`].</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">transport</span>;
 <span class="doccomment">/// Other useful types, traits and functions used by hRPC.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">utils</span>;
 
@@ -279,7 +286,7 @@
         <span class="ident">handler</span>::{<span class="ident">unary_handler</span>, <span class="ident">ws_handler</span>, <span class="ident">Handler</span>, <span class="ident">HrpcLayer</span>},
         <span class="ident">router::Routes</span>,
         <span class="ident">socket::Socket</span>,
-        <span class="ident">transport</span>::{<span class="ident">Hyper</span>, <span class="ident">Transport</span>},
+        <span class="ident">utils::serve</span>,
         <span class="ident">Service</span>,
     };
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -290,7 +297,7 @@
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">futures_util::future::BoxFuture</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http::Response</span> <span class="kw">as</span> <span class="ident">_HttpResponse</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http_body::Body</span> <span class="kw">as</span> <span class="ident">HttpBody</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future::Future</span>, <span class="ident">net::ToSocketAddrs</span>, <span class="ident">sync::Arc</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">future::Future</span>, <span class="ident">sync::Arc</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">layer::util::Identity</span>, <span class="ident">Layer</span>, <span class="ident">Service</span> <span class="kw">as</span> <span class="ident">TowerService</span>};
 }
 
@@ -300,7 +307,6 @@
         <span class="ident">error</span>::{<span class="ident">CustomError</span>, <span class="ident">ServerResult</span>},
         <span class="ident">handler::HrpcLayer</span>,
         <span class="ident">socket::Socket</span>,
-        <span class="ident">transport</span>::{<span class="ident">Hyper</span>, <span class="ident">Transport</span>},
         <span class="ident">Service</span>,
     };
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">make_handler</span>, <span class="ident">IntoResponse</span>, <span class="ident">Request</span>, <span class="ident">Response</span>};
@@ -347,6 +353,16 @@
         <span class="self">Self</span>: <span class="ident">Sized</span>,
     {
         <span class="ident">LayeredService</span> { <span class="ident">inner</span>: <span class="self">self</span>, <span class="ident">layer</span> }
+    }
+
+    <span class="doccomment">/// Serves this service. See [`utils::serve`] for more information.</span>
+    <span class="kw">fn</span> <span class="ident">serve</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">A</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">address</span>: <span class="ident">A</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">hyper::Error</span><span class="op">&gt;</span><span class="op">&gt;</span>
+    <span class="kw">where</span>
+        <span class="ident">A</span>: <span class="ident">ToSocketAddrs</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>,
+        <span class="ident">A::Iter</span>: <span class="ident">Send</span>,
+        <span class="self">Self</span>: <span class="ident">Sized</span>,
+    {
+        <span class="ident">Box::pin</span>(<span class="ident">utils::serve</span>(<span class="self">self</span>, <span class="ident">address</span>))
     }
 }
 
@@ -473,7 +489,9 @@
         <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">TestServer</span>;
 
         <span class="comment">// we can&#39;t poll it, and we don&#39;t want to anyways</span>
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">layer</span>(<span class="ident">HrpcLayer::new</span>(<span class="ident">Identity::new</span>()));
+        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">s</span>
+            .<span class="ident">layer</span>(<span class="ident">HrpcLayer::new</span>(<span class="ident">Identity::new</span>()))
+            .<span class="ident">serve</span>(<span class="string">&quot;127.0.0.1:2289&quot;</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -481,7 +499,9 @@
         <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">TestServer</span>;
 
         <span class="comment">// we can&#39;t poll it, and we don&#39;t want to anyways</span>
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">layer</span>(<span class="ident">recommended_layers</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="bool-val">true</span>));
+        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">s</span>
+            .<span class="ident">layer</span>(<span class="ident">recommended_layers</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="bool-val">true</span>))
+            .<span class="ident">serve</span>(<span class="string">&quot;127.0.0.1:2289&quot;</span>);
     }
 }
 </code></pre></div>

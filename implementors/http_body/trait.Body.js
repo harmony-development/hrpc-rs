@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["hrpc"] = [{"text":"impl <a class=\"trait\" href=\"https://docs.rs/http-body/0.4.4/http_body/trait.Body.html\" title=\"trait http_body::Body\">Body</a> for <a class=\"struct\" href=\"hrpc/body/struct.Body.html\" title=\"struct hrpc::body::Body\">Body</a>","synthetic":false,"types":["hrpc::body::Body"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

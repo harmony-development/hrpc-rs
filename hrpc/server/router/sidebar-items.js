@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Routes","Builder type for inserting [`Handler`]s before building a [`RoutesFinalized`]."],["RoutesFinalized","Finalized [`Routes`], ready for serving as a [`Service`]."]]});
+initSidebarItems({"struct":[["Routes","Builder type for inserting [`HrpcService`]s before building a [`RoutesFinalized`]."],["RoutesFinalized","Finalized [`Routes`], ready for serving as a [`Service`]."]]});

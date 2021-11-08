@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Parts","Response parts."],["Response","hRPC response type."]],"trait":[["IntoResponse","Trait used for converting any type to a Response type."]],"type":[["BoxResponse","A response that has a message type of `()`. Used in places where the response message type is not important."]]});

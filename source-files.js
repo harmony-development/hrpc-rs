@@ -1,7 +1,8 @@
 var N = null;var sourcesIndex = {};
+sourcesIndex["chat"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["client"] = {"name":"","files":["client.rs"]};
 sourcesIndex["hello_world"] = {"name":"","files":["lib.rs"]};
-sourcesIndex["hrpc"] = {"name":"","dirs":[{"name":"client","files":["error.rs","socket.rs"]},{"name":"server","files":["error.rs","handler.rs","macros.rs","router.rs","socket.rs","transport.rs","utils.rs","ws.rs"]}],"files":["body.rs","client.rs","lib.rs","server.rs"]};
+sourcesIndex["hrpc"] = {"name":"","dirs":[{"name":"client","dirs":[{"name":"transport","files":["http.rs","mod.rs"]}],"files":["error.rs","mod.rs","socket.rs"]},{"name":"common","dirs":[{"name":"transport","files":["http.rs","mod.rs"]}],"files":["buf.rs","extensions.rs","fut.rs","mod.rs","socket.rs"]},{"name":"server","dirs":[{"name":"transport","dirs":[{"name":"http","files":["mod.rs","utils.rs","ws.rs"]}],"files":["mod.rs"]}],"files":["error.rs","macros.rs","mod.rs","router.rs","service.rs","socket.rs","utils.rs"]}],"files":["body.rs","decode.rs","encode.rs","lib.rs","proto.rs","request.rs","response.rs"]};
 sourcesIndex["hrpc_build"] = {"name":"","files":["client.rs","lib.rs","prost.rs","server.rs"]};
 sourcesIndex["hrpc_proc_macro"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["interop"] = {"name":"","files":["main.rs"]};

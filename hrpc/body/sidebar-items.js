@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["box_body","Convert a [`http_body::Body`] into a [`BoxBody`]."],["empty_box_body","Create an empty [`BoxBody`]."],["full_box_body","Create a “full” (single chunk) [`BoxBody`] containing the given data."]],"type":[["BoxBody","A boxed [`Body`] trait object."],["HyperBody","A `hyper::Body`, mainly used for `Request` types."]]});
+initSidebarItems({"struct":[["Body","A request or response body."]],"type":[["BodyResult","Type of the item that a [`Body`] produces."]]});
