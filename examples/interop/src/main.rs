@@ -39,28 +39,18 @@ async fn client() -> Result<(), BoxError> {
     let resp = client.mu(Ping { mu: "".to_string() }).await;
     println!("{:#?}", resp);
 
-    let socket = client.mu_mute(()).await.unwrap();
+    let (mut write_sock, mut read_sock) = client.mu_mute(()).await.unwrap().split();
     let _ = client.mu_mu(Ping::default()).await.unwrap();
 
-    tokio::spawn({
-        let socket = socket.clone();
-        async move {
-            loop {
-                let ins = Instant::now();
-                match socket.receive_message().await {
-                    Ok(msg) => {
-                        println!("got in {}", ins.elapsed().as_secs_f64());
-                        println!("{:#?}", msg);
-                    }
-                    Err(_) => break,
-                }
-            }
+    tokio::spawn(async move {
+        while let Ok(msg) = read_sock.receive_message().await {
+            println!("got: {:#?}", msg);
         }
     });
 
     for i in 0..100 {
         let ins = Instant::now();
-        if let Err(err) = socket.send_message(Ping { mu: i.to_string() }).await {
+        if let Err(err) = write_sock.send_message(Ping { mu: i.to_string() }).await {
             eprintln!("failed to send message: {}", err);
         }
         println!("sent in {}", ins.elapsed().as_secs_f64());
@@ -78,7 +68,7 @@ async fn client() -> Result<(), BoxError> {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    socket.close().await;
+    write_sock.close().await?;
 
     Ok(())
 }
@@ -94,7 +84,7 @@ struct MuService;
 
 impl mu_server::Mu for MuService {
     #[handler]
-    async fn mu_mu(&self, req: Request<()>, _: Socket<Ping, Pong>) -> ServerResult<()> {
+    async fn mu_mu(&self, req: Request<()>, _: Socket<Pong, Ping>) -> ServerResult<()> {
         println!("mu_mu: {:?}", req);
         Ok(())
     }
@@ -116,27 +106,24 @@ impl mu_server::Mu for MuService {
     }
 
     #[handler]
-    async fn mu_mute(&self, _: Request<()>, sock: Socket<Ping, Pong>) -> ServerResult<()> {
-        let periodic_task = sock.spawn_task(|sock| async move {
-            let mut int = tokio::time::interval(Duration::from_secs(10));
-            int.tick().await;
-            loop {
-                int.tick().await;
-                bail_result!(
-                    sock.send_message(Pong {
-                        mu: "been 10 seconds".to_string(),
-                    })
-                    .await
-                );
+    async fn mu_mute(&self, _: Request<()>, mut sock: Socket<Pong, Ping>) -> ServerResult<()> {
+        let mut int = tokio::time::interval(Duration::from_secs(10));
+        int.tick().await;
+
+        loop {
+            tokio::select! {
+                res = sock.receive_message() => {
+                    println!("{:?}", res);
+                }
+                _ = int.tick() => {
+                    bail_result!(
+                        sock.send_message(Pong {
+                            mu: "been 10 seconds".to_string(),
+                        })
+                        .await
+                    );
+                }
             }
-        });
-
-        let recv_task =
-            sock.spawn_process_task(|_sock, message| async { Ok(Pong { mu: message.mu }) });
-
-        tokio::select! {
-            res = periodic_task => res.unwrap(),
-            res = recv_task => res.unwrap(),
         }
     }
 }

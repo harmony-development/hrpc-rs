@@ -36,7 +36,7 @@ impl Chat for ChatService {
     async fn stream_messages(
         &self,
         _request: Request<()>,
-        socket: Socket<Empty, Message>,
+        mut socket: Socket<Message, Empty>,
     ) -> ServerResult<()> {
         // Subscribe to the message broadcaster
         let mut message_receiver = self.message_broadcast.subscribe();

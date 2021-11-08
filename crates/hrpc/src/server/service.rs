@@ -144,7 +144,7 @@ where
     Req: prost::Message + Default + 'static,
     Resp: prost::Message + 'static,
     HandlerFut: Future<Output = Result<(), HrpcError>> + Send,
-    HandlerFn: FnOnce(Request<()>, Socket<Req, Resp>) -> HandlerFut + Clone + Send + Sync + 'static,
+    HandlerFn: FnOnce(Request<()>, Socket<Resp, Req>) -> HandlerFut + Clone + Send + Sync + 'static,
 {
     let service = service_fn(move |req: BoxRequest| {
         let handler = handler.clone();
@@ -152,11 +152,10 @@ where
             inner: Box::new(move |rx, tx| {
                 Box::pin(async move {
                     let socket = Socket::new(rx, tx);
-                    let res = handler(req, socket.clone()).await;
+                    let res = handler(req, socket).await;
                     if let Err(err) = res {
                         tracing::error!("{}", err);
                     }
-                    socket.close().await;
                 })
             }),
         };

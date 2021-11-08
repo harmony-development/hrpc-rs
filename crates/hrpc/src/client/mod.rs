@@ -90,8 +90,8 @@ impl<Inner: Transport> Client<Inner> {
         req: Request<()>,
     ) -> ClientResult<Socket<Req, Resp>, Inner::Error>
     where
-        Req: prost::Message + 'static,
-        Resp: prost::Message + Default + 'static,
+        Req: prost::Message,
+        Resp: prost::Message + Default,
     {
         self.transport.call_socket(req).await
     }
@@ -104,8 +104,8 @@ impl<Inner: Transport> Client<Inner> {
         request: Request<Req>,
     ) -> ClientResult<Socket<Req, Resp>, Inner::Error>
     where
-        Req: prost::Message + Default + 'static,
-        Resp: prost::Message + Default + 'static,
+        Req: prost::Message + Default,
+        Resp: prost::Message + Default,
     {
         let request::Parts {
             body,
@@ -114,7 +114,7 @@ impl<Inner: Transport> Client<Inner> {
             ..
         } = request.into();
 
-        let socket = self
+        let mut socket = self
             .connect_socket(Request::from(request::Parts {
                 body: Body::empty(),
                 endpoint: endpoint.clone(),

@@ -11,7 +11,7 @@ async fn main() -> Result<(), BoxError> {
     let mut client = ChatClient::new("http://localhost:2289")?;
 
     // Connect to message socket
-    let socket = client.stream_messages(Empty {}).await?;
+    let mut socket = client.stream_messages(Empty {}).await?;
 
     // Send a message
     client
@@ -21,12 +21,10 @@ async fn main() -> Result<(), BoxError> {
         .await?;
 
     // Wait for messages and post them, in a seperate task
-    socket.spawn_task(|socket| async move {
+    tokio::spawn(async move {
         while let Ok(message) = socket.receive_message().await {
             println!("got: {}", message.content);
         }
-
-        Ok(())
     });
 
     // Create our rustyline instance which we will use to read messages
