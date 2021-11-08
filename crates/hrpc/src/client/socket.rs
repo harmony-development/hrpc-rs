@@ -126,10 +126,6 @@ where
 
     /// Receive a message from the socket.
     ///
-    /// ## Errors
-    /// - Returns [`SocketError::ConnectionClosed`] if the socket is closed normally.
-    /// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.
-    ///
     /// ## Notes
     /// - This will block until getting a message if the socket is not closed.
     /// - Cloning a [`Socket`] will NOT make you able to receive a message on all of the sockets.
@@ -146,10 +142,6 @@ where
     }
 
     /// Send a message over the socket.
-    ///
-    /// ## Errors
-    /// - Returns [`SocketError::ConnectionClosed`] if the socket is closed normally.
-    /// - Returns [`SocketError::AlreadyClosed`] if the socket is already closed.
     ///
     /// ## Notes
     /// This will block if the inner send buffer is filled.

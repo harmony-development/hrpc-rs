@@ -23,6 +23,8 @@ hrpc-build = { path = "../../crates/hrpc-build", features = [
 
 [[bin]]
 name = "client"
+doc = false
 
 [[bin]]
 name = "server"
+doc = false
