@@ -226,8 +226,8 @@
         <span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span>
     <span class="kw">where</span>
-        <span class="ident">Req</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-        <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">Req</span>: <span class="ident">prost::Message</span>,
+        <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span>,
     {
         <span class="self">self</span>.<span class="ident">transport</span>.<span class="ident">call_socket</span>(<span class="ident">req</span>).<span class="kw">await</span>
     }
@@ -240,8 +240,8 @@
         <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span>
     <span class="kw">where</span>
-        <span class="ident">Req</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-        <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">Req</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span>,
+        <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span>,
     {
         <span class="kw">let</span> <span class="ident">request::Parts</span> {
             <span class="ident">body</span>,
@@ -250,7 +250,7 @@
             ..
         } <span class="op">=</span> <span class="ident">request</span>.<span class="ident">into</span>();
 
-        <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="self">self</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">socket</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">connect_socket</span>(<span class="ident">Request::from</span>(<span class="ident">request::Parts</span> {
                 <span class="ident">body</span>: <span class="ident">Body::empty</span>(),
                 <span class="ident">endpoint</span>: <span class="ident">endpoint</span>.<span class="ident">clone</span>(),

@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["SocketMessage","Generic socket message."]]});
+initSidebarItems({"enum":[["SocketMessage","Generic socket message."]],"mod":[["auto_ping","Socket types that have automatic ping handling."],["manual_ping","Socket types that don’t have automatic ping handling."]]});
