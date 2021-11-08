@@ -41,16 +41,17 @@ jobs:
     - name: Clippy
       uses: actions-rs/clippy-check@v1
       with:
+        args: --all-features
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --all-features --verbose
 
     - name: Test
-      run: RUST_LOG=info cargo test --verbose
+      run: RUST_LOG=info cargo test --all-features --verbose
     
     - name: Doc
-      run: cargo doc --no-deps --verbose
+      run: cargo doc --no-deps --all-features --verbose
 
     - name: Finalize documentation
       run: |
