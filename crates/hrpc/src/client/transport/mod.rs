@@ -30,6 +30,6 @@ pub trait Transport {
         req: Request<()>,
     ) -> BoxFuture<'_, ClientResult<Socket<Req, Resp>, Self::Error>>
     where
-        Req: PbMsg,
-        Resp: PbMsg + Default;
+        Req: PbMsg + 'static,
+        Resp: PbMsg + Default + 'static;
 }

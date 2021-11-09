@@ -39,18 +39,21 @@ async fn client() -> Result<(), BoxError> {
     let resp = client.mu(Ping { mu: "".to_string() }).await;
     println!("{:#?}", resp);
 
-    let (mut write_sock, mut read_sock) = client.mu_mute(()).await.unwrap().split();
+    let sock = client.mu_mute(()).await.unwrap();
     let _ = client.mu_mu(Ping::default()).await.unwrap();
 
-    tokio::spawn(async move {
-        while let Ok(msg) = read_sock.receive_message().await {
-            println!("got: {:#?}", msg);
+    tokio::spawn({
+        let sock = sock.clone();
+        async move {
+            while let Ok(msg) = sock.receive_message().await {
+                println!("got: {:#?}", msg);
+            }
         }
     });
 
     for i in 0..100 {
         let ins = Instant::now();
-        if let Err(err) = write_sock.send_message(Ping { mu: i.to_string() }).await {
+        if let Err(err) = sock.send_message(Ping { mu: i.to_string() }).await {
             eprintln!("failed to send message: {}", err);
         }
         println!("sent in {}", ins.elapsed().as_secs_f64());
@@ -68,7 +71,7 @@ async fn client() -> Result<(), BoxError> {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    write_sock.close().await?;
+    sock.close().await;
 
     Ok(())
 }
@@ -106,7 +109,7 @@ impl mu_server::Mu for MuService {
     }
 
     #[handler]
-    async fn mu_mute(&self, _: Request<()>, mut sock: Socket<Pong, Ping>) -> ServerResult<()> {
+    async fn mu_mute(&self, _: Request<()>, sock: Socket<Pong, Ping>) -> ServerResult<()> {
         let mut int = tokio::time::interval(Duration::from_secs(10));
         int.tick().await;
 

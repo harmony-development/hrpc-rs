@@ -40,6 +40,7 @@ server = [
     "flume",
 ]
 client = ["tokio/sync", "tokio/rt", "tokio/macros", "flume"]
+disable_socket_auto_ping = []
 
 # HTTP transport
 http_server = [

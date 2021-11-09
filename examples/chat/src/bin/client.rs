@@ -11,7 +11,7 @@ async fn main() -> Result<(), BoxError> {
     let mut client = ChatClient::new("http://localhost:2289")?;
 
     // Connect to message socket
-    let mut socket = client.stream_messages(Empty {}).await?;
+    let socket = client.stream_messages(Empty {}).await?;
 
     // Send a message
     client

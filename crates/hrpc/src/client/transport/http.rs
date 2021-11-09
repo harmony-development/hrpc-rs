@@ -168,8 +168,8 @@ impl Transport for Hyper {
         mut req: Request<()>,
     ) -> BoxFuture<'_, ClientResult<Socket<Req, Resp>, Self::Error>>
     where
-        Req: Message,
-        Resp: Message + Default,
+        Req: Message + 'static,
+        Resp: Message + Default + 'static,
     {
         Box::pin(async move {
             let ws_scheme = match self.server.scheme_str() {
