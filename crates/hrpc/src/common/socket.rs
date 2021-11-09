@@ -6,7 +6,6 @@ use std::pin::Pin;
 use bytes::BytesMut;
 use futures_util::{Sink, Stream};
 use futures_util::{SinkExt, StreamExt};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use crate::{decode::DecodeBodyError, proto::Error as HrpcError};
 
@@ -56,6 +55,8 @@ pub mod auto_ping {
 
 /// Socket types that don't have automatic ping handling.
 pub mod manual_ping {
+    use tokio::sync::mpsc::{self, error::TrySendError, Receiver, Sender};
+
     use super::*;
     /// A hRPC socket.
     pub struct Socket<Req, Resp>
@@ -73,7 +74,7 @@ pub mod manual_ping {
         Resp: prost::Message + Default,
     {
         pub(crate) fn new(ws_rx: BoxedWsRx, ws_tx: BoxedWsTx) -> Self {
-            let (tx, rx) = unbounded_channel();
+            let (tx, rx) = mpsc::channel(16);
             Self {
                 write: WriteSocket::new(ws_tx, rx),
                 read: ReadSocket::new(ws_rx, tx),
@@ -119,12 +120,12 @@ pub mod manual_ping {
     /// Read half of a socket.
     pub struct ReadSocket<Resp: prost::Message + Default> {
         ws_rx: BoxedWsRx,
-        tx_chan: UnboundedSender<SocketMessage>,
+        tx_chan: Sender<SocketMessage>,
         _resp: PhantomData<Resp>,
     }
 
     impl<Resp: prost::Message + Default> ReadSocket<Resp> {
-        pub(crate) fn new(ws_rx: BoxedWsRx, tx_chan: UnboundedSender<SocketMessage>) -> Self {
+        pub(crate) fn new(ws_rx: BoxedWsRx, tx_chan: Sender<SocketMessage>) -> Self {
             Self {
                 ws_rx,
                 tx_chan,
@@ -139,6 +140,18 @@ pub mod manual_ping {
         /// - This handles responding to pings. You should call this even if you
         /// aren't going to receive any messages.
         pub async fn receive_message(&mut self) -> Result<Resp, HrpcError> {
+            fn handle_sock_res<T>(res: Result<(), TrySendError<T>>) -> Result<bool, HrpcError> {
+                match res {
+                    Ok(_) => Ok(false),
+                    Err(err) => match err {
+                        TrySendError::Closed(_) => {
+                            Err(("hrpcrs.socket-error", "sender half dropped").into())
+                        }
+                        TrySendError::Full(_) => Ok(true),
+                    },
+                }
+            }
+
             loop {
                 tokio::select! {
                     biased;
@@ -150,13 +163,15 @@ pub mod manual_ping {
                                 });
                             }
                             SocketMessage::Ping(data) => {
-                                self.tx_chan.send(SocketMessage::Pong(data))
-                                    .map_err(|_| ("hrpcrs.socket-error", "sender half dropped"))?;
+                                if handle_sock_res(self.tx_chan.try_send(SocketMessage::Pong(data)))? {
+                                    tracing::debug!("sender message queue is full, can't send pings (are you forgetting to call handle_pings on sender?)");
+                                }
                                 continue;
                             }
                             SocketMessage::Close => {
-                                self.tx_chan.send(SocketMessage::Close)
-                                    .map_err(|_| ("hrpcrs.socket-error", "sender half dropped"))?;
+                                if handle_sock_res(self.tx_chan.try_send(SocketMessage::Close))? {
+                                    tracing::debug!("sender message queue is full, can't send close (are you forgetting to call handle_pings on sender?)");
+                                }
                                 return Err(SocketError::Closed.into());
                             }
                             _ => tokio::task::yield_now().await,
@@ -172,12 +187,12 @@ pub mod manual_ping {
     pub struct WriteSocket<Req: prost::Message> {
         ws_tx: BoxedWsTx,
         buf: BytesMut,
-        rx_chan: UnboundedReceiver<SocketMessage>,
+        rx_chan: Receiver<SocketMessage>,
         _req: PhantomData<Req>,
     }
 
     impl<Req: prost::Message> WriteSocket<Req> {
-        pub(crate) fn new(ws_tx: BoxedWsTx, rx_chan: UnboundedReceiver<SocketMessage>) -> Self {
+        pub(crate) fn new(ws_tx: BoxedWsTx, rx_chan: Receiver<SocketMessage>) -> Self {
             Self {
                 ws_tx,
                 buf: BytesMut::new(),
