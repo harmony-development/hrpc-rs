@@ -273,7 +273,7 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">prelude</span> {
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{
         <span class="ident">error</span>::{<span class="ident">HrpcError</span>, <span class="ident">ServerResult</span>},
-        <span class="ident">service::HrpcLayer</span>,
+        <span class="ident">service</span>::{<span class="ident">HrpcLayer</span>, <span class="ident">HrpcLayerExt</span>},
         <span class="ident">socket::Socket</span>,
         <span class="ident">transport::Transport</span>,
         <span class="ident">MakeRoutes</span>,

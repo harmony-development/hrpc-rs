@@ -224,7 +224,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">mu_middleware</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_endpoint</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HrpcLayer</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">mu_middleware</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HrpcLayer</span><span class="op">&gt;</span> {
         <span class="prelude-val">Some</span>(<span class="ident">HrpcLayer::new</span>(<span class="ident">RateLimitLayer::new</span>(
             <span class="number">5</span>,
             <span class="ident">Duration::from_secs</span>(<span class="number">10</span>),
