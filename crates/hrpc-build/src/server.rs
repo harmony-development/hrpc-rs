@@ -30,7 +30,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     #[cfg(feature = "default_transport_http")]
     methods.extend(quote! {
         /// Serves the service with HTTP transport.
-        pub async fn serve<Addr: ToSocketAddrs>(self, addr: Addr) -> Result<(), <hrpc::server::transport::http::Hyper<Addr> as Transport>::Error> {
+        pub async fn serve<Addr: ToSocketAddrs>(self, addr: Addr) -> Result<(), <hrpc::server::transport::http::Hyper<Addr, Identity> as Transport>::Error> {
             let transport = hrpc::server::transport::http::Hyper::new(addr);
             transport.serve(self).await
         }
@@ -102,7 +102,7 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
         stream.extend(quote! {
             /// Optional middleware for this RPC.
             #[allow(unused_variables)]
-            fn #pre_name(&self, endpoint: &'static str) -> Option<HrpcLayer> {
+            fn #pre_name(&self) -> Option<HrpcLayer> {
                 None
             }
         });
@@ -177,7 +177,7 @@ fn generate_handlers<T: Service>(service: &T, proto_path: &str) -> (TokenStream,
             let #name = {
                 #handler_body
             };
-            let #name = match self.service. #pre_name (#endpoint) {
+            let #name = match self.service. #pre_name () {
                 Some(layer) => layer.layer(#name),
                 None => HrpcService::new(#name),
             };

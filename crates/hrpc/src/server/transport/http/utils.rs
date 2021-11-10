@@ -3,7 +3,11 @@ use std::{borrow::Cow, convert::Infallible, str::FromStr};
 use bytes::Bytes;
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
 use http::StatusCode;
-use tower::{Layer, Service};
+use tower::{
+    layer::util::{Identity, Stack},
+    util::BoxService,
+    Layer, Service,
+};
 
 use super::ws::{WebSocketUpgrade, WebSocketUpgradeError};
 use crate::{
@@ -17,6 +21,10 @@ use crate::{
     server::{service::HrpcService, socket::SocketHandler, IntoMakeService, MakeRoutes},
     Request,
 };
+
+/// A type alias for a boxed [`Service`] that takes [`HttpRequest`]s and
+/// outputs [`HttpResponse`]s.
+pub type HttpService = BoxService<HttpRequest, HttpResponse, Infallible>;
 
 /// A service that wraps a [`HrpcService`], and takes HTTP requests and
 /// produces HTTP responses.
@@ -132,24 +140,43 @@ impl Layer<HrpcService> for HrpcServiceToHttpLayer {
 }
 
 /// Service that wraps an [`IntoMakeService`] and transforms the services
-/// it produces into [`HrpcServiceToHttp`].
-pub struct MakeRoutesToHttp<S: MakeRoutes> {
+/// it produces into [`HttpService`].
+pub struct MakeRoutesToHttp<S: MakeRoutes, L> {
     inner: IntoMakeService<S>,
+    layer: L,
 }
 
-impl<S: MakeRoutes> MakeRoutesToHttp<S> {
+impl<S: MakeRoutes> MakeRoutesToHttp<S, Identity> {
     /// Create a new service by wrapping an [`IntoMakeService`].
     pub fn new(inner: IntoMakeService<S>) -> Self {
-        Self { inner }
+        Self {
+            inner,
+            layer: Identity::new(),
+        }
     }
 }
 
-impl<S: MakeRoutes, T> Service<T> for MakeRoutesToHttp<S> {
-    type Response = HrpcServiceToHttp;
+impl<M: MakeRoutes, L> MakeRoutesToHttp<M, L> {
+    /// Layer the inner layer, that will be used to transform the produced services.
+    pub fn layer<Layer>(self, layer: Layer) -> MakeRoutesToHttp<M, Stack<Layer, L>> {
+        MakeRoutesToHttp {
+            inner: self.inner,
+            layer: Stack::new(layer, self.layer),
+        }
+    }
+}
+
+impl<M: MakeRoutes, T, L, S> Service<T> for MakeRoutesToHttp<M, L>
+where
+    L: Layer<HrpcServiceToHttp, Service = S> + Clone + Send,
+    S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
+    S::Future: Send,
+{
+    type Response = HttpService;
 
     type Error = Infallible;
 
-    type Future = Ready<Result<HrpcServiceToHttp, Infallible>>;
+    type Future = Ready<Result<HttpService, Infallible>>;
 
     fn poll_ready(
         &mut self,
@@ -163,18 +190,7 @@ impl<S: MakeRoutes, T> Service<T> for MakeRoutesToHttp<S> {
             .into_inner()
             .unwrap()
             .unwrap();
-        fut::ready(Ok(HrpcServiceToHttp::new(routes.inner)))
-    }
-}
-
-/// Layer that can be used to transform an [`IntoMakeService`] into a
-/// [`MakeRoutesToHttp`].
-pub struct MakeRoutesToHttpLayer;
-
-impl<S: MakeRoutes> Layer<IntoMakeService<S>> for MakeRoutesToHttpLayer {
-    type Service = MakeRoutesToHttp<S>;
-
-    fn layer(&self, inner: IntoMakeService<S>) -> Self::Service {
-        MakeRoutesToHttp::new(inner)
+        let http_service = HrpcServiceToHttp::new(routes.inner);
+        fut::ready(Ok(BoxService::new(self.layer.layer(http_service))))
     }
 }

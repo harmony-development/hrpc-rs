@@ -48,7 +48,7 @@ pub mod gen_prelude {
 pub mod prelude {
     pub use super::{
         error::{HrpcError, ServerResult},
-        service::HrpcLayer,
+        service::{HrpcLayer, HrpcLayerExt},
         socket::Socket,
         transport::Transport,
         MakeRoutes,

@@ -92,6 +92,8 @@ dependencies = [
  "prost",
  "rustyline",
  "tokio",
+ "tower",
+ "tower-http",
 ]
 
 [[package]]
@@ -1333,6 +1335,21 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "tower-http"
+version = "0.1.1"
+source = "git+https://github.com/tower-rs/tower-http.git?branch=cors#9f09fc55bf74b5b9a8bd79cbede7e73d37a3e79b"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-util",
+ "http",
+ "http-body",
+ "pin-project",
+ "tower-layer",
+ "tower-service",
 ]
 
 [[package]]

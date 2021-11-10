@@ -116,6 +116,23 @@ where
     }
 }
 
+/// Extension trait for [`HrpcLayer`].
+pub trait HrpcLayerExt: Sized {
+    /// Convert this into a [`HrpcLayer`].
+    fn into_hrpc_layer(self) -> HrpcLayer;
+}
+
+impl<L, S> HrpcLayerExt for L
+where
+    L: Layer<HrpcService, Service = S> + Sync + Send + 'static,
+    S: Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,
+    S::Future: Send,
+{
+    fn into_hrpc_layer(self) -> HrpcLayer {
+        HrpcLayer::new(self)
+    }
+}
+
 /// A handler that responses to any request with not found.
 pub fn not_found() -> HrpcService {
     HrpcService::new(tower::service_fn(|_| {

@@ -92,7 +92,7 @@ impl mu_server::Mu for MuService {
         Ok(())
     }
 
-    fn mu_middleware(&self, _endpoint: &'static str) -> Option<HrpcLayer> {
+    fn mu_middleware(&self) -> Option<HrpcLayer> {
         Some(HrpcLayer::new(RateLimitLayer::new(
             5,
             Duration::from_secs(10),
