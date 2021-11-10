@@ -16,7 +16,7 @@ use crate::{
     body::Body,
     common::{extensions::Extensions, socket::SocketMessage},
     proto::{Error as HrpcError, HrpcErrorIdentifier},
-    request, response, BoxError, Request, Response, HRPC_HEADER,
+    request, response, BoxError, Request, Response, HRPC_HEADER, HRPC_WEBSOCKET_PROTOCOL,
 };
 
 /// A boxed HTTP body. This is used to unify response bodies.
@@ -41,6 +41,11 @@ where
 /// Create a header value for the hRPC content type.
 pub fn hrpc_header_value() -> HeaderValue {
     unsafe { HeaderValue::from_maybe_shared_unchecked(Bytes::from_static(HRPC_HEADER)) }
+}
+
+/// Create a header value for the hRPC websocket protocol.
+pub fn hrpc_websocket_protocol_header_value() -> HeaderValue {
+    unsafe { HeaderValue::from_maybe_shared_unchecked(Bytes::from_static(HRPC_WEBSOCKET_PROTOCOL)) }
 }
 
 /// Helper methods for working with `HeaderMap`.
@@ -169,6 +174,10 @@ impl<T> From<Response<T>> for HttpResponse {
         http::Response::builder()
             .header(http::header::CONTENT_TYPE, hrpc_header_value())
             .header(http::header::ACCEPT, hrpc_header_value())
+            .header(
+                http::header::SEC_WEBSOCKET_PROTOCOL,
+                hrpc_websocket_protocol_header_value(),
+            )
             .extension(parts.extensions)
             .body(box_body(parts.body))
             .unwrap()
