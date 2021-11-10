@@ -424,6 +424,10 @@
 <span id="424">424</span>
 <span id="425">425</span>
 <span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 
 <span class="kw">use</span> <span class="ident">std::pin::Pin</span>;
@@ -489,6 +493,7 @@
     <span class="comment">// by the user. This is done to prevent user mistakes.</span>
     <span class="doccomment">/// A hRPC socket.</span>
     <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+    <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;sockets do nothing unless you use `.send_message(msg)` or `.receive_message()`&quot;</span>]</span>
     <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span> {
         <span class="ident">rx</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Resp</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">tx</span>: <span class="ident">mpsc::Sender</span><span class="op">&lt;</span><span class="ident">SenderChanWithReq</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -687,6 +692,7 @@
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
     <span class="doccomment">/// A hRPC socket.</span>
+    <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;sockets do nothing unless you use `.send_message(msg)` or `.receive_message()`&quot;</span>]</span>
     <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span> {
         <span class="ident">write</span>: <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
         <span class="ident">read</span>: <span class="ident">ReadSocket</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>,
@@ -742,6 +748,7 @@
     }
 
     <span class="doccomment">/// Read half of a socket.</span>
+    <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;read sockets do nothing unless you use `.receive_message()`&quot;</span>]</span>
     <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ReadSocket</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span> {
         <span class="ident">ws_rx</span>: <span class="ident">BoxedWsRx</span>,
         <span class="ident">tx_chan</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">SocketMessage</span><span class="op">&gt;</span>,
@@ -808,6 +815,7 @@
     }
 
     <span class="doccomment">/// Write half of a socket.</span>
+    <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;write sockets do nothing unless you use `.send_message(msg)` and `.handle_pings()`&quot;</span>]</span>
     <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span> {
         <span class="ident">ws_tx</span>: <span class="ident">BoxedWsTx</span>,
         <span class="ident">buf</span>: <span class="ident">BytesMut</span>,
