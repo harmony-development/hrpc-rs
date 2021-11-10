@@ -310,7 +310,7 @@
                     })
                     .<span class="ident">unwrap_or</span>(<span class="ident">StatusCode::OK</span>);
 
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">http_resp</span>: <span class="ident">HttpResponse</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">into</span>();
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">http_resp</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">into_unary_response</span>();
                 <span class="kw-2">*</span><span class="ident">http_resp</span>.<span class="ident">status_mut</span>() <span class="op">=</span> <span class="ident">status</span>;
 
                 <span class="prelude-val">Ok</span>(<span class="ident">http_resp</span>)

@@ -322,6 +322,7 @@
 <span id="322">322</span>
 <span id="323">323</span>
 <span id="324">324</span>
+<span id="325">325</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::borrow::Cow</span>;
 
 <span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
@@ -486,9 +487,10 @@
 
 <span class="comment">// Conversion function impls</span>
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">HttpResponse</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">resp</span>: <span class="ident">Response</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">parts</span> <span class="op">=</span> <span class="ident">response::Parts::from</span>(<span class="ident">resp</span>);
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Response</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Convert this hRPC response into a unary HTTP response.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_unary_response</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HttpResponse</span> {
+        <span class="kw">let</span> <span class="ident">parts</span> <span class="op">=</span> <span class="ident">response::Parts::from</span>(<span class="self">self</span>);
 
         <span class="ident">http::Response::builder</span>()
             .<span class="ident">header</span>(<span class="ident">http::header::CONTENT_TYPE</span>, <span class="ident">hrpc_header_value</span>())
