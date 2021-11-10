@@ -47,6 +47,7 @@ http_server = [
     "http",
     "http-body",
     "hyper",
+    "axum-server",
     "hyper/server",
     "tokio-tungstenite",
     "sha-1",
@@ -102,6 +103,7 @@ hyper-rustls = { version = "0.22", default-features = false, features = [
 tokio-tungstenite = { version = "0.15", default-features = false, features = [
     "rustls-tls",
 ], optional = true }
+axum-server = { version = "0.3", default-features = false, features = ["tls-rustls"], optional = true }
 
 # Only used by client to discover certs for WS
 rustls-native-certs = { version = "0.5", default-features = false, optional = true }

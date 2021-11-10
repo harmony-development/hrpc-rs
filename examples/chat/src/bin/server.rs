@@ -70,7 +70,7 @@ async fn main() -> Result<(), BoxError> {
     let service = ChatServer::new(ChatService::new());
 
     // Create our transport that we will use to serve our service
-    let transport = Hyper::new("127.0.0.1:2289");
+    let transport = Hyper::new("127.0.0.1:2289")?;
 
     // Layer our transport with a CORS header
     //
