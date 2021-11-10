@@ -46,7 +46,7 @@ pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 /// The hRPC protobuf mimetype.
 pub const HRPC_HEADER: &[u8] = b"application/hrpc";
 /// The hRPC websocket protocol name.
-pub const HRPC_WEBSOCKET_PROTOCOL: &[u8] = b"harmony";
+pub const HRPC_WEBSOCKET_PROTOCOL: &str = "hrpc";
 
 /// Include generated proto server and client items.
 ///

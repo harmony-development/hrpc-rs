@@ -19,7 +19,7 @@ use crate::{
     proto::{Error as HrpcError, HrpcErrorIdentifier},
     request::{self, BoxRequest},
     server::{service::HrpcService, socket::SocketHandler, IntoMakeService, MakeRoutes},
-    Request,
+    Request, HRPC_WEBSOCKET_PROTOCOL,
 };
 
 /// A type alias for a boxed [`Service`] that takes [`HttpRequest`]s and
@@ -55,7 +55,9 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
 
     fn call(&mut self, mut req: HttpRequest) -> Self::Future {
         let (ws_upgrade, hrpc_req) = match WebSocketUpgrade::from_request(&mut req) {
-            Ok(upgrade) => {
+            Ok(mut upgrade) => {
+                upgrade = upgrade.protocols([HRPC_WEBSOCKET_PROTOCOL]);
+
                 let (parts, body) = req.into_parts();
 
                 let endpoint = Cow::Owned(parts.uri.path().to_string());
