@@ -63,6 +63,7 @@ mod internal {
     // by the user. This is done to prevent user mistakes.
     /// A hRPC socket.
     #[derive(Debug)]
+    #[must_use = "sockets do nothing unless you use `.send_message(msg)` or `.receive_message()`"]
     pub struct Socket<Req, Resp> {
         rx: flume::Receiver<Result<Resp, HrpcError>>,
         tx: mpsc::Sender<SenderChanWithReq<Req>>,
@@ -261,6 +262,7 @@ mod internal {
     use super::*;
 
     /// A hRPC socket.
+    #[must_use = "sockets do nothing unless you use `.send_message(msg)` or `.receive_message()`"]
     pub struct Socket<Req, Resp> {
         write: WriteSocket<Req>,
         read: ReadSocket<Resp>,
@@ -316,6 +318,7 @@ mod internal {
     }
 
     /// Read half of a socket.
+    #[must_use = "read sockets do nothing unless you use `.receive_message()`"]
     pub struct ReadSocket<Resp> {
         ws_rx: BoxedWsRx,
         tx_chan: Sender<SocketMessage>,
@@ -382,6 +385,7 @@ mod internal {
     }
 
     /// Write half of a socket.
+    #[must_use = "write sockets do nothing unless you use `.send_message(msg)` and `.handle_pings()`"]
     pub struct WriteSocket<Req> {
         ws_tx: BoxedWsTx,
         buf: BytesMut,
