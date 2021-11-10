@@ -112,7 +112,7 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
                     })
                     .unwrap_or(StatusCode::OK);
 
-                let mut http_resp: HttpResponse = resp.into();
+                let mut http_resp = resp.into_unary_response();
                 *http_resp.status_mut() = status;
 
                 Ok(http_resp)

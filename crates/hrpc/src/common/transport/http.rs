@@ -162,9 +162,10 @@ impl http_body::Body for Body {
 
 // Conversion function impls
 
-impl<T> From<Response<T>> for HttpResponse {
-    fn from(resp: Response<T>) -> Self {
-        let parts = response::Parts::from(resp);
+impl<T> Response<T> {
+    /// Convert this hRPC response into a unary HTTP response.
+    pub fn into_unary_response(self) -> HttpResponse {
+        let parts = response::Parts::from(self);
 
         http::Response::builder()
             .header(http::header::CONTENT_TYPE, hrpc_header_value())
