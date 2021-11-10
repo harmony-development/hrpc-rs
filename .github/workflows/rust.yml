@@ -41,14 +41,14 @@ jobs:
     - name: Clippy
       uses: actions-rs/clippy-check@v1
       with:
-        args: --features client,server,recommended
+        args: --features client,server,recommended --all-targets
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build
-      run: cargo build --features client,server,recommended --verbose
+      run: cargo build --features client,server,recommended --all-targets --verbose
 
     - name: Test
-      run: RUST_LOG=info cargo test --features client,server,recommended --verbose
+      run: RUST_LOG=info cargo test --features client,server,recommended --all-targets --verbose
     
     - name: Doc
       run: cargo doc --no-deps --features client,server,recommended --verbose
