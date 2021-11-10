@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["utils","Utilities for working with this transport."]],"struct":[["Hyper","A transport based on [`hyper`]."]]});
+initSidebarItems({"mod":[["utils","Utilities for working with this transport."]],"struct":[["Hyper","A transport based on [`hyper`] that supports TLS."]]});
