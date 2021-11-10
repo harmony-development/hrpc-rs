@@ -12,7 +12,7 @@ use futures_util::{future::BoxFuture, StreamExt};
 use http::{
     header,
     uri::{PathAndQuery, Scheme},
-    HeaderMap, Method, Uri,
+    HeaderMap, HeaderValue, Method, Uri,
 };
 use prost::Message;
 use tokio_rustls::webpki::DNSNameRef;
@@ -25,7 +25,7 @@ use super::{
 use crate::{
     client::socket::Socket,
     common::transport::http::{hrpc_header_value, WebSocket},
-    request, Request, Response,
+    request, Request, Response, HRPC_WEBSOCKET_PROTOCOL,
 };
 
 type SocketRequest = tungstenite::handshake::client::Request;
@@ -183,10 +183,16 @@ impl Transport for Hyper {
 
             let mut request = SocketRequest::get(endpoint).body(()).unwrap();
 
+            // Insert default protocol (can be overwritten by users)
+            request.headers_mut().insert(
+                header::SEC_WEBSOCKET_PROTOCOL,
+                HeaderValue::from_static(HRPC_WEBSOCKET_PROTOCOL),
+            );
+
             if let Some(header_map) = req.extensions_mut().remove::<HeaderMap>() {
                 for (key, value) in header_map {
                     if let Some(key) = key {
-                        request.headers_mut().entry(key).or_insert(value);
+                        request.headers_mut().insert(key, value);
                     }
                 }
             }
