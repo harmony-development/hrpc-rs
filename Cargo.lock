@@ -40,9 +40,9 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "axum-server"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03599c1b12942a61edff0aaa22117613803f21805613dd058ddb985d00249d02"
+checksum = "4b6066e36b386e7d0ffbad19ea3a12779ccc8818e1533d3664c42109646cda8d"
 dependencies = [
  "arc-swap",
  "bytes",
