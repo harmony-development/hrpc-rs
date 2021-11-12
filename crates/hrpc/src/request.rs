@@ -11,6 +11,8 @@ use crate::{
 };
 
 /// Request parts.
+#[non_exhaustive]
+#[derive(Debug)]
 pub struct Parts {
     /// Body of a request.
     pub body: Body,
@@ -22,20 +24,14 @@ pub struct Parts {
 
 impl<T> From<Request<T>> for Parts {
     fn from(req: Request<T>) -> Self {
-        Self {
-            body: req.body,
-            extensions: req.extensions,
-            endpoint: req.endpoint,
-        }
+        req.parts
     }
 }
 
 impl<T> From<Parts> for Request<T> {
     fn from(parts: Parts) -> Self {
         Self {
-            body: parts.body,
-            extensions: parts.extensions,
-            endpoint: parts.endpoint,
+            parts,
             message: PhantomData,
         }
     }
@@ -43,18 +39,14 @@ impl<T> From<Parts> for Request<T> {
 
 /// A hRPC request.
 pub struct Request<T> {
-    body: Body,
-    endpoint: Cow<'static, str>,
-    extensions: Extensions,
+    parts: Parts,
     message: PhantomData<T>,
 }
 
 impl<T> Debug for Request<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Response")
-            .field("body", &self.body)
-            .field("endpoint", &self.endpoint)
-            .field("extensions", &self.extensions)
+            .field("parts", &self.parts)
             .finish()
     }
 }
@@ -72,9 +64,11 @@ impl<T> Request<T> {
     /// Creates a new request using the provided body.
     pub fn new_with_body(body: Body) -> Self {
         Self {
-            body,
-            extensions: Extensions::new(),
-            endpoint: Cow::Borrowed(""),
+            parts: Parts {
+                body,
+                extensions: Extensions::new(),
+                endpoint: Cow::Borrowed(""),
+            },
             message: PhantomData,
         }
     }
@@ -82,33 +76,31 @@ impl<T> Request<T> {
     /// Get a mutable reference to the extensions of this response.
     #[inline]
     pub fn extensions_mut(&mut self) -> &mut Extensions {
-        &mut self.extensions
+        &mut self.parts.extensions
     }
 
     /// Get an immutable reference to the extensions of this response.
     #[inline]
     pub fn extensions(&self) -> &Extensions {
-        &self.extensions
+        &self.parts.extensions
     }
 
     /// Get a mutable reference to the endpoint of this response.
     #[inline]
     pub fn endpoint_mut(&mut self) -> &mut Cow<'static, str> {
-        &mut self.endpoint
+        &mut self.parts.endpoint
     }
 
     /// Get an immutable reference to the endpoint of this response.
     #[inline]
     pub fn endpoint(&self) -> &str {
-        self.endpoint.as_ref()
+        self.parts.endpoint.as_ref()
     }
 
     #[allow(dead_code)]
     pub(crate) fn map<M>(self) -> Request<M> {
         Request {
-            body: self.body,
-            extensions: self.extensions,
-            endpoint: self.endpoint,
+            parts: self.parts,
             message: PhantomData,
         }
     }
@@ -126,7 +118,7 @@ impl<T: PbMsg + Default> Request<T> {
     /// Extract the body from the request and decode it into the message.
     #[inline]
     pub async fn into_message(self) -> Result<T, DecodeBodyError> {
-        decode_body(self.body).await
+        decode_body(self.parts.body).await
     }
 }
 

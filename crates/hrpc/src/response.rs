@@ -13,6 +13,8 @@ use crate::{
 };
 
 /// Response parts.
+#[non_exhaustive]
+#[derive(Debug)]
 pub struct Parts {
     /// Body of a response.
     pub body: Body,
@@ -22,18 +24,14 @@ pub struct Parts {
 
 impl<T> From<Response<T>> for Parts {
     fn from(resp: Response<T>) -> Self {
-        Self {
-            body: resp.body,
-            extensions: resp.extensions,
-        }
+        resp.parts
     }
 }
 
 impl<T> From<Parts> for Response<T> {
     fn from(parts: Parts) -> Self {
         Self {
-            body: parts.body,
-            extensions: parts.extensions,
+            parts,
             msg: PhantomData,
         }
     }
@@ -41,8 +39,7 @@ impl<T> From<Parts> for Response<T> {
 
 /// hRPC response type.
 pub struct Response<T> {
-    body: Body,
-    extensions: Extensions,
+    parts: Parts,
     msg: PhantomData<T>,
 }
 
@@ -56,8 +53,7 @@ impl Response<()> {
 impl<T> Debug for Response<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Response")
-            .field("body", &self.body)
-            .field("extensions", &self.extensions)
+            .field("parts", &self.parts)
             .finish()
     }
 }
@@ -66,8 +62,10 @@ impl<T> Response<T> {
     /// Creates a response with the provided body.
     pub fn new_with_body(body: Body) -> Self {
         Self {
-            body,
-            extensions: Extensions::new(),
+            parts: Parts {
+                body,
+                extensions: Extensions::new(),
+            },
             msg: PhantomData,
         }
     }
@@ -75,20 +73,19 @@ impl<T> Response<T> {
     /// Get a mutable reference to the extensions of this response.
     #[inline]
     pub fn extensions_mut(&mut self) -> &mut Extensions {
-        &mut self.extensions
+        &mut self.parts.extensions
     }
 
     /// Get an immutable reference to the extensions of this response.
     #[inline]
     pub fn extensions(&self) -> &Extensions {
-        &self.extensions
+        &self.parts.extensions
     }
 
     #[allow(dead_code)]
     pub(crate) fn map<M>(self) -> Response<M> {
         Response {
-            body: self.body,
-            extensions: self.extensions,
+            parts: self.parts,
             msg: PhantomData,
         }
     }
@@ -105,7 +102,7 @@ impl<T: PbMsg + Default> Response<T> {
     /// Extract the body from the response and decode it into the message.
     #[inline]
     pub async fn into_message(self) -> Result<T, DecodeBodyError> {
-        decode_body(self.body).await
+        decode_body(self.parts.body).await
     }
 }
 
