@@ -26,9 +26,6 @@ pub type HttpRequest = http::Request<hyper::Body>;
 /// A HTTP response.
 pub type HttpResponse = http::Response<BoxBody>;
 
-pub use http::request::Parts as HttpRequestParts;
-pub use http::response::Parts as HttpResponseParts;
-
 /// Convert a body with the correct attributes to a [`BoxBody`].
 pub fn box_body<B>(body: B) -> BoxBody
 where
@@ -70,6 +67,26 @@ impl HeaderMapExt for HeaderMap {
 impl_exts::impl_exts!(Request<T>);
 impl_exts::impl_exts!(Response<T>);
 
+impl<T> Request<T> {
+    /// Get an immutable reference to the HTTP method.
+    #[inline]
+    pub fn http_method(&self) -> Option<&http::Method> {
+        self.extensions().get::<http::Method>()
+    }
+
+    /// Get an immutable reference to the HTTP version.
+    #[inline]
+    pub fn http_version(&self) -> Option<&http::Version> {
+        self.extensions().get::<http::Version>()
+    }
+
+    /// Get an immutable reference to the HTTP URI.
+    #[inline]
+    pub fn http_uri(&self) -> Option<&http::Uri> {
+        self.extensions().get::<http::Uri>()
+    }
+}
+
 mod impl_exts {
     macro_rules! impl_exts {
         ($t:ty) => {
@@ -77,43 +94,45 @@ mod impl_exts {
                 /// Get an immutable reference to the header map.
                 #[inline]
                 pub fn header_map(&self) -> Option<&HeaderMap> {
-                    self.extensions()
-                        .get::<HttpRequestParts>()
-                        .map(|p| &p.headers)
-                        .or_else(|| self.extensions().get::<HeaderMap>())
+                    self.extensions().get::<HeaderMap>()
                 }
 
                 /// Get a mutable reference to the header map.
                 #[inline]
                 pub fn header_map_mut(&mut self) -> Option<&mut HeaderMap> {
-                    if self.extensions().contains::<HttpRequestParts>() {
-                        self.extensions_mut()
-                            .get_mut::<HttpRequestParts>()
-                            .map(|p| &mut p.headers)
-                    } else {
-                        self.extensions_mut().get_mut::<HeaderMap>()
+                    self.extensions_mut().get_mut::<HeaderMap>()
+                }
+
+                /// Get a mutable reference to the header map, inserting a new one
+                /// if it doesn't already exist.
+                #[inline]
+                pub fn get_or_insert_header_map(&mut self) -> &mut HeaderMap {
+                    if !self.extensions().contains::<HeaderMap>() {
+                        self.extensions_mut().insert(HeaderMap::new());
                     }
+                    self.extensions_mut().get_mut::<HeaderMap>().unwrap()
                 }
 
                 /// Get an immutable reference to the HTTP extensions.
                 #[inline]
                 pub fn http_extensions(&self) -> Option<&http::Extensions> {
-                    self.extensions()
-                        .get::<HttpRequestParts>()
-                        .map(|p| &p.extensions)
-                        .or_else(|| self.extensions().get::<http::Extensions>())
+                    self.extensions().get::<http::Extensions>()
                 }
 
                 /// Get a mutable reference to the HTTP extensions.
                 #[inline]
                 pub fn http_extensions_mut(&mut self) -> Option<&mut http::Extensions> {
-                    if self.extensions().contains::<HttpRequestParts>() {
-                        self.extensions_mut()
-                            .get_mut::<HttpRequestParts>()
-                            .map(|p| &mut p.extensions)
-                    } else {
-                        self.extensions_mut().get_mut::<http::Extensions>()
+                    self.extensions_mut().get_mut::<http::Extensions>()
+                }
+
+                /// Get a mutable reference to the HTTP extensions, inserting a new one
+                /// if it doesn't already exist.
+                #[inline]
+                pub fn get_or_insert_http_extensions(&mut self) -> &mut http::Extensions {
+                    if !self.extensions().contains::<http::Extensions>() {
+                        self.extensions_mut().insert(http::Extensions::new());
                     }
+                    self.extensions_mut().get_mut::<http::Extensions>().unwrap()
                 }
             }
         };
@@ -165,14 +184,25 @@ impl http_body::Body for Body {
 impl<T> Response<T> {
     /// Convert this hRPC response into a unary HTTP response.
     pub fn into_unary_response(self) -> HttpResponse {
-        let parts = response::Parts::from(self);
+        let mut parts = response::Parts::from(self);
 
-        http::Response::builder()
+        let mut resp = http::Response::builder()
             .header(http::header::CONTENT_TYPE, hrpc_header_value())
             .header(http::header::ACCEPT, hrpc_header_value())
-            .extension(parts.extensions)
             .body(box_body(parts.body))
-            .unwrap()
+            .unwrap();
+
+        if let Some(exts) = parts.extensions.remove::<http::Extensions>() {
+            *resp.extensions_mut() = exts;
+        }
+
+        if let Some(headers) = parts.extensions.remove::<HeaderMap>() {
+            resp.headers_mut().extend(headers);
+        }
+
+        resp.extensions_mut().insert(parts.extensions);
+
+        resp
     }
 }
 
@@ -193,8 +223,13 @@ impl<T> Request<T> {
         }
 
         let endpoint = Cow::Owned(parts.uri.path().to_string());
+
         let mut extensions = Extensions::new();
-        extensions.insert(parts);
+        extensions.insert(parts.extensions);
+        extensions.insert(parts.headers);
+        extensions.insert(parts.method);
+        extensions.insert(parts.version);
+        extensions.insert(parts.uri);
 
         let req = Request::from(request::Parts {
             body: body.into(),

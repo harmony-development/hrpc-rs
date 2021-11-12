@@ -18,6 +18,7 @@ use crate::{
     },
     proto::{Error as HrpcError, HrpcErrorIdentifier},
     request::{self, BoxRequest},
+    response,
     server::{service::HrpcService, socket::SocketHandler, IntoMakeService, MakeRoutes},
     Request, HRPC_WEBSOCKET_PROTOCOL,
 };
@@ -89,14 +90,26 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
                 if let (Some(socket_handler), Some(ws_upgrade)) =
                     (resp.extensions_mut().remove::<SocketHandler>(), ws_upgrade)
                 {
-                    let resp = ws_upgrade
+                    let mut ws_resp = ws_upgrade
                         .on_upgrade(|stream| {
                             let (ws_tx, ws_rx) = stream.split();
                             (socket_handler.inner)(Box::pin(ws_rx), Box::pin(ws_tx))
                         })
                         .into_response();
 
-                    return Ok(resp);
+                    let mut parts: response::Parts = resp.into();
+
+                    if let Some(exts) = parts.extensions.remove::<http::Extensions>() {
+                        *ws_resp.extensions_mut() = exts;
+                    }
+
+                    if let Some(headers) = parts.extensions.remove::<http::HeaderMap>() {
+                        ws_resp.headers_mut().extend(headers);
+                    }
+
+                    ws_resp.extensions_mut().insert(parts.extensions);
+
+                    return Ok(ws_resp);
                 }
 
                 let status = resp
