@@ -323,6 +323,41 @@
 <span id="323">323</span>
 <span id="324">324</span>
 <span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::borrow::Cow</span>;
 
 <span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
@@ -350,9 +385,6 @@
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HttpRequest</span> <span class="op">=</span> <span class="ident">http::Request</span><span class="op">&lt;</span><span class="ident">hyper::Body</span><span class="op">&gt;</span>;
 <span class="doccomment">/// A HTTP response.</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HttpResponse</span> <span class="op">=</span> <span class="ident">http::Response</span><span class="op">&lt;</span><span class="ident">BoxBody</span><span class="op">&gt;</span>;
-
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http::request::Parts</span> <span class="kw">as</span> <span class="ident">HttpRequestParts</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http::response::Parts</span> <span class="kw">as</span> <span class="ident">HttpResponseParts</span>;
 
 <span class="doccomment">/// Convert a body with the correct attributes to a [`BoxBody`].</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_body</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span>(<span class="ident">body</span>: <span class="ident">B</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxBody</span>
@@ -395,6 +427,26 @@
 <span class="macro">impl_exts::impl_exts!</span>(<span class="ident">Request</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>);
 <span class="macro">impl_exts::impl_exts!</span>(<span class="ident">Response</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>);
 
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Get an immutable reference to the HTTP method.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_method</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Method</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">http::Method</span><span class="op">&gt;</span>()
+    }
+
+    <span class="doccomment">/// Get an immutable reference to the HTTP version.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_version</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Version</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">http::Version</span><span class="op">&gt;</span>()
+    }
+
+    <span class="doccomment">/// Get an immutable reference to the HTTP URI.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_uri</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Uri</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">http::Uri</span><span class="op">&gt;</span>()
+    }
+}
+
 <span class="kw">mod</span> <span class="ident">impl_exts</span> {
     <span class="macro">macro_rules!</span> <span class="ident">impl_exts</span> {
         (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ty</span>) <span class="op">=</span><span class="op">&gt;</span> {
@@ -402,43 +454,45 @@
                 <span class="doccomment">/// Get an immutable reference to the header map.</span>
                 <span class="attribute">#[<span class="ident">inline</span>]</span>
                 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">header_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span> {
-                    <span class="self">self</span>.<span class="ident">extensions</span>()
-                        .<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">HttpRequestParts</span><span class="op">&gt;</span>()
-                        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">p</span>.<span class="ident">headers</span>)
-                        .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>())
+                    <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>()
                 }
 
                 <span class="doccomment">/// Get a mutable reference to the header map.</span>
                 <span class="attribute">#[<span class="ident">inline</span>]</span>
                 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">header_map_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HeaderMap</span><span class="op">&gt;</span> {
-                    <span class="kw">if</span> <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">contains</span>::<span class="op">&lt;</span><span class="ident">HttpRequestParts</span><span class="op">&gt;</span>() {
-                        <span class="self">self</span>.<span class="ident">extensions_mut</span>()
-                            .<span class="ident">get_mut</span>::<span class="op">&lt;</span><span class="ident">HttpRequestParts</span><span class="op">&gt;</span>()
-                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">p</span>.<span class="ident">headers</span>)
-                    } <span class="kw">else</span> {
-                        <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">get_mut</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>()
+                    <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">get_mut</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>()
+                }
+
+                <span class="doccomment">/// Get a mutable reference to the header map, inserting a new one</span>
+                <span class="doccomment">/// if it doesn&#39;t already exist.</span>
+                <span class="attribute">#[<span class="ident">inline</span>]</span>
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_or_insert_header_map</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HeaderMap</span> {
+                    <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">contains</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>() {
+                        <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">insert</span>(<span class="ident">HeaderMap::new</span>());
                     }
+                    <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">get_mut</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>().<span class="ident">unwrap</span>()
                 }
 
                 <span class="doccomment">/// Get an immutable reference to the HTTP extensions.</span>
                 <span class="attribute">#[<span class="ident">inline</span>]</span>
                 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_extensions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span> {
-                    <span class="self">self</span>.<span class="ident">extensions</span>()
-                        .<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">HttpRequestParts</span><span class="op">&gt;</span>()
-                        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">p</span>.<span class="ident">extensions</span>)
-                        .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span>())
+                    <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span>()
                 }
 
                 <span class="doccomment">/// Get a mutable reference to the HTTP extensions.</span>
                 <span class="attribute">#[<span class="ident">inline</span>]</span>
                 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_extensions_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">http::Extensions</span><span class="op">&gt;</span> {
-                    <span class="kw">if</span> <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">contains</span>::<span class="op">&lt;</span><span class="ident">HttpRequestParts</span><span class="op">&gt;</span>() {
-                        <span class="self">self</span>.<span class="ident">extensions_mut</span>()
-                            .<span class="ident">get_mut</span>::<span class="op">&lt;</span><span class="ident">HttpRequestParts</span><span class="op">&gt;</span>()
-                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">p</span>.<span class="ident">extensions</span>)
-                    } <span class="kw">else</span> {
-                        <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">get_mut</span>::<span class="op">&lt;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span>()
+                    <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">get_mut</span>::<span class="op">&lt;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span>()
+                }
+
+                <span class="doccomment">/// Get a mutable reference to the HTTP extensions, inserting a new one</span>
+                <span class="doccomment">/// if it doesn&#39;t already exist.</span>
+                <span class="attribute">#[<span class="ident">inline</span>]</span>
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_or_insert_http_extensions</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">http::Extensions</span> {
+                    <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">contains</span>::<span class="op">&lt;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span>() {
+                        <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">insert</span>(<span class="ident">http::Extensions::new</span>());
                     }
+                    <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">get_mut</span>::<span class="op">&lt;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span>().<span class="ident">unwrap</span>()
                 }
             }
         };
@@ -490,14 +544,25 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Response</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Convert this hRPC response into a unary HTTP response.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_unary_response</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HttpResponse</span> {
-        <span class="kw">let</span> <span class="ident">parts</span> <span class="op">=</span> <span class="ident">response::Parts::from</span>(<span class="self">self</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parts</span> <span class="op">=</span> <span class="ident">response::Parts::from</span>(<span class="self">self</span>);
 
-        <span class="ident">http::Response::builder</span>()
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">http::Response::builder</span>()
             .<span class="ident">header</span>(<span class="ident">http::header::CONTENT_TYPE</span>, <span class="ident">hrpc_header_value</span>())
             .<span class="ident">header</span>(<span class="ident">http::header::ACCEPT</span>, <span class="ident">hrpc_header_value</span>())
-            .<span class="ident">extension</span>(<span class="ident">parts</span>.<span class="ident">extensions</span>)
             .<span class="ident">body</span>(<span class="ident">box_body</span>(<span class="ident">parts</span>.<span class="ident">body</span>))
-            .<span class="ident">unwrap</span>()
+            .<span class="ident">unwrap</span>();
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">exts</span>) <span class="op">=</span> <span class="ident">parts</span>.<span class="ident">extensions</span>.<span class="ident">remove</span>::<span class="op">&lt;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span>() {
+            <span class="kw-2">*</span><span class="ident">resp</span>.<span class="ident">extensions_mut</span>() <span class="op">=</span> <span class="ident">exts</span>;
+        }
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">headers</span>) <span class="op">=</span> <span class="ident">parts</span>.<span class="ident">extensions</span>.<span class="ident">remove</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>() {
+            <span class="ident">resp</span>.<span class="ident">headers_mut</span>().<span class="ident">extend</span>(<span class="ident">headers</span>);
+        }
+
+        <span class="ident">resp</span>.<span class="ident">extensions_mut</span>().<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">extensions</span>);
+
+        <span class="ident">resp</span>
     }
 }
 
@@ -518,8 +583,13 @@
         }
 
         <span class="kw">let</span> <span class="ident">endpoint</span> <span class="op">=</span> <span class="ident">Cow::Owned</span>(<span class="ident">parts</span>.<span class="ident">uri</span>.<span class="ident">path</span>().<span class="ident">to_string</span>());
+
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">extensions</span> <span class="op">=</span> <span class="ident">Extensions::new</span>();
-        <span class="ident">extensions</span>.<span class="ident">insert</span>(<span class="ident">parts</span>);
+        <span class="ident">extensions</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">extensions</span>);
+        <span class="ident">extensions</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">headers</span>);
+        <span class="ident">extensions</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">method</span>);
+        <span class="ident">extensions</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">version</span>);
+        <span class="ident">extensions</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">uri</span>);
 
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Request::from</span>(<span class="ident">request::Parts</span> {
             <span class="ident">body</span>: <span class="ident">body</span>.<span class="ident">into</span>(),
