@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["SocketMessage","Generic socket message."]],"struct":[["Socket","A hRPC socket."]]});
+initSidebarItems({"enum":[["SocketMessage","Generic socket message."]]});

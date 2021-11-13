@@ -230,7 +230,7 @@
 <span class="kw">use</span> <span class="ident">router::Routes</span>;
 <span class="kw">use</span> <span class="ident">service::HrpcService</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::fut</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::future</span>;
 
 <span class="kw">use</span> <span class="ident"><span class="self">self</span>::router::RoutesFinalized</span>;
 
@@ -412,7 +412,7 @@
 
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span>;
 
-    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">fut::Ready</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">RoutesFinalized</span>, <span class="ident">Infallible</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">future::Ready</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">RoutesFinalized</span>, <span class="ident">Infallible</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">poll_ready</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
@@ -422,7 +422,7 @@
     }
 
     <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_req</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Future</span> {
-        <span class="ident">fut::ready</span>(<span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">mk_router</span>.<span class="ident">make_routes</span>().<span class="ident">build</span>()))
+        <span class="ident">future::ready</span>(<span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">mk_router</span>.<span class="ident">make_routes</span>().<span class="ident">build</span>()))
     }
 }
 
