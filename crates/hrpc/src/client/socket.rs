@@ -396,7 +396,7 @@ fn decode_message<Msg: PbMsg + Default>(raw: Vec<u8>) -> Result<Msg, HrpcError> 
             .unwrap_or_else(|err| HrpcError::from(DecodeBodyError::InvalidProtoMessage(err))))
     } else {
         Err(HrpcError::from((
-            "hrpc.invalid-socket-message-opcode",
+            "hrpcrs.http.invalid-socket-message-opcode",
             "invalid socket binary message opcode",
         ))
         .with_details(raw))

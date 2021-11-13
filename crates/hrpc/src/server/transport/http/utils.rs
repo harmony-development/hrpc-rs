@@ -88,7 +88,7 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
                     let message = err.to_string();
                     let mut resp = err_into_unary_response(
                         HrpcError::default()
-                            .with_identifier("hrpc.http.bad-socket-request")
+                            .with_identifier("hrpc.http.bad-streaming-request")
                             .with_message(message),
                     );
 
@@ -260,11 +260,7 @@ pub(crate) fn from_unary_request<T>(
     if parts.method != Method::POST {
         return Err((
             StatusCode::METHOD_NOT_ALLOWED,
-            (
-                "hrpc.http.invalid-unary-request-method",
-                "method must be POST",
-            )
-                .into(),
+            ("hrpc.http.bad-unary-request", "method must be POST").into(),
         ));
     }
 
@@ -275,7 +271,7 @@ pub(crate) fn from_unary_request<T>(
         return Err((
             StatusCode::BAD_REQUEST,
             (
-                "hrpc.http.invalid-unary-request-content-type",
+                "hrpc.http.bad-unary-request",
                 "request content type not supported",
             )
                 .into(),
