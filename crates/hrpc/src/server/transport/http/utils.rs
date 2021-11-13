@@ -85,7 +85,19 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
                 if let WebSocketUpgradeError::MethodNotGet = err {
                     (None, from_unary_request(req))
                 } else {
-                    return Box::pin(futures_util::future::ready(Ok(err.into())));
+                    let message = err.to_string();
+                    let mut resp = err_into_unary_response(
+                        HrpcError::default()
+                            .with_identifier("hrpc.http.bad-socket-request")
+                            .with_message(message),
+                    );
+
+                    *resp.status_mut() = match err {
+                        WebSocketUpgradeError::MethodNotGet => StatusCode::METHOD_NOT_ALLOWED,
+                        _ => StatusCode::BAD_REQUEST,
+                    };
+
+                    return Box::pin(futures_util::future::ready(Ok(resp)));
                 }
             }
         };

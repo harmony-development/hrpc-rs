@@ -182,21 +182,6 @@ impl Display for WebSocketUpgradeError {
 
 impl StdError for WebSocketUpgradeError {}
 
-impl From<WebSocketUpgradeError> for HttpResponse {
-    fn from(err: WebSocketUpgradeError) -> HttpResponse {
-        let message = err.to_string();
-        let status = match err {
-            WebSocketUpgradeError::MethodNotGet => StatusCode::METHOD_NOT_ALLOWED,
-            _ => StatusCode::BAD_REQUEST,
-        };
-
-        http::Response::builder()
-            .status(status)
-            .body(box_body(http_body::Full::new(message.into_bytes().into())))
-            .unwrap()
-    }
-}
-
 pub(crate) struct WebSocketUpgradeResponse<F> {
     extractor: WebSocketUpgrade,
     callback: F,
