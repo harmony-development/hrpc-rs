@@ -13,7 +13,7 @@ use super::ws::{WebSocketUpgrade, WebSocketUpgradeError};
 use crate::{
     common::{
         extensions::Extensions,
-        fut::{self, Ready},
+        future::{self, Ready},
         transport::http::{box_body, HttpRequest, HttpResponse},
     },
     proto::{Error as HrpcError, HrpcErrorIdentifier},
@@ -206,6 +206,6 @@ where
             .unwrap()
             .unwrap();
         let http_service = HrpcServiceToHttp::new(routes.inner);
-        fut::ready(Ok(BoxService::new(self.layer.layer(http_service))))
+        future::ready(Ok(BoxService::new(self.layer.layer(http_service))))
     }
 }

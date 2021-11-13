@@ -5,7 +5,7 @@ use tower::{Layer, Service as TowerService};
 use router::Routes;
 use service::HrpcService;
 
-use crate::common::fut;
+use crate::common::future;
 
 use self::router::RoutesFinalized;
 
@@ -187,7 +187,7 @@ impl<T, S: MakeRoutes> TowerService<T> for IntoMakeService<S> {
 
     type Error = Infallible;
 
-    type Future = fut::Ready<Result<RoutesFinalized, Infallible>>;
+    type Future = future::Ready<Result<RoutesFinalized, Infallible>>;
 
     fn poll_ready(
         &mut self,
@@ -197,7 +197,7 @@ impl<T, S: MakeRoutes> TowerService<T> for IntoMakeService<S> {
     }
 
     fn call(&mut self, _req: T) -> Self::Future {
-        fut::ready(Ok(self.mk_router.make_routes().build()))
+        future::ready(Ok(self.mk_router.make_routes().build()))
     }
 }
 
