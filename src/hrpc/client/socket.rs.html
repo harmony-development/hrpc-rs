@@ -800,7 +800,7 @@
             .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">HrpcError::from</span>(<span class="ident">DecodeBodyError::InvalidProtoMessage</span>(<span class="ident">err</span>))))
     } <span class="kw">else</span> {
         <span class="prelude-val">Err</span>(<span class="ident">HrpcError::from</span>((
-            <span class="string">&quot;hrpc.invalid-socket-message-opcode&quot;</span>,
+            <span class="string">&quot;hrpcrs.http.invalid-socket-message-opcode&quot;</span>,
             <span class="string">&quot;invalid socket binary message opcode&quot;</span>,
         ))
         .<span class="ident">with_details</span>(<span class="ident">raw</span>))
