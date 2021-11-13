@@ -116,7 +116,10 @@ impl mu_server::Mu for MuService {
         loop {
             tokio::select! {
                 res = sock.receive_message() => {
-                    println!("{:?}", res);
+                    match res {
+                        Ok(msg) => println!("{:?}", msg),
+                        Err(err) => return Err(err),
+                    }
                 }
                 _ = int.tick() => {
                     bail_result!(

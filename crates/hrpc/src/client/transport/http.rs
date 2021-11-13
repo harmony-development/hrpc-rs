@@ -24,8 +24,11 @@ use super::{
 };
 use crate::{
     client::socket::Socket,
-    common::transport::http::{hrpc_header_value, WebSocket},
-    request, Request, Response, HRPC_WEBSOCKET_PROTOCOL,
+    common::transport::http::{
+        content_header_value, version_header_name, version_header_value, ws_exts_header_value,
+        WebSocket, HRPC_WEBSOCKET_PROTOCOL,
+    },
+    request, Request, Response, HRPC_SPEC_VERSION,
 };
 
 type SocketRequest = tungstenite::handshake::client::Request;
@@ -105,7 +108,10 @@ impl Transport for Hyper {
                     .method(Method::POST);
 
                 let mut header_map = extensions.remove::<HeaderMap>().unwrap_or_default();
-                header_map.insert(header::CONTENT_TYPE, hrpc_header_value());
+                // insert content type
+                header_map.insert(header::CONTENT_TYPE, content_header_value());
+                // insert spec version
+                header_map.insert(version_header_name(), version_header_value());
 
                 *request.headers_mut().unwrap() = header_map;
 
@@ -143,7 +149,7 @@ impl Transport for Hyper {
             // Handle non-protobuf successful responses
             let is_hrpc = |t: &[u8]| {
                 !(t.eq_ignore_ascii_case(b"application/octet-stream")
-                    || t.eq_ignore_ascii_case(crate::HRPC_HEADER))
+                    || t.eq_ignore_ascii_case(crate::HRPC_CONTENT_MIMETYPE))
             };
             if resp
                 .headers()
@@ -157,6 +163,19 @@ impl Transport for Hyper {
                     .map_err(HyperError::Http)
                     .map_err(ClientError::Transport)?;
                 return Err(ClientError::ContentNotSupported(data));
+            }
+
+            // check if the spec version matches
+            if !resp
+                .headers()
+                .get(version_header_name())
+                .map(|h| h.as_bytes())
+                .map_or(false, |v| {
+                    v.eq_ignore_ascii_case(HRPC_SPEC_VERSION.as_bytes())
+                })
+            {
+                // TODO: parse the header properly and extract the version instead of just doing a contains
+                return Err(ClientError::Transport(HyperError::IncompatibleSpecVersion));
             }
 
             Ok(Response::new_with_body(resp.into_body().into()))
@@ -189,6 +208,11 @@ impl Transport for Hyper {
                 HeaderValue::from_static(HRPC_WEBSOCKET_PROTOCOL),
             );
 
+            // Insert hrpc spec version
+            request
+                .headers_mut()
+                .insert(header::SEC_WEBSOCKET_EXTENSIONS, ws_exts_header_value());
+
             if let Some(header_map) = req.extensions_mut().remove::<HeaderMap>() {
                 for (key, value) in header_map {
                     if let Some(key) = key {
@@ -200,6 +224,7 @@ impl Transport for Hyper {
             use tungstenite::{client::IntoClientRequest, stream::Mode};
             let request = request
                 .into_client_request()
+                .map_err(SocketInitError::Tungstenite)
                 .map_err(HyperError::SocketInitError)
                 .map_err(ClientError::Transport)?;
 
@@ -222,6 +247,7 @@ impl Transport for Hyper {
             let socket = tokio::net::TcpStream::connect(addr).await?;
 
             let mode = tungstenite::client::uri_mode(request.uri())
+                .map_err(SocketInitError::Tungstenite)
                 .map_err(HyperError::SocketInitError)
                 .map_err(ClientError::Transport)?;
             let stream = match mode {
@@ -234,6 +260,7 @@ impl Transport for Hyper {
                         .map_err(|err| {
                             tungstenite::Error::Tls(tungstenite::error::TlsError::Dns(err))
                         })
+                        .map_err(SocketInitError::Tungstenite)
                         .map_err(HyperError::SocketInitError)
                         .map_err(ClientError::Transport)?;
                     let stream = tokio_rustls::TlsConnector::from(Arc::new(config));
@@ -242,13 +269,41 @@ impl Transport for Hyper {
                 }
             };
 
-            let inner = tokio_tungstenite::client_async(request, stream)
+            let (ws_stream, response) = tokio_tungstenite::client_async(request, stream)
                 .await
+                .map_err(SocketInitError::Tungstenite)
                 .map_err(HyperError::SocketInitError)
-                .map_err(ClientError::Transport)?
-                .0;
+                .map_err(ClientError::Transport)?;
 
-            let (ws_tx, ws_rx) = WebSocket::new(inner).split();
+            // check if the spec version matches
+            if !response
+                .headers()
+                .get(header::SEC_WEBSOCKET_EXTENSIONS)
+                .and_then(|h| h.to_str().ok())
+                .map_or(false, |exts| {
+                    exts.contains(&format!("hrpc-version={}", HRPC_SPEC_VERSION))
+                })
+            {
+                // TODO: parse the header properly and extract the version instead of just doing a contains
+                return Err(ClientError::Transport(HyperError::SocketInitError(
+                    SocketInitError::IncompatibleSpecVersion,
+                )));
+            }
+
+            if !response
+                .headers()
+                .get(header::SEC_WEBSOCKET_PROTOCOL)
+                .map(|h| h.as_bytes())
+                .map_or(false, |v| {
+                    v.eq_ignore_ascii_case(HRPC_WEBSOCKET_PROTOCOL.as_bytes())
+                })
+            {
+                return Err(ClientError::Transport(HyperError::SocketInitError(
+                    SocketInitError::InvalidProtocol,
+                )));
+            }
+
+            let (ws_tx, ws_rx) = WebSocket::new(ws_stream).split();
 
             Ok(Socket::new(Box::pin(ws_rx), Box::pin(ws_tx)))
         })
@@ -264,8 +319,10 @@ pub enum HyperError {
     Http(hyper::Error),
     /// Occurs if the given URL is invalid.
     InvalidUrl(InvalidUrlKind),
-    /// Occurs if socket creation fails.
-    SocketInitError(tungstenite::Error),
+    /// Occurs if socket creation.
+    SocketInitError(SocketInitError),
+    /// Occurs if the spec implemented on server doesn't match ours.
+    IncompatibleSpecVersion,
 }
 
 impl Display for HyperError {
@@ -275,15 +332,58 @@ impl Display for HyperError {
             Self::Http(err) => write!(f, "HTTP error: {}", err),
             Self::InvalidUrl(err) => write!(f, "invalid URL: {}", err),
             Self::SocketInitError(err) => write!(f, "failed to create socket: {}", err),
+            Self::IncompatibleSpecVersion => write!(f, "server has incompatible spec version",),
         }
     }
 }
 
-impl StdError for HyperError {}
+impl StdError for HyperError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Self::FailedRequestBuilder(err) => Some(err),
+            Self::Http(err) => Some(err),
+            Self::SocketInitError(err) => Some(err),
+            Self::InvalidUrl(err) => Some(err),
+            _ => None,
+        }
+    }
+}
 
 impl From<hyper::Error> for HyperError {
     fn from(err: hyper::Error) -> Self {
         HyperError::Http(err)
+    }
+}
+
+/// Errors that can occur on socket creation.
+#[derive(Debug)]
+pub enum SocketInitError {
+    /// Occurs if socket creation fails with a tungstenite error.
+    Tungstenite(tungstenite::Error),
+    /// Occurs if the server has an incompatible spec version.
+    IncompatibleSpecVersion,
+    /// Occurs if the server sent an invalid protocol (not `hrpc`).
+    InvalidProtocol,
+}
+
+impl Display for SocketInitError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Tungstenite(err) => write!(f, "tungstenite error: {}", err),
+            Self::IncompatibleSpecVersion => write!(f, "server has incompatible spec version",),
+            Self::InvalidProtocol => {
+                write!(f, "server sent incompatible protocol, expected 'hrpc'")
+            }
+        }
+    }
+}
+
+impl StdError for SocketInitError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Self::Tungstenite(err) => Some(err),
+            _ => None,
+        }
     }
 }
 

@@ -1,8 +1,7 @@
 use std::{borrow::Cow, convert::Infallible, str::FromStr};
 
-use bytes::Bytes;
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
-use http::StatusCode;
+use http::{header, HeaderMap, Method, StatusCode};
 use tower::{
     layer::util::{Identity, Stack},
     util::BoxService,
@@ -14,13 +13,16 @@ use crate::{
     common::{
         extensions::Extensions,
         future::{self, Ready},
-        transport::http::{box_body, HttpRequest, HttpResponse},
+        transport::http::{
+            box_body, content_header_value, version_header_name, version_header_value,
+            ws_exts_header_value, HeaderMapExt, HttpRequest, HttpResponse, HRPC_WEBSOCKET_PROTOCOL,
+        },
     },
     proto::{Error as HrpcError, HrpcErrorIdentifier},
-    request::{self, BoxRequest},
+    request::{self},
     response,
     server::{service::HrpcService, socket::SocketHandler, IntoMakeService, MakeRoutes},
-    Request, HRPC_WEBSOCKET_PROTOCOL,
+    Request, Response, HRPC_CONTENT_MIMETYPE,
 };
 
 /// A type alias for a boxed [`Service`] that takes [`HttpRequest`]s and
@@ -62,8 +64,13 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
                 let (parts, body) = req.into_parts();
 
                 let endpoint = Cow::Owned(parts.uri.path().to_string());
+
                 let mut extensions = Extensions::new();
-                extensions.insert(parts);
+                extensions.insert(parts.extensions);
+                extensions.insert(parts.headers);
+                extensions.insert(parts.method);
+                extensions.insert(parts.version);
+                extensions.insert(parts.uri);
 
                 let req = Request::from(request::Parts {
                     body: body.into(),
@@ -76,7 +83,7 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
             Err(err) => {
                 // TODO: this is not good, find a way to properly get if a path is socket or unary
                 if let WebSocketUpgradeError::MethodNotGet = err {
-                    (None, BoxRequest::from_unary_request(req))
+                    (None, from_unary_request(req))
                 } else {
                     return Box::pin(futures_util::future::ready(Ok(err.into())));
                 }
@@ -97,17 +104,14 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
                         })
                         .into_response();
 
-                    let mut parts: response::Parts = resp.into();
+                    let parts: response::Parts = resp.into();
 
-                    if let Some(exts) = parts.extensions.remove::<http::Extensions>() {
-                        *ws_resp.extensions_mut() = exts;
-                    }
+                    set_http_extensions(parts.extensions, &mut ws_resp);
 
-                    if let Some(headers) = parts.extensions.remove::<http::HeaderMap>() {
-                        ws_resp.headers_mut().extend(headers);
-                    }
-
-                    ws_resp.extensions_mut().insert(parts.extensions);
+                    // Insert hRPC spec version
+                    ws_resp
+                        .headers_mut()
+                        .insert(header::SEC_WEBSOCKET_EXTENSIONS, ws_exts_header_value());
 
                     return Ok(ws_resp);
                 }
@@ -125,18 +129,14 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
                     })
                     .unwrap_or(StatusCode::OK);
 
-                let mut http_resp = resp.into_unary_response();
+                let mut http_resp = into_unary_response(resp);
                 *http_resp.status_mut() = status;
 
                 Ok(http_resp)
             })),
-            Err((status, msg)) => {
-                let resp = http::Response::builder()
-                    .status(status)
-                    .body(box_body(http_body::Full::new(Bytes::from_static(
-                        msg.as_bytes(),
-                    ))))
-                    .unwrap();
+            Err((status, err)) => {
+                let mut resp = err_into_unary_response(err);
+                *resp.status_mut() = status;
                 Box::pin(futures_util::future::ready(Ok(resp)))
             }
         }
@@ -208,4 +208,87 @@ where
         let http_service = HrpcServiceToHttp::new(routes.inner);
         future::ready(Ok(BoxService::new(self.layer.layer(http_service))))
     }
+}
+
+/// Add HTTP specific extensions like [`HeaderMap`] and [`http::Extensions`] to the HTTP response.
+pub(crate) fn set_http_extensions(mut exts: Extensions, resp: &mut HttpResponse) {
+    if let Some(exts) = exts.remove::<http::Extensions>() {
+        *resp.extensions_mut() = exts;
+    }
+
+    if let Some(headers) = exts.remove::<HeaderMap>() {
+        resp.headers_mut().extend(headers);
+    }
+
+    resp.extensions_mut().insert(exts);
+}
+
+/// Convert this hRPC response into a unary HTTP response.
+pub(crate) fn into_unary_response<T>(resp: Response<T>) -> HttpResponse {
+    let parts = response::Parts::from(resp);
+
+    let mut resp = http::Response::builder()
+        .header(version_header_name(), version_header_value())
+        .header(http::header::CONTENT_TYPE, content_header_value())
+        .header(http::header::ACCEPT, content_header_value())
+        .body(box_body(parts.body))
+        .unwrap();
+
+    set_http_extensions(parts.extensions, &mut resp);
+
+    resp
+}
+
+/// Try to create a [`Request`] from a unary [`HttpRequest`].
+pub(crate) fn from_unary_request<T>(
+    req: HttpRequest,
+) -> Result<Request<T>, (StatusCode, HrpcError)> {
+    let (parts, body) = req.into_parts();
+
+    if parts.method != Method::POST {
+        return Err((
+            StatusCode::METHOD_NOT_ALLOWED,
+            (
+                "hrpc.http.invalid-unary-request-method",
+                "method must be POST",
+            )
+                .into(),
+        ));
+    }
+
+    if !parts
+        .headers
+        .header_eq(&header::CONTENT_TYPE, HRPC_CONTENT_MIMETYPE)
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            (
+                "hrpc.http.invalid-unary-request-content-type",
+                "request content type not supported",
+            )
+                .into(),
+        ));
+    }
+
+    let endpoint = Cow::Owned(parts.uri.path().to_string());
+
+    let mut extensions = Extensions::new();
+    extensions.insert(parts.extensions);
+    extensions.insert(parts.headers);
+    extensions.insert(parts.method);
+    extensions.insert(parts.version);
+    extensions.insert(parts.uri);
+
+    let req = Request::from(request::Parts {
+        body: body.into(),
+        extensions,
+        endpoint,
+    });
+
+    Ok(req)
+}
+
+/// Convert this hRPC error into a HTTP response.
+pub(crate) fn err_into_unary_response(err: HrpcError) -> HttpResponse {
+    into_unary_response(Response::new(&err))
 }

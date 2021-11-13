@@ -34,10 +34,13 @@ pub(crate) enum SocketError {
 impl From<SocketError> for HrpcError {
     fn from(err: SocketError) -> Self {
         let hrpc_err = HrpcError::default();
-        // TODO: add messages probably
         match err {
-            SocketError::Closed => hrpc_err.with_identifier("hrpcrs.socket-closed"),
-            SocketError::AlreadyClosed => hrpc_err.with_identifier("hrpcrs.socket-already-closed"),
+            SocketError::Closed => hrpc_err
+                .with_identifier("hrpcrs.socket-closed")
+                .with_message("socket was closed"),
+            SocketError::AlreadyClosed => hrpc_err
+                .with_identifier("hrpcrs.socket-already-closed")
+                .with_message("socket was already closed"),
         }
     }
 }

@@ -1,11 +1,6 @@
-use std::borrow::Cow;
-
 use bytes::Bytes;
 use futures_util::{Sink, Stream, StreamExt, TryStreamExt};
-use http::{
-    header::{self, HeaderName},
-    HeaderMap, HeaderValue, Method, StatusCode,
-};
+use http::{header::HeaderName, HeaderMap, HeaderValue, StatusCode};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_tungstenite::{
     tungstenite::{Error as WsError, Message as WsMessage},
@@ -14,10 +9,15 @@ use tokio_tungstenite::{
 
 use crate::{
     body::Body,
-    common::{extensions::Extensions, socket::SocketMessage},
+    common::socket::SocketMessage,
     proto::{Error as HrpcError, HrpcErrorIdentifier},
-    request, response, BoxError, Request, Response, HRPC_HEADER,
+    BoxError, Request, Response, HRPC_CONTENT_MIMETYPE, HRPC_SPEC_VERSION,
 };
+
+/// The hRPC version header used in unary requests.
+pub const HRPC_VERSION_HEADER: &str = "hrpc-version";
+/// The hRPC websocket protocol name.
+pub const HRPC_WEBSOCKET_PROTOCOL: &str = "hrpc";
 
 /// A boxed HTTP body. This is used to unify response bodies.
 pub type BoxBody = http_body::combinators::BoxBody<Bytes, BoxError>;
@@ -36,8 +36,29 @@ where
 }
 
 /// Create a header value for the hRPC content type.
-pub fn hrpc_header_value() -> HeaderValue {
-    unsafe { HeaderValue::from_maybe_shared_unchecked(Bytes::from_static(HRPC_HEADER)) }
+pub fn content_header_value() -> HeaderValue {
+    unsafe { HeaderValue::from_maybe_shared_unchecked(Bytes::from_static(HRPC_CONTENT_MIMETYPE)) }
+}
+
+/// Create a header value with hRPC version, for the [`header::SEC_WEBSOCKET_EXTENSIONS`] header.
+pub fn ws_exts_header_value() -> HeaderValue {
+    unsafe {
+        HeaderValue::from_maybe_shared_unchecked(
+            format!("hrpc-version={}", HRPC_SPEC_VERSION).into_bytes(),
+        )
+    }
+}
+
+/// Create a header value with hRPC version, for the [`HRPC_VERSION_HEADER`] header.
+pub fn version_header_value() -> HeaderValue {
+    unsafe {
+        HeaderValue::from_maybe_shared_unchecked(Bytes::from_static(HRPC_SPEC_VERSION.as_bytes()))
+    }
+}
+
+/// Create a header name for the hRPC version header (see [`HRPC_VERSION_HEADER`]).
+pub fn version_header_name() -> HeaderName {
+    HeaderName::from_static(HRPC_VERSION_HEADER)
 }
 
 /// Helper methods for working with `HeaderMap`.
@@ -176,68 +197,6 @@ impl http_body::Body for Body {
         _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<Option<HeaderMap>, Self::Error>> {
         std::task::Poll::Ready(Ok(None))
-    }
-}
-
-// Conversion function impls
-
-impl<T> Response<T> {
-    /// Convert this hRPC response into a unary HTTP response.
-    pub fn into_unary_response(self) -> HttpResponse {
-        let mut parts = response::Parts::from(self);
-
-        let mut resp = http::Response::builder()
-            .header(http::header::CONTENT_TYPE, hrpc_header_value())
-            .header(http::header::ACCEPT, hrpc_header_value())
-            .body(box_body(parts.body))
-            .unwrap();
-
-        if let Some(exts) = parts.extensions.remove::<http::Extensions>() {
-            *resp.extensions_mut() = exts;
-        }
-
-        if let Some(headers) = parts.extensions.remove::<HeaderMap>() {
-            resp.headers_mut().extend(headers);
-        }
-
-        resp.extensions_mut().insert(parts.extensions);
-
-        resp
-    }
-}
-
-impl<T> Request<T> {
-    /// Try to create a [`Request`] from a unary [`HttpRequest`].
-    pub fn from_unary_request(req: HttpRequest) -> Result<Request<T>, (StatusCode, &'static str)> {
-        let (parts, body) = req.into_parts();
-
-        if parts.method != Method::POST {
-            return Err((StatusCode::METHOD_NOT_ALLOWED, "method must be POST"));
-        }
-
-        if !parts.headers.header_eq(&header::CONTENT_TYPE, HRPC_HEADER) {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "request content type not supported",
-            ));
-        }
-
-        let endpoint = Cow::Owned(parts.uri.path().to_string());
-
-        let mut extensions = Extensions::new();
-        extensions.insert(parts.extensions);
-        extensions.insert(parts.headers);
-        extensions.insert(parts.method);
-        extensions.insert(parts.version);
-        extensions.insert(parts.uri);
-
-        let req = Request::from(request::Parts {
-            body: body.into(),
-            extensions,
-            endpoint,
-        });
-
-        Ok(req)
     }
 }
 

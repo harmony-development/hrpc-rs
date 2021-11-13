@@ -1,5 +1,6 @@
 //! Common code used in hRPC code generation.
 #![deny(missing_docs)]
+#![allow(clippy::blocks_in_if_conditions)]
 
 /// Some re-exported crates that might be useful while writing software with `hrpc`.
 pub mod exports {
@@ -44,9 +45,9 @@ pub use response::Response;
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 /// The hRPC protobuf mimetype.
-pub const HRPC_HEADER: &[u8] = b"application/hrpc";
-/// The hRPC websocket protocol name.
-pub const HRPC_WEBSOCKET_PROTOCOL: &str = "hrpc";
+pub const HRPC_CONTENT_MIMETYPE: &[u8] = b"application/hrpc";
+/// The hRPC spec version this version of `hrpc-rs` implements.
+pub const HRPC_SPEC_VERSION: &str = "1";
 
 /// Include generated proto server and client items.
 ///
