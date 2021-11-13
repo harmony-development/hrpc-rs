@@ -292,6 +292,18 @@
 <span id="292">292</span>
 <span id="293">293</span>
 <span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">borrow::Cow</span>, <span class="ident">convert::Infallible</span>, <span class="ident">str::FromStr</span>};
 
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">FutureExt</span>, <span class="ident">StreamExt</span>};
@@ -379,7 +391,19 @@
                 <span class="kw">if</span> <span class="kw">let</span> <span class="ident">WebSocketUpgradeError::MethodNotGet</span> <span class="op">=</span> <span class="ident">err</span> {
                     (<span class="prelude-val">None</span>, <span class="ident">from_unary_request</span>(<span class="ident">req</span>))
                 } <span class="kw">else</span> {
-                    <span class="kw">return</span> <span class="ident">Box::pin</span>(<span class="ident">futures_util::future::ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">err</span>.<span class="ident">into</span>())));
+                    <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">to_string</span>();
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">err_into_unary_response</span>(
+                        <span class="ident">HrpcError::default</span>()
+                            .<span class="ident">with_identifier</span>(<span class="string">&quot;hrpc.http.bad-socket-request&quot;</span>)
+                            .<span class="ident">with_message</span>(<span class="ident">message</span>),
+                    );
+
+                    <span class="kw-2">*</span><span class="ident">resp</span>.<span class="ident">status_mut</span>() <span class="op">=</span> <span class="kw">match</span> <span class="ident">err</span> {
+                        <span class="ident">WebSocketUpgradeError::MethodNotGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::METHOD_NOT_ALLOWED</span>,
+                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::BAD_REQUEST</span>,
+                    };
+
+                    <span class="kw">return</span> <span class="ident">Box::pin</span>(<span class="ident">futures_util::future::ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">resp</span>)));
                 }
             }
         };
