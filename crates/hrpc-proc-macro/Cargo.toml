@@ -1,6 +1,6 @@
 [package]
 name = "hrpc-proc-macro"
-version = "0.28.0"
+version = "0.29.0"
 edition = "2021"
 authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
 license = "MIT"
