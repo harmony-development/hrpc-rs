@@ -437,7 +437,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "axum-server",
  "base64",
@@ -465,7 +465,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-build"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "proc-macro2",
  "prost-build",
@@ -475,7 +475,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-proc-macro"
-version = "0.28.0"
+version = "0.29.0"
 
 [[package]]
 name = "http"
@@ -1409,7 +1409,7 @@ dependencies = [
 [[package]]
 name = "tower-http"
 version = "0.1.1"
-source = "git+https://github.com/tower-rs/tower-http.git?branch=cors#9f09fc55bf74b5b9a8bd79cbede7e73d37a3e79b"
+source = "git+https://github.com/tower-rs/tower-http.git?branch=cors#2f9b5985f49f978a952c0dbc28594091c247f8ac"
 dependencies = [
  "bytes",
  "futures-core",
