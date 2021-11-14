@@ -20,8 +20,8 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
 rustyline = "9"
 # We will use tower's RateLimitLayer to rate limit our endpoints
 tower = { version = "0.4", features = ["limit"] }
-# Sadly, we have to get CORS headers from a not merged branch of tower-http for now
-tower-http = { git = "https://github.com/tower-rs/tower-http.git", branch = "cors", features = ["cors"] }
+# tower-http for CORS layer
+tower-http = { version = "0.1", features = ["cors"] }
 
 [build-dependencies]
 # Enable the features corresponding to what we enabled for hrpc
