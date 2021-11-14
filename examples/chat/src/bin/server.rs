@@ -33,6 +33,9 @@ impl Chat for ChatService {
         // Extract the message from the request
         let message = request.into_message().await?;
 
+        // Log message content
+        tracing::info!("got message: {}", message.content);
+
         // Try to broadcast the message, if it fails return an error
         self.message_broadcast
             .send(message)
@@ -66,6 +69,9 @@ impl Chat for ChatService {
 
 #[tokio::main]
 async fn main() -> Result<(), BoxError> {
+    // Set up logging
+    tracing_subscriber::fmt().init();
+
     // Create our chat service
     let service = ChatServer::new(ChatService::new());
 

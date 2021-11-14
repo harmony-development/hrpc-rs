@@ -31,10 +31,9 @@ async fn main() -> Result<(), BoxError> {
     // from stdin
     let mut rustyline = Rustyline::<()>::new();
     loop {
-        let readline = rustyline.readline("write your message => ");
+        let readline = rustyline.readline("(write your message)> ");
         match readline {
             Ok(line) => {
-                println!("{}", line);
                 client.send_message(Message { content: line }).await?;
             }
             Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
