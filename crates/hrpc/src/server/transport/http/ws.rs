@@ -56,6 +56,7 @@ use crate::common::transport::http::{
 pub(crate) struct WebSocketUpgrade {
     config: WebSocketConfig,
     protocols: Option<Box<[Cow<'static, str>]>>,
+    extensions: Option<Box<[Cow<'static, str>]>>,
     sec_websocket_key: HeaderValue,
     on_upgrade: OnUpgrade,
     sec_websocket_protocol: Option<HeaderValue>,
@@ -92,6 +93,22 @@ impl WebSocketUpgrade {
     {
         self.protocols = Some(
             protocols
+                .into_iter()
+                .map(Into::into)
+                .collect::<Vec<_>>()
+                .into(),
+        );
+        self
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn extensions<I>(mut self, extensions: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<Cow<'static, str>>,
+    {
+        self.extensions = Some(
+            extensions
                 .into_iter()
                 .map(Into::into)
                 .collect::<Vec<_>>()
@@ -148,6 +165,7 @@ impl WebSocketUpgrade {
         Ok(Self {
             config: Default::default(),
             protocols: None,
+            extensions: None,
             sec_websocket_key,
             on_upgrade,
             sec_websocket_protocol,
@@ -249,6 +267,24 @@ where
 
         if let Some(protocol) = protocol {
             builder = builder.header(header::SEC_WEBSOCKET_PROTOCOL, protocol);
+        }
+
+        let mut new_exts = String::new();
+
+        if let Some(exts) = self.extractor.extensions {
+            for ext in exts.iter() {
+                if !new_exts.is_empty() {
+                    new_exts.push_str("; ");
+                }
+                new_exts.push_str(ext.as_ref());
+            }
+        }
+
+        if !new_exts.is_empty() {
+            builder = builder.header(
+                header::SEC_WEBSOCKET_EXTENSIONS,
+                HeaderValue::from_str(&new_exts).expect("invalid websocket extensions"),
+            );
         }
 
         builder.body(box_body(http_body::Empty::new())).unwrap()

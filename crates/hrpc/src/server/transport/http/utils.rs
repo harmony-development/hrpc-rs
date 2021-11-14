@@ -14,8 +14,8 @@ use crate::{
         extensions::Extensions,
         future::{self, Ready},
         transport::http::{
-            box_body, content_header_value, version_header_name, version_header_value,
-            ws_exts_header_value, HeaderMapExt, HttpRequest, HttpResponse, HRPC_WEBSOCKET_PROTOCOL,
+            box_body, content_header_value, version_header_name, version_header_value, ws_version,
+            HeaderMapExt, HttpRequest, HttpResponse,
         },
     },
     proto::{Error as HrpcError, HrpcErrorIdentifier},
@@ -59,7 +59,7 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
     fn call(&mut self, mut req: HttpRequest) -> Self::Future {
         let (ws_upgrade, hrpc_req) = match WebSocketUpgrade::from_request(&mut req) {
             Ok(mut upgrade) => {
-                upgrade = upgrade.protocols([HRPC_WEBSOCKET_PROTOCOL]);
+                upgrade = upgrade.protocols([ws_version()]);
 
                 let (parts, body) = req.into_parts();
 
@@ -119,11 +119,6 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
                     let parts: response::Parts = resp.into();
 
                     set_http_extensions(parts.extensions, &mut ws_resp);
-
-                    // Insert hRPC spec version
-                    ws_resp
-                        .headers_mut()
-                        .insert(header::SEC_WEBSOCKET_EXTENSIONS, ws_exts_header_value());
 
                     return Ok(ws_resp);
                 }

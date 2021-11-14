@@ -12,7 +12,7 @@ use futures_util::{future::BoxFuture, StreamExt};
 use http::{
     header,
     uri::{PathAndQuery, Scheme},
-    HeaderMap, HeaderValue, Method, Uri,
+    HeaderMap, Method, Uri,
 };
 use prost::Message;
 use tokio_rustls::webpki::DNSNameRef;
@@ -25,8 +25,8 @@ use super::{
 use crate::{
     client::socket::Socket,
     common::transport::http::{
-        content_header_value, version_header_name, version_header_value, ws_exts_header_value,
-        WebSocket, HRPC_WEBSOCKET_PROTOCOL,
+        content_header_value, version_header_name, version_header_value, ws_version,
+        ws_version_header_value, WebSocket,
     },
     request, Request, Response, HRPC_SPEC_VERSION,
 };
@@ -203,15 +203,9 @@ impl Transport for Hyper {
             let mut request = SocketRequest::get(endpoint).body(()).unwrap();
 
             // Insert default protocol (can be overwritten by users)
-            request.headers_mut().insert(
-                header::SEC_WEBSOCKET_PROTOCOL,
-                HeaderValue::from_static(HRPC_WEBSOCKET_PROTOCOL),
-            );
-
-            // Insert hrpc spec version
             request
                 .headers_mut()
-                .insert(header::SEC_WEBSOCKET_EXTENSIONS, ws_exts_header_value());
+                .insert(header::SEC_WEBSOCKET_PROTOCOL, ws_version_header_value());
 
             if let Some(header_map) = req.extensions_mut().remove::<HeaderMap>() {
                 for (key, value) in header_map {
@@ -275,28 +269,11 @@ impl Transport for Hyper {
                 .map_err(HyperError::SocketInitError)
                 .map_err(ClientError::Transport)?;
 
-            // check if the spec version matches
-            if !response
-                .headers()
-                .get(header::SEC_WEBSOCKET_EXTENSIONS)
-                .and_then(|h| h.to_str().ok())
-                .map_or(false, |exts| {
-                    exts.contains(&format!("hrpc-version={}", HRPC_SPEC_VERSION))
-                })
-            {
-                // TODO: parse the header properly and extract the version instead of just doing a contains
-                return Err(ClientError::Transport(HyperError::SocketInitError(
-                    SocketInitError::IncompatibleSpecVersion,
-                )));
-            }
-
             if !response
                 .headers()
                 .get(header::SEC_WEBSOCKET_PROTOCOL)
-                .map(|h| h.as_bytes())
-                .map_or(false, |v| {
-                    v.eq_ignore_ascii_case(HRPC_WEBSOCKET_PROTOCOL.as_bytes())
-                })
+                .and_then(|h| h.to_str().ok())
+                .map_or(false, |v| v.contains(&ws_version()))
             {
                 return Err(ClientError::Transport(HyperError::SocketInitError(
                     SocketInitError::InvalidProtocol,

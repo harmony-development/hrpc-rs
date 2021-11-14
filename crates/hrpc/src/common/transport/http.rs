@@ -16,8 +16,6 @@ use crate::{
 
 /// The hRPC version header used in unary requests.
 pub const HRPC_VERSION_HEADER: &str = "hrpc-version";
-/// The hRPC websocket protocol name.
-pub const HRPC_WEBSOCKET_PROTOCOL: &str = "hrpc";
 
 /// A boxed HTTP body. This is used to unify response bodies.
 pub type BoxBody = http_body::combinators::BoxBody<Bytes, BoxError>;
@@ -40,13 +38,14 @@ pub fn content_header_value() -> HeaderValue {
     unsafe { HeaderValue::from_maybe_shared_unchecked(Bytes::from_static(HRPC_CONTENT_MIMETYPE)) }
 }
 
-/// Create a header value with hRPC version, for the [`header::SEC_WEBSOCKET_EXTENSIONS`] header.
-pub fn ws_exts_header_value() -> HeaderValue {
-    unsafe {
-        HeaderValue::from_maybe_shared_unchecked(
-            format!("hrpc-version={}", HRPC_SPEC_VERSION).into_bytes(),
-        )
-    }
+/// Create the spec compliant WS protocol with hRPC version, as a header value.
+pub fn ws_version_header_value() -> HeaderValue {
+    unsafe { HeaderValue::from_maybe_shared_unchecked(ws_version().into_bytes()) }
+}
+
+/// Create the spec compliant WS protocol with hRPC version.
+pub fn ws_version() -> String {
+    format!("hrpc{}", HRPC_SPEC_VERSION)
 }
 
 /// Create a header value with hRPC version, for the [`HRPC_VERSION_HEADER`] header.
