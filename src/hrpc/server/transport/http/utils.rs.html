@@ -295,11 +295,6 @@
 <span id="295">295</span>
 <span id="296">296</span>
 <span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">borrow::Cow</span>, <span class="ident">convert::Infallible</span>, <span class="ident">str::FromStr</span>};
 
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">FutureExt</span>, <span class="ident">StreamExt</span>};
@@ -316,8 +311,8 @@
         <span class="ident">extensions::Extensions</span>,
         <span class="ident">future</span>::{<span class="self">self</span>, <span class="ident">Ready</span>},
         <span class="ident">transport::http</span>::{
-            <span class="ident">box_body</span>, <span class="ident">content_header_value</span>, <span class="ident">version_header_name</span>, <span class="ident">version_header_value</span>,
-            <span class="ident">ws_exts_header_value</span>, <span class="ident">HeaderMapExt</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>, <span class="ident">HRPC_WEBSOCKET_PROTOCOL</span>,
+            <span class="ident">box_body</span>, <span class="ident">content_header_value</span>, <span class="ident">version_header_name</span>, <span class="ident">version_header_value</span>, <span class="ident">ws_version</span>,
+            <span class="ident">HeaderMapExt</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>,
         },
     },
     <span class="ident">proto</span>::{<span class="ident">Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>, <span class="ident">HrpcErrorIdentifier</span>},
@@ -361,7 +356,7 @@
     <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">req</span>: <span class="ident">HttpRequest</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Future</span> {
         <span class="kw">let</span> (<span class="ident">ws_upgrade</span>, <span class="ident">hrpc_req</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">WebSocketUpgrade::from_request</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">req</span>) {
             <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">upgrade</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">upgrade</span> <span class="op">=</span> <span class="ident">upgrade</span>.<span class="ident">protocols</span>([<span class="ident">HRPC_WEBSOCKET_PROTOCOL</span>]);
+                <span class="ident">upgrade</span> <span class="op">=</span> <span class="ident">upgrade</span>.<span class="ident">protocols</span>([<span class="ident">ws_version</span>()]);
 
                 <span class="kw">let</span> (<span class="ident">parts</span>, <span class="ident">body</span>) <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into_parts</span>();
 
@@ -421,11 +416,6 @@
                     <span class="kw">let</span> <span class="ident">parts</span>: <span class="ident">response::Parts</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">into</span>();
 
                     <span class="ident">set_http_extensions</span>(<span class="ident">parts</span>.<span class="ident">extensions</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ws_resp</span>);
-
-                    <span class="comment">// Insert hRPC spec version</span>
-                    <span class="ident">ws_resp</span>
-                        .<span class="ident">headers_mut</span>()
-                        .<span class="ident">insert</span>(<span class="ident">header::SEC_WEBSOCKET_EXTENSIONS</span>, <span class="ident">ws_exts_header_value</span>());
 
                     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ws_resp</span>);
                 }
