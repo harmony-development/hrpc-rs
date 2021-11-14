@@ -81,18 +81,21 @@ impl<Inner: Transport> Client<Inner> {
         &mut self,
         req: Request<Req>,
     ) -> ClientResult<Response<Resp>, Inner::Error> {
-        self.transport.call_unary(req).await
+        let mut req = req.map::<()>();
+        (self.modify_request_preflight)(&mut req);
+        self.transport.call_unary(req.map::<Req>()).await
     }
 
     /// Connect a socket with the server and return it.
     pub async fn connect_socket<Req, Resp>(
         &mut self,
-        req: Request<()>,
+        mut req: Request<()>,
     ) -> ClientResult<Socket<Req, Resp>, Inner::Error>
     where
         Req: prost::Message + 'static,
         Resp: prost::Message + Default + 'static,
     {
+        (self.modify_request_preflight)(&mut req);
         self.transport.call_socket(req).await
     }
 
@@ -114,14 +117,16 @@ impl<Inner: Transport> Client<Inner> {
             ..
         } = request.into();
 
+        let mut request: BoxRequest = Request::from(request::Parts {
+            body: Body::empty(),
+            endpoint: endpoint.clone(),
+            extensions,
+        });
+
+        (self.modify_request_preflight)(&mut request);
+
         #[allow(unused_mut)]
-        let mut socket = self
-            .connect_socket(Request::from(request::Parts {
-                body: Body::empty(),
-                endpoint: endpoint.clone(),
-                extensions,
-            }))
-            .await?;
+        let mut socket = self.connect_socket(request).await?;
 
         let message = decode::decode_body(body).await?;
         socket
