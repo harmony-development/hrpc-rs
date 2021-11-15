@@ -5,6 +5,7 @@ use std::{
     ops::Not,
     str::FromStr,
     sync::Arc,
+    time::Duration,
 };
 
 use bytes::BytesMut;
@@ -36,9 +37,9 @@ type SocketRequest = tungstenite::handshake::client::Request;
 pub type HttpClient = hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>;
 
 /// Creates a new [`HttpClient`] that you can use.
-pub fn http_client() -> HttpClient {
+pub fn http_client(builder: &mut hyper::client::Builder) -> HttpClient {
     let connector = hyper_rustls::HttpsConnector::with_native_roots();
-    hyper::Client::builder().build(connector)
+    builder.build(connector)
 }
 
 /// HTTP transport implemented using [`hyper`].
@@ -52,9 +53,22 @@ pub struct Hyper {
 impl Hyper {
     /// Create a new HTTP transport using the provided URI as server URI.
     pub fn new(server: Uri) -> Result<Self, HyperError> {
+        Self::new_with_hyper(
+            server,
+            http_client(
+                hyper::Client::builder().http2_keep_alive_interval(Some(Duration::from_secs(10))),
+            ),
+        )
+    }
+
+    /// Create a new HTTP transport using the provided URI as server URI, and
+    /// the provided [`HttpClient`] as the underlying client.
+    ///
+    /// You can create a [`HttpClient`] using [`http_client`].
+    pub fn new_with_hyper(server: Uri, hyper_client: HttpClient) -> Result<Self, HyperError> {
         if let Some("https" | "http") = server.scheme_str() {
             Ok(Self {
-                client: http_client(),
+                client: hyper_client,
                 server,
                 buf: BytesMut::new(),
             })
