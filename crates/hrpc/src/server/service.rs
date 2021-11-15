@@ -9,7 +9,7 @@ use tower::{
 
 use super::{
     error::HrpcError,
-    socket::{Socket, SocketHandler},
+    socket::{self, Socket, SocketHandler},
 };
 use crate::{request::BoxRequest, response::BoxResponse, Request, Response};
 
@@ -168,7 +168,8 @@ where
         let socket_handler = SocketHandler {
             inner: Box::new(move |rx, tx| {
                 Box::pin(async move {
-                    let socket = Socket::new(rx, tx);
+                    let socket =
+                        Socket::new(rx, tx, socket::encode_message, socket::decode_message);
                     let res = handler(req, socket).await;
                     if let Err(err) = res {
                         tracing::error!("{}", err);

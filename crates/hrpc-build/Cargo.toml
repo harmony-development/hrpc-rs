@@ -23,10 +23,14 @@ rustfmt = []
 server = []
 client = []
 
-# Recommended transport, enable this if you enable `hrpc`'s `recommended` feature
-recommended = ["default_transport_http"]
+# Shorthand to enable `server_default_transport_http` and `client_default_transport_hyper_http`
+default_transport_http = [
+    "server_default_transport_http",
+    "client_default_transport_hyper_http",
+]
 
-default_transport_http = []
+server_default_transport_http = []
+client_default_transport_hyper_http = []
 
 [package.metadata.docs.rs]
 all-features = true

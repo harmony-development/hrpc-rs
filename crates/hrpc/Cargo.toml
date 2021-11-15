@@ -27,41 +27,41 @@ library = true
 [features]
 default = []
 
-# Recommended transport
-recommended = ["http_server", "http_client"]
+# Enable common server code
+server = ["_common", "matchit", "hrpc-proc-macro"]
+# Enable common client code
+client = ["_common"]
+# Internal feature used to indicate common server / client is enabled
+_common = ["futures-util/sink"]
 
-server = [
-    "tokio/sync",
-    "tokio/rt",
-    "tokio/macros",
-    "tokio/time",
-    "matchit",
-    "hrpc-proc-macro",
-    "flume",
-]
-client = ["tokio/sync", "tokio/rt", "tokio/macros", "flume"]
-disable_socket_auto_ping = []
-
-# HTTP transport
+# Enables the HTTP server
 http_server = [
-    "http",
-    "http-body",
+    "server",
+    "_common_http",
+    "websocket_tokio_tungstenite",
+    "tokio/rt",
     "hyper",
     "axum-server",
-    "hyper/server",
-    "tokio-tungstenite",
     "sha-1",
     "base64",
 ]
-http_client = ["http_hyper_client"]
+# Enables the default `hyper` HTTP client
 http_hyper_client = [
-    "http",
-    "http-body",
-    "tokio-tungstenite",
+    "client",
+    "_common_http",
+    "websocket_tokio_tungstenite",
+    "_common_http_client",
     "hyper",
     "hyper-rustls",
     "hyper/client",
 ]
+# Internal feature used to indicate that a HTTP client is enabled
+_common_http_client = []
+# Internal feature used to indicate that HTTP is enabled
+_common_http = ["http", "http-body"]
+
+# Enable the tokio_tungstenite websocket implementation
+websocket_tokio_tungstenite = ["tokio-tungstenite", "tokio"]
 
 [build-dependencies]
 # Needed to compile the hRPC proto
@@ -74,20 +74,14 @@ prost = "0.9"
 bytes = "1.0"
 http = { version = "0.2", optional = true }
 http-body = { version = "0.4", optional = true }
-futures-util = { version = "0.3", default-features = false, features = [
-    "std",
-    "sink",
-] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 hrpc-proc-macro = { version = "0.29.0", path = "../hrpc-proc-macro", optional = true }
 tower = { version = "0.4", default-features = false, features = ["util"] }
 
 # Logging
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
-# Our async runtime
-tokio = { version = "1.8", default-features = false, features = [
-    "parking_lot",
-] }
+tokio = { version = "1", default-features = false, optional = true }
 
 # Networking!
 hyper = { version = "0.14", default-features = false, features = [
@@ -100,9 +94,12 @@ hyper-rustls = { version = "0.22", default-features = false, features = [
     "native-tokio",
 ], optional = true }
 tokio-tungstenite = { version = "0.16", default-features = false, features = [
-    "rustls-tls-native-roots", "connect"
+    "rustls-tls-native-roots",
+    "connect",
 ], optional = true }
-axum-server = { version = "0.3", default-features = false, features = ["tls-rustls"], optional = true }
+axum-server = { version = "0.3", default-features = false, features = [
+    "tls-rustls",
+], optional = true }
 
 # Used by server for routing
 matchit = { version = "0.4", default-features = false, optional = true }

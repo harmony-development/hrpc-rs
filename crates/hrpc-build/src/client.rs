@@ -33,7 +33,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     #[allow(unused_variables)]
     let def_transport_impl = TokenStream::new();
 
-    #[cfg(feature = "default_transport_http")]
+    #[cfg(feature = "client_default_transport_hyper_http")]
     let def_transport_impl = quote! {
         use hrpc::{client::transport::http::Hyper, exports::http::Uri};
 

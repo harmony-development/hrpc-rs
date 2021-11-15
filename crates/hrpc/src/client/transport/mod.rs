@@ -7,7 +7,7 @@ use super::{error::ClientResult, socket::Socket};
 use crate::{Request, Response};
 
 /// Client HTTP transport.
-#[cfg(feature = "http_client")]
+#[cfg(feature = "_common_http_client")]
 pub mod http;
 
 /// Trait for enabling generic client transport implementations.

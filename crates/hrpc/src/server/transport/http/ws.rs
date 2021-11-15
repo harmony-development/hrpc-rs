@@ -47,7 +47,7 @@ use std::{
     future::Future,
 };
 
-use crate::common::transport::http::{HeaderMapExt, WebSocket};
+use crate::common::transport::{http::HeaderMapExt, tokio_tungstenite::WebSocket};
 
 use super::{box_body, HttpRequest, HttpResponse};
 

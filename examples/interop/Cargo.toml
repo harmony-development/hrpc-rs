@@ -7,14 +7,26 @@ license = "MIT"
 
 [dependencies]
 prost = "0.9"
-hrpc = { path = "../../crates/hrpc", features = ["server", "client", "recommended"] }
-tokio = { version = "1.8", features = ["rt", "rt-multi-thread", "macros", "fs"] }
+hrpc = { path = "../../crates/hrpc", features = [
+    "http_hyper_client",
+    "http_server",
+] }
+tokio = { version = "1.8", features = [
+    "rt",
+    "rt-multi-thread",
+    "macros",
+    "fs",
+] }
 futures = "0.3"
 tracing-subscriber = "0.3"
 tower = { version = "0.4", features = ["limit", "load"] }
 
 [build-dependencies]
-hrpc-build = { path = "../../crates/hrpc-build", features = ["server", "client", "recommended"] }
+hrpc-build = { path = "../../crates/hrpc-build", features = [
+    "server",
+    "client",
+    "default_transport_http",
+] }
 
 [package.metadata.nix]
 build = true

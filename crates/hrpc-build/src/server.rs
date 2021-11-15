@@ -27,7 +27,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
         }
     });
 
-    #[cfg(feature = "default_transport_http")]
+    #[cfg(feature = "server_default_transport_http")]
     methods.extend(quote! {
         /// Serves the service with HTTP transport.
         pub async fn serve<Addr: ToSocketAddrs>(self, addr: Addr) -> Result<(), <hrpc::server::transport::http::Hyper<Identity> as Transport>::Error> {

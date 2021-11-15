@@ -22,12 +22,15 @@ use tokio_tungstenite::tungstenite;
 use crate::{
     client::{
         error::{ClientError, ClientResult, HrpcError},
-        socket::Socket,
+        socket::{self, Socket},
         Transport,
     },
-    common::transport::http::{
-        content_header_value, version_header_name, version_header_value, ws_version,
-        ws_version_header_value, WebSocket,
+    common::transport::{
+        http::{
+            content_header_value, version_header_name, version_header_value, ws_version,
+            ws_version_header_value,
+        },
+        tokio_tungstenite::WebSocket,
     },
     request, Request, Response, HRPC_SPEC_VERSION,
 };
@@ -248,7 +251,12 @@ impl Transport for Hyper {
 
             let (ws_tx, ws_rx) = WebSocket::new(ws_stream).split();
 
-            Ok(Socket::new(Box::pin(ws_rx), Box::pin(ws_tx)))
+            Ok(Socket::new(
+                Box::pin(ws_rx),
+                Box::pin(ws_tx),
+                socket::encode_message,
+                socket::decode_message,
+            ))
         })
     }
 }
