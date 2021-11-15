@@ -7,11 +7,12 @@ pub mod exports {
     pub use bytes;
     pub use futures_util;
     pub use prost;
-    pub use tower;
     pub use tracing;
 
-    #[cfg(any(feature = "http_client", feature = "http_server"))]
+    #[cfg(feature = "_common_http")]
     pub use http;
+    #[cfg(feature = "server")]
+    pub use tower;
 }
 
 /// Common client types and functions.

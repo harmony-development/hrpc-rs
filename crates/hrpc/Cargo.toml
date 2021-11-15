@@ -32,7 +32,7 @@ server = ["_common", "tower", "matchit", "hrpc-proc-macro"]
 # Enable common client code
 client = ["_common"]
 # Internal feature used to indicate common server / client is enabled
-_common = ["futures-util/sink"]
+_common = ["futures-util/sink", "futures-util/async-await-macro"]
 
 # Enables the HTTP server
 http_server = [
