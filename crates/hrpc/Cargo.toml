@@ -28,7 +28,7 @@ library = true
 default = []
 
 # Enable common server code
-server = ["_common", "matchit", "hrpc-proc-macro"]
+server = ["_common", "tower", "matchit", "hrpc-proc-macro"]
 # Enable common client code
 client = ["_common"]
 # Internal feature used to indicate common server / client is enabled
@@ -72,18 +72,24 @@ prost-build = "0.9"
 # Core types, traits and utilities
 prost = "0.9"
 bytes = "1.0"
-http = { version = "0.2", optional = true }
-http-body = { version = "0.4", optional = true }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
+
+# Re-exported by server
 hrpc-proc-macro = { version = "0.29.0", path = "../hrpc-proc-macro", optional = true }
-tower = { version = "0.4", default-features = false, features = ["util"] }
+# Used by server for it's incredible Service trait and other utilities
+tower = { version = "0.4", default-features = false, features = [
+    "util",
+], optional = true }
 
 # Logging
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
+# Used by http server impl in ws handling
 tokio = { version = "1", default-features = false, optional = true }
 
-# Networking!
+# Http transport deps
+http = { version = "0.2", optional = true }
+http-body = { version = "0.4", optional = true }
 hyper = { version = "0.14", default-features = false, features = [
     "http1",
     "http2",
@@ -107,12 +113,3 @@ matchit = { version = "0.4", default-features = false, optional = true }
 # Used by server to implement WS request handling
 sha-1 = { version = "0.9", default-features = false, optional = true }
 base64 = { version = "0.13", default-features = false, optional = true }
-
-# Overall better locks
-parking_lot = { version = "0.11", default-features = false }
-# Used in socket impls
-flume = { version = "0.10", default-features = false, features = [
-    "async",
-    # TODO(yusdacra): Do we need eventual fairness?
-    "eventual-fairness",
-], optional = true }
