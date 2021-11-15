@@ -56,8 +56,6 @@ http_server = [
 http_client = [
     "http",
     "http-body",
-    "rustls-native-certs",
-    "tokio-rustls",
     "tokio-tungstenite",
     "hyper",
     "hyper-rustls",
@@ -100,15 +98,10 @@ hyper = { version = "0.14", default-features = false, features = [
 hyper-rustls = { version = "0.22", default-features = false, features = [
     "native-tokio",
 ], optional = true }
-tokio-tungstenite = { version = "0.15", default-features = false, features = [
-    "rustls-tls",
+tokio-tungstenite = { version = "0.16", default-features = false, features = [
+    "rustls-tls-native-roots", "connect"
 ], optional = true }
 axum-server = { version = "0.3", default-features = false, features = ["tls-rustls"], optional = true }
-
-# Only used by client to discover certs for WS
-rustls-native-certs = { version = "0.5", default-features = false, optional = true }
-# Used by client to connect with TLS
-tokio-rustls = { version = "0.22", default-features = false, optional = true }
 
 # Used by server for routing
 matchit = { version = "0.4", default-features = false, optional = true }

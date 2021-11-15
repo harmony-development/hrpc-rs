@@ -4,7 +4,6 @@ use std::{
     fmt::{self, Display, Formatter},
     ops::Not,
     str::FromStr,
-    sync::Arc,
     time::Duration,
 };
 
@@ -16,7 +15,6 @@ use http::{
     HeaderMap, Method, Uri,
 };
 use prost::Message;
-use tokio_rustls::webpki::DNSNameRef;
 use tokio_tungstenite::tungstenite;
 
 use super::{
@@ -229,55 +227,7 @@ impl Transport for Hyper {
                 }
             }
 
-            use tungstenite::{client::IntoClientRequest, stream::Mode};
-            let request = request
-                .into_client_request()
-                .map_err(SocketInitError::Tungstenite)
-                .map_err(HyperError::SocketInitError)
-                .map_err(ClientError::Transport)?;
-
-            let domain = request
-                .uri()
-                .host()
-                .map(str::to_string)
-                .expect("must have host");
-            let port =
-                request
-                    .uri()
-                    .port_u16()
-                    .unwrap_or_else(|| match request.uri().scheme_str() {
-                        Some("wss") => 443,
-                        Some("ws") => 80,
-                        _ => unreachable!("scheme cant be anything other than ws or wss"),
-                    });
-
-            let addr = format!("{}:{}", domain, port);
-            let socket = tokio::net::TcpStream::connect(addr).await?;
-
-            let mode = tungstenite::client::uri_mode(request.uri())
-                .map_err(SocketInitError::Tungstenite)
-                .map_err(HyperError::SocketInitError)
-                .map_err(ClientError::Transport)?;
-            let stream = match mode {
-                Mode::Plain => tokio_tungstenite::MaybeTlsStream::Plain(socket),
-                Mode::Tls => {
-                    let mut config = tokio_rustls::rustls::ClientConfig::new();
-                    config.root_store =
-                        rustls_native_certs::load_native_certs().map_err(|(_, err)| err)?;
-                    let domain = DNSNameRef::try_from_ascii_str(&domain)
-                        .map_err(|err| {
-                            tungstenite::Error::Tls(tungstenite::error::TlsError::Dns(err))
-                        })
-                        .map_err(SocketInitError::Tungstenite)
-                        .map_err(HyperError::SocketInitError)
-                        .map_err(ClientError::Transport)?;
-                    let stream = tokio_rustls::TlsConnector::from(Arc::new(config));
-                    let connected = stream.connect(domain, socket).await?;
-                    tokio_tungstenite::MaybeTlsStream::Rustls(connected)
-                }
-            };
-
-            let (ws_stream, response) = tokio_tungstenite::client_async(request, stream)
+            let (ws_stream, response) = tokio_tungstenite::connect_async(request)
                 .await
                 .map_err(SocketInitError::Tungstenite)
                 .map_err(HyperError::SocketInitError)
