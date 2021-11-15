@@ -47,9 +47,9 @@ use std::{
     future::Future,
 };
 
-use crate::common::transport::http::{
-    box_body, HeaderMapExt, HttpRequest, HttpResponse, WebSocket,
-};
+use crate::common::transport::http::{HeaderMapExt, WebSocket};
+
+use super::{box_body, HttpRequest, HttpResponse};
 
 /// Extractor for establishing WebSocket connections.
 #[derive(Debug)]

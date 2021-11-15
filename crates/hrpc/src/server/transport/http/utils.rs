@@ -8,14 +8,18 @@ use tower::{
     Layer, Service,
 };
 
-use super::ws::{WebSocketUpgrade, WebSocketUpgradeError};
+use super::{
+    box_body,
+    ws::{WebSocketUpgrade, WebSocketUpgradeError},
+    HttpRequest, HttpResponse,
+};
 use crate::{
     common::{
         extensions::Extensions,
         future::{self, Ready},
         transport::http::{
-            box_body, content_header_value, version_header_name, version_header_value, ws_version,
-            HeaderMapExt, HttpRequest, HttpResponse,
+            content_header_value, version_header_name, version_header_value, ws_version,
+            HeaderMapExt,
         },
     },
     proto::{Error as HrpcError, HrpcErrorIdentifier},

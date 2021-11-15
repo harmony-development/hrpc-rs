@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use futures_util::future::BoxFuture;
 use std::{
     convert::Infallible,
@@ -13,14 +14,27 @@ use tower::{
 use self::utils::HrpcServiceToHttp;
 
 use super::Transport;
-use crate::{
-    common::transport::http::{HttpRequest, HttpResponse},
-    server::MakeRoutes,
-};
+use crate::{server::MakeRoutes, BoxError};
 
 /// Utilities for working with this transport.
 pub mod utils;
 mod ws;
+
+/// A boxed HTTP body. This is used to unify response bodies.
+pub type BoxBody = http_body::combinators::BoxBody<Bytes, BoxError>;
+/// A HTTP request.
+pub type HttpRequest = http::Request<hyper::Body>;
+/// A HTTP response.
+pub type HttpResponse = http::Response<BoxBody>;
+
+/// Convert a body with the correct attributes to a [`BoxBody`].
+pub fn box_body<B>(body: B) -> BoxBody
+where
+    B: http_body::Body<Data = Bytes> + Send + Sync + 'static,
+    B::Error: Into<BoxError>,
+{
+    BoxBody::new(body.map_err(Into::into))
+}
 
 /// A transport based on [`hyper`] that supports TLS.
 #[non_exhaustive]

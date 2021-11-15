@@ -1,3 +1,5 @@
+//! A HTTP client transport implementation using [`hyper`].
+
 use std::{
     borrow::Cow,
     error::Error as StdError,
@@ -17,12 +19,12 @@ use http::{
 use prost::Message;
 use tokio_tungstenite::tungstenite;
 
-use super::{
-    super::error::{ClientError, ClientResult, HrpcError},
-    Transport,
-};
 use crate::{
-    client::socket::Socket,
+    client::{
+        error::{ClientError, ClientResult, HrpcError},
+        socket::Socket,
+        Transport,
+    },
     common::transport::http::{
         content_header_value, version_header_name, version_header_value, ws_version,
         ws_version_header_value, WebSocket,

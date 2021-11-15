@@ -53,7 +53,8 @@ http_server = [
     "sha-1",
     "base64",
 ]
-http_client = [
+http_client = ["http_hyper_client"]
+http_hyper_client = [
     "http",
     "http-body",
     "tokio-tungstenite",

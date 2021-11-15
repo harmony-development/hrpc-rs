@@ -17,22 +17,6 @@ use crate::{
 /// The hRPC version header used in unary requests.
 pub const HRPC_VERSION_HEADER: &str = "hrpc-version";
 
-/// A boxed HTTP body. This is used to unify response bodies.
-pub type BoxBody = http_body::combinators::BoxBody<Bytes, BoxError>;
-/// A HTTP request.
-pub type HttpRequest = http::Request<hyper::Body>;
-/// A HTTP response.
-pub type HttpResponse = http::Response<BoxBody>;
-
-/// Convert a body with the correct attributes to a [`BoxBody`].
-pub fn box_body<B>(body: B) -> BoxBody
-where
-    B: http_body::Body<Data = Bytes> + Send + Sync + 'static,
-    B::Error: Into<BoxError>,
-{
-    BoxBody::new(body.map_err(Into::into))
-}
-
 /// Create a header value for the hRPC content type.
 pub fn content_header_value() -> HeaderValue {
     unsafe { HeaderValue::from_maybe_shared_unchecked(Bytes::from_static(HRPC_CONTENT_MIMETYPE)) }
