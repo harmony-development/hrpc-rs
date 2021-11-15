@@ -1,4 +1,4 @@
-use futures_util::{Sink, Stream};
+use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_tungstenite::{
     tungstenite::{Error as WsError, Message as WsMessage},
@@ -30,9 +30,8 @@ where
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        let s = &mut self.inner;
-        futures_util::pin_mut!(s);
-        s.poll_next(cx)
+        self.inner
+            .poll_next_unpin(cx)
             .map_ok(SocketMessage::from)
             .map_err(HrpcError::from)
     }
@@ -48,36 +47,30 @@ where
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        let s = &mut self.inner;
-        futures_util::pin_mut!(s);
-        s.poll_ready(cx).map_err(HrpcError::from)
+        self.inner.poll_ready_unpin(cx).map_err(HrpcError::from)
     }
 
     fn start_send(
         mut self: std::pin::Pin<&mut Self>,
         item: SocketMessage,
     ) -> Result<(), Self::Error> {
-        let s = &mut self.inner;
-        futures_util::pin_mut!(s);
-        s.start_send(item.into()).map_err(HrpcError::from)
+        self.inner
+            .start_send_unpin(item.into())
+            .map_err(HrpcError::from)
     }
 
     fn poll_flush(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        let s = &mut self.inner;
-        futures_util::pin_mut!(s);
-        s.poll_flush(cx).map_err(HrpcError::from)
+        self.inner.poll_flush_unpin(cx).map_err(HrpcError::from)
     }
 
     fn poll_close(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        let s = &mut self.inner;
-        futures_util::pin_mut!(s);
-        s.poll_close(cx).map_err(HrpcError::from)
+        self.inner.poll_close_unpin(cx).map_err(HrpcError::from)
     }
 }
 
