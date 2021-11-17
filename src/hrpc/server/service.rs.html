@@ -185,6 +185,7 @@
 <span id="185">185</span>
 <span id="186">186</span>
 <span id="187">187</span>
+<span id="188">188</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::Infallible</span>, <span class="ident">sync::Arc</span>};
 <span class="kw">use</span> <span class="ident">tower</span>::{
@@ -196,7 +197,7 @@
 
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">error::HrpcError</span>,
-    <span class="ident">socket</span>::{<span class="ident">Socket</span>, <span class="ident">SocketHandler</span>},
+    <span class="ident">socket</span>::{<span class="self">self</span>, <span class="ident">Socket</span>, <span class="ident">SocketHandler</span>},
 };
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">request::BoxRequest</span>, <span class="ident">response::BoxResponse</span>, <span class="ident">Request</span>, <span class="ident">Response</span>};
 
@@ -355,7 +356,8 @@
         <span class="kw">let</span> <span class="ident">socket_handler</span> <span class="op">=</span> <span class="ident">SocketHandler</span> {
             <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">rx</span>, <span class="ident">tx</span><span class="op">|</span> {
                 <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
-                    <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">Socket::new</span>(<span class="ident">rx</span>, <span class="ident">tx</span>);
+                    <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span>
+                        <span class="ident">Socket::new</span>(<span class="ident">rx</span>, <span class="ident">tx</span>, <span class="ident">socket::encode_message</span>, <span class="ident">socket::decode_message</span>);
                     <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">handler</span>(<span class="ident">req</span>, <span class="ident">socket</span>).<span class="kw">await</span>;
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">res</span> {
                         <span class="macro">tracing::error!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>);

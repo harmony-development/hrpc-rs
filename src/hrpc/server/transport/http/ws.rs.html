@@ -347,9 +347,9 @@ DEALINGS IN THE SOFTWARE.
     <span class="ident">future::Future</span>,
 };
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::transport::http</span>::{
-    <span class="ident">box_body</span>, <span class="ident">HeaderMapExt</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>, <span class="ident">WebSocket</span>,
-};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::transport</span>::{<span class="ident">http::HeaderMapExt</span>, <span class="ident">tokio_tungstenite::WebSocket</span>};
+
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">box_body</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>};
 
 <span class="doccomment">/// Extractor for establishing WebSocket connections.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>

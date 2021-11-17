@@ -189,7 +189,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_variables</span>)]</span>
     <span class="kw">let</span> <span class="ident">def_transport_impl</span> <span class="op">=</span> <span class="ident">TokenStream::new</span>();
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default_transport_http&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client_default_transport_hyper_http&quot;</span>)]</span>
     <span class="kw">let</span> <span class="ident">def_transport_impl</span> <span class="op">=</span> <span class="macro">quote!</span> {
         <span class="kw">use</span> <span class="ident">hrpc</span>::{<span class="ident">client::transport::http::Hyper</span>, <span class="ident">exports::http::Uri</span>};
 

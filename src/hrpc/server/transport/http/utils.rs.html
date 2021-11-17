@@ -295,6 +295,10 @@
 <span id="295">295</span>
 <span id="296">296</span>
 <span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">borrow::Cow</span>, <span class="ident">convert::Infallible</span>, <span class="ident">str::FromStr</span>};
 
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">FutureExt</span>, <span class="ident">StreamExt</span>};
@@ -305,14 +309,18 @@
     <span class="ident">Layer</span>, <span class="ident">Service</span>,
 };
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ws</span>::{<span class="ident">WebSocketUpgrade</span>, <span class="ident">WebSocketUpgradeError</span>};
+<span class="kw">use</span> <span class="kw">super</span>::{
+    <span class="ident">box_body</span>,
+    <span class="ident">ws</span>::{<span class="ident">WebSocketUpgrade</span>, <span class="ident">WebSocketUpgradeError</span>},
+    <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>,
+};
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">common</span>::{
         <span class="ident">extensions::Extensions</span>,
         <span class="ident">future</span>::{<span class="self">self</span>, <span class="ident">Ready</span>},
         <span class="ident">transport::http</span>::{
-            <span class="ident">box_body</span>, <span class="ident">content_header_value</span>, <span class="ident">version_header_name</span>, <span class="ident">version_header_value</span>, <span class="ident">ws_version</span>,
-            <span class="ident">HeaderMapExt</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>,
+            <span class="ident">content_header_value</span>, <span class="ident">version_header_name</span>, <span class="ident">version_header_value</span>, <span class="ident">ws_version</span>,
+            <span class="ident">HeaderMapExt</span>,
         },
     },
     <span class="ident">proto</span>::{<span class="ident">Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>, <span class="ident">HrpcErrorIdentifier</span>},

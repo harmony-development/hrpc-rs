@@ -84,6 +84,7 @@
 <span id="84">84</span>
 <span id="85">85</span>
 <span id="86">86</span>
+<span id="87">87</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common code used in hRPC code generation.</span>
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>)]</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::blocks_in_if_conditions</span>)]</span>
@@ -93,11 +94,12 @@
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">bytes</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">futures_util</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">prost</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tracing</span>;
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http_client&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http_server&quot;</span>))]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;_common_http&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http</span>;
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower</span>;
 }
 
 <span class="doccomment">/// Common client types and functions.</span>
