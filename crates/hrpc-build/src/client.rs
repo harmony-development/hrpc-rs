@@ -32,11 +32,11 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
         }
     };
 
-    #[allow(unused_variables)]
-    let def_transport_impl = TokenStream::new();
+    #[allow(unused_mut)]
+    let mut def_transport_impl = TokenStream::new();
 
     #[cfg(feature = "client_default_transport_hyper_http")]
-    let def_transport_impl = quote! {
+    def_transport_impl.extend(quote! {
         use hrpc::{client::transport::http::Hyper, exports::http::Uri};
 
         impl #service_ident<Hyper> {
@@ -57,7 +57,31 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 })
             }
         }
-    };
+    });
+
+    #[cfg(feature = "client_default_transport_wasm_http")]
+    def_transport_impl.extend(quote! {
+        use hrpc::{client::transport::http::Wasm, exports::http::Uri};
+
+        impl #service_ident<Hyper> {
+            /// Create a new client using HTTP transport.
+            ///
+            /// Panics if the passed URI is an invalid URI.
+            pub fn new<U>(server: U) -> ClientResult<Self, <Wasm as Service<TransportRequest>>::Error>
+            where
+                U: TryInto<Uri>,
+                U::Error: Debug,
+            {
+                let transport =
+                    Wasm::new(server.try_into().expect("invalid URL"))
+                        .map_err(ClientError::Transport)
+                        .map_err(ClientError::Transport)?;
+                Ok(Self {
+                    inner: Client::new(transport),
+                })
+            }
+        }
+    });
 
     quote! {
         /// Generated client implementations.

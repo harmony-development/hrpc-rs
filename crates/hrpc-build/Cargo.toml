@@ -28,9 +28,14 @@ default_transport_http = [
     "server_default_transport_http",
     "client_default_transport_hyper_http",
 ]
+# Shorthand to enable `client_default_transport_wasm_http`
+default_transport_wasm = [
+    "client_default_transport_wasm_http",
+]
 
 server_default_transport_http = []
 client_default_transport_hyper_http = []
+client_default_transport_wasm_http = []
 
 [package.metadata.docs.rs]
 all-features = true
