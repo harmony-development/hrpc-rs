@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["http","Client HTTP transport."]],"trait":[["Transport","Trait for enabling generic client transport implementations."]]});
+initSidebarItems({"enum":[["TransportRequest","A request that a transport can get."],["TransportResponse","A response that a transport can return."]],"fn":[["box_socket_stream_sink","Function that helps you meet bounds for boxed socket streams and sinks."]],"mod":[["http","Client HTTP transport."]],"type":[["CallResult","A type alias that represents a result of a call."]]});

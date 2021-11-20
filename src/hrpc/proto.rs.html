@@ -186,6 +186,16 @@
 <span id="186">186</span>
 <span id="187">187</span>
 <span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">error::Error</span> <span class="kw">as</span> <span class="ident">StdError</span>, <span class="ident">fmt::Display</span>, <span class="ident">str::FromStr</span>};
 
 <span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
@@ -308,7 +318,7 @@
 
     <span class="doccomment">/// Set the &quot;more details&quot; of this hRPC error.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_details</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">details</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Bytes</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">more_details</span> <span class="op">=</span> <span class="ident">details</span>.<span class="ident">into</span>();
+        <span class="self">self</span>.<span class="ident">details</span> <span class="op">=</span> <span class="ident">details</span>.<span class="ident">into</span>();
         <span class="self">self</span>
     }
 
@@ -322,6 +332,16 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_message</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">human_message</span> <span class="op">=</span> <span class="ident">message</span>.<span class="ident">into</span>();
         <span class="self">self</span>
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">invalid_hrpc_error</span>(<span class="ident">details</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Bytes</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">human_message</span>:
+                <span class="string">&quot;the server error was an invalid hRPC error, check more_details field for the error&quot;</span>
+                    .<span class="ident">to_string</span>(),
+            <span class="ident">identifier</span>: <span class="string">&quot;hrpcrs.invalid-hrpc-error&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">details</span>: <span class="ident">details</span>.<span class="ident">into</span>(),
+        }
     }
 }
 

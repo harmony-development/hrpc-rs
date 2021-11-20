@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["hyper","A HTTP client transport implementation using [`hyper`]."]]});
+initSidebarItems({"enum":[["InvalidServerUrl","Errors that can occur while parsing the URL given to `Client::new()`."]],"mod":[["hyper","A HTTP client transport implementation using [`hyper`]."],["wasm","A HTTP transport that compiles to WASM and works on the Web."]]});

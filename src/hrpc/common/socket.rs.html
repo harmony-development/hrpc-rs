@@ -212,9 +212,47 @@
 <span id="212">212</span>
 <span id="213">213</span>
 <span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">hint::spin_loop</span>, <span class="ident">marker::PhantomData</span>, <span class="ident">pin::Pin</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">marker::PhantomData</span>, <span class="ident">pin::Pin</span>};
 
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">FutureExt</span>, <span class="ident">Sink</span>, <span class="ident">SinkExt</span>, <span class="ident">Stream</span>, <span class="ident">StreamExt</span>};
 
@@ -223,14 +261,16 @@
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::proto::Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type</span> <span class="ident">BoxedWsRx</span> <span class="op">=</span>
-    <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type</span> <span class="ident">BoxedWsTx</span> <span class="op">=</span> <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Sink</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">HrpcError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 <span class="kw">type</span> <span class="ident">PingTx</span> <span class="op">=</span> <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Sink</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">HrpcError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 <span class="kw">type</span> <span class="ident">PingRx</span> <span class="op">=</span> <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
 <span class="kw">type</span> <span class="ident">EncodeMessageFn</span><span class="op">&lt;</span><span class="ident">Msg</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">BytesMut</span>, <span class="kw-2">&amp;</span><span class="ident">Msg</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>;
 <span class="kw">type</span> <span class="ident">DecodeMessageFn</span><span class="op">&lt;</span><span class="ident">Msg</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">fn</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Msg</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span>;
+
+<span class="doccomment">/// A boxed stream that yields socket messages.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">BoxedWsRx</span> <span class="op">=</span> <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="doccomment">/// A boxed sink that accepts socket messages.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">BoxedWsTx</span> <span class="op">=</span> <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Sink</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">HrpcError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// Generic socket message.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -268,6 +308,12 @@
 }
 
 <span class="doccomment">/// A hRPC socket.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Sockets by default **do not** handle pings. You must handle pings manually.</span>
+<span class="doccomment">/// See [`ReadSocket`]&#39;s `set_ping_sink` and [`WriteSocket`]&#39;s `set_ping_stream`</span>
+<span class="doccomment">/// methods. After setting them, you can use the [`WriteSocket`]&#39;s `handle_pings`</span>
+<span class="doccomment">/// method to handle them. Note that all of the methods mentioned are also</span>
+<span class="doccomment">/// available on this type.</span>
 <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;sockets do nothing unless you use `.send_message(msg)` or `.receive_message()`&quot;</span>]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">write</span>: <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
@@ -295,8 +341,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// ## Notes</span>
     <span class="doccomment">/// - This will block until getting a message (unless an error occurs).</span>
-    <span class="doccomment">/// - This handles responding to pings. You should call this even if you</span>
-    <span class="doccomment">/// aren&#39;t going to receive any messages.</span>
+    <span class="doccomment">/// - This will send ping messages over the `ping sink` if one is set (see `ReadSocket::set_ping_sink`).</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Resp</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">read</span>.<span class="ident">receive_message</span>().<span class="kw">await</span>
     }
@@ -304,6 +349,29 @@
     <span class="doccomment">/// Send a message over the socket.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">write</span>.<span class="ident">send_message</span>(<span class="ident">req</span>).<span class="kw">await</span>
+    }
+
+    <span class="doccomment">/// Set ping sink to allow ping messages to be sent to wherever the sink points to.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_ping_sink</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ping_sink</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
+    <span class="kw">where</span>
+        <span class="ident">S</span>: <span class="ident">Sink</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">HrpcError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    {
+        <span class="self">self</span>.<span class="ident">read</span>.<span class="ident">ping_tx</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Box::pin</span>(<span class="ident">ping_sink</span>));
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Set ping stream to allow ping messages to be received from wherever the stream points to.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_ping_stream</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ping_stream</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
+    <span class="kw">where</span>
+        <span class="ident">S</span>: <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    {
+        <span class="self">self</span>.<span class="ident">write</span>.<span class="ident">ping_rx</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Box::pin</span>(<span class="ident">ping_stream</span>));
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Handle pings received from the ping stream (if one is set).</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_pings</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">write</span>.<span class="ident">handle_pings</span>().<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Close the socket.</span>
@@ -360,10 +428,18 @@
                             <span class="ident">ping_tx</span>.<span class="ident">send</span>(<span class="ident">data</span>).<span class="kw">await</span><span class="question-mark">?</span>;
                         },
                         <span class="ident">SocketMessage::Close</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">break</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>.<span class="ident">into</span>()),
-                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">spin_loop</span>(),
+                        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio&quot;</span>)]</span>
+                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tokio::task::yield_now</span>().<span class="kw">await</span>,
+                        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio&quot;</span>))]</span>
+                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">std::hint::spin_loop</span>(),
                     }
                 },
-                <span class="ident">default</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">spin_loop</span>(),
+                <span class="ident">default</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio&quot;</span>)]</span>
+                    <span class="ident">tokio::task::yield_now</span>().<span class="kw">await</span>;
+                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio&quot;</span>))]</span>
+                    <span class="ident">std::hint::spin_loop</span>();
+                },
             }
         }
     }

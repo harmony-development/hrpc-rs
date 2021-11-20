@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["SocketMessage","Generic socket message."]],"struct":[["ReadSocket","Read half of a socket."],["Socket","A hRPC socket."],["WriteSocket","Write half of a socket."]]});
+initSidebarItems({"enum":[["SocketMessage","Generic socket message."]],"struct":[["ReadSocket","Read half of a socket."],["Socket","A hRPC socket."],["WriteSocket","Write half of a socket."]],"type":[["BoxedWsRx","A boxed stream that yields socket messages."],["BoxedWsTx","A boxed sink that accepts socket messages."]]});

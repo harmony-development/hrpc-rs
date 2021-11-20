@@ -33,40 +33,138 @@
 <span id="33">33</span>
 <span id="34">34</span>
 <span id="35">35</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::error::Error</span> <span class="kw">as</span> <span class="ident">StdError</span>;
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::LocalBoxFuture</span>, <span class="ident">Sink</span>, <span class="ident">Stream</span>};
 
-<span class="kw">use</span> <span class="ident">futures_util::future::BoxFuture</span>;
-<span class="kw">use</span> <span class="ident">prost::Message</span> <span class="kw">as</span> <span class="ident">PbMsg</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">common::socket</span>::{<span class="ident">BoxedWsRx</span>, <span class="ident">BoxedWsTx</span>, <span class="ident">SocketMessage</span>},
+    <span class="ident">proto::Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>,
+    <span class="ident">request::BoxRequest</span>,
+    <span class="ident">response::BoxResponse</span>,
+};
 
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">error::ClientResult</span>, <span class="ident">socket::Socket</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Request</span>, <span class="ident">Response</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::error::ClientResult</span>;
 
 <span class="doccomment">/// Client HTTP transport.</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;_common_http_client&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">http</span>;
 
-<span class="doccomment">/// Trait for enabling generic client transport implementations.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Transport</span> {
-    <span class="doccomment">/// The error type the transport can produce.</span>
-    <span class="kw">type</span> <span class="ident">Error</span>: <span class="ident">StdError</span>;
+<span class="doccomment">/// A type alias that represents a result of a call.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">CallResult</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>, <span class="ident">TransportError</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">LocalBoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">TransportError</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
-    <span class="doccomment">/// Make a unary request to the server.</span>
-    <span class="kw">fn</span> <span class="ident">call_unary</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">Req</span>: <span class="ident">PbMsg</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>,
-        <span class="ident">Resp</span>: <span class="ident">PbMsg</span> <span class="op">+</span> <span class="ident">Default</span>;
+<span class="doccomment">/// A request that a transport can get.</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TransportRequest</span> {
+    <span class="doccomment">/// A unary request.</span>
+    <span class="ident">Unary</span>(<span class="ident">BoxRequest</span>),
+    <span class="doccomment">/// A socket request.</span>
+    <span class="ident">Socket</span>(<span class="ident">BoxRequest</span>),
+}
 
-    <span class="doccomment">/// Make a request to the server to create a [`Socket`].</span>
-    <span class="kw">fn</span> <span class="ident">call_socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">Req</span>: <span class="ident">PbMsg</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-        <span class="ident">Resp</span>: <span class="ident">PbMsg</span> <span class="op">+</span> <span class="ident">Default</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>;
+<span class="doccomment">/// A response that a transport can return.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Note: a transport MUST return the corresponding variant of response</span>
+<span class="doccomment">/// for the request variant they got.</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TransportResponse</span> {
+    <span class="doccomment">/// A unary response.</span>
+    <span class="ident">Unary</span>(<span class="ident">BoxResponse</span>),
+    <span class="doccomment">/// A socket response.</span>
+    <span class="ident">Socket</span> {
+        <span class="doccomment">/// Sender part of the socket.</span>
+        <span class="ident">tx</span>: <span class="ident">BoxedWsTx</span>,
+        <span class="doccomment">/// Receiver part of the socket.</span>
+        <span class="ident">rx</span>: <span class="ident">BoxedWsRx</span>,
+    },
+}
+
+<span class="kw">impl</span> <span class="ident">TransportResponse</span> {
+    <span class="doccomment">/// Create a new unary transport response.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_unary</span>(<span class="ident">resp</span>: <span class="ident">BoxResponse</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::Unary</span>(<span class="ident">resp</span>)
+    }
+
+    <span class="doccomment">/// Create a new socket transport response.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_socket</span>(<span class="ident">tx</span>: <span class="ident">BoxedWsTx</span>, <span class="ident">rx</span>: <span class="ident">BoxedWsRx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::Socket</span> { <span class="ident">tx</span>, <span class="ident">rx</span> }
+    }
+
+    <span class="doccomment">/// Extracts a unary response from this transport response.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">/// - Panics if the transport response isn&#39;t a unary response.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">extract_unary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxResponse</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident"><span class="self">Self</span>::Unary</span>(<span class="ident">req</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">req</span>,
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;expected unary response&quot;</span>),
+        }
+    }
+
+    <span class="doccomment">/// Extracts a socket response from this transport response.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">/// - Panics if the transport response isn&#39;t a socket response.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">extract_socket</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">BoxedWsTx</span>, <span class="ident">BoxedWsRx</span>) {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident"><span class="self">Self</span>::Socket</span> { <span class="ident">tx</span>, <span class="ident">rx</span> } <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">tx</span>, <span class="ident">rx</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;expected socket response&quot;</span>),
+        }
+    }
+}
+
+<span class="doccomment">/// Function that helps you meet bounds for boxed socket streams and sinks.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_socket_stream_sink</span><span class="op">&lt;</span><span class="ident">Tx</span>, <span class="ident">Rx</span><span class="op">&gt;</span>(<span class="ident">tx</span>: <span class="ident">Tx</span>, <span class="ident">rx</span>: <span class="ident">Rx</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">BoxedWsTx</span>, <span class="ident">BoxedWsRx</span>)
+<span class="kw">where</span>
+    <span class="ident">Tx</span>: <span class="ident">Sink</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">HrpcError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">Rx</span>: <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+{
+    (<span class="ident">Box::pin</span>(<span class="ident">tx</span>), <span class="ident">Box::pin</span>(<span class="ident">rx</span>))
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="hrpc" data-search-index-js="../../../../search-index.js" data-search-js="../../../../search.js"></div>

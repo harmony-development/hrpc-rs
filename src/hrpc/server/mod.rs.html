@@ -223,6 +223,14 @@
 <span id="223">223</span>
 <span id="224">224</span>
 <span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::convert::Infallible</span>;
 
 <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">Layer</span>, <span class="ident">Service</span> <span class="kw">as</span> <span class="ident">TowerService</span>};
@@ -230,7 +238,7 @@
 <span class="kw">use</span> <span class="ident">router::Routes</span>;
 <span class="kw">use</span> <span class="ident">service::HrpcService</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::future</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">common::future</span>, <span class="ident">request::BoxRequest</span>, <span class="ident">response::BoxResponse</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="self">self</span>::router::RoutesFinalized</span>;
 
@@ -315,9 +323,11 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// If your layer does not implement [`Clone`], you can wrap it using</span>
     <span class="doccomment">/// [`HrpcLayer::new`].</span>
-    <span class="kw">fn</span> <span class="ident">layer</span><span class="op">&lt;</span><span class="ident">L</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">layer</span>: <span class="ident">L</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LayeredService</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="self">Self</span><span class="op">&gt;</span>
+    <span class="kw">fn</span> <span class="ident">layer</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">layer</span>: <span class="ident">L</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LayeredService</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span>, <span class="self">Self</span><span class="op">&gt;</span>
     <span class="kw">where</span>
-        <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">HrpcService</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">HrpcService</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">HrpcService</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">S</span>: <span class="ident">tower::Service</span><span class="op">&lt;</span><span class="ident">BoxRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">BoxResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">S::Future</span>: <span class="ident">Send</span>,
         <span class="self">Self</span>: <span class="ident">Sized</span>,
     {
         <span class="ident">LayeredService</span> { <span class="ident">inner</span>: <span class="self">self</span>, <span class="ident">layer</span> }
@@ -325,19 +335,23 @@
 }
 
 <span class="doccomment">/// Type that layers the handlers that are produced by a [`MakeRoutes`].</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LayeredService</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">S</span><span class="op">&gt;</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LayeredService</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span>, <span class="ident">M</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">HrpcService</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">HrpcService</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-    <span class="ident">S</span>: <span class="ident">MakeRoutes</span>,
+    <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">HrpcService</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">S</span>: <span class="ident">tower::Service</span><span class="op">&lt;</span><span class="ident">BoxRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">BoxResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">S::Future</span>: <span class="ident">Send</span>,
+    <span class="ident">M</span>: <span class="ident">MakeRoutes</span>,
 {
-    <span class="ident">inner</span>: <span class="ident">S</span>,
+    <span class="ident">inner</span>: <span class="ident">M</span>,
     <span class="ident">layer</span>: <span class="ident">L</span>,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">LayeredService</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">S</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span>, <span class="ident">M</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">LayeredService</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span>, <span class="ident">M</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">HrpcService</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">HrpcService</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-    <span class="ident">S</span>: <span class="ident">MakeRoutes</span> <span class="op">+</span> <span class="ident">Clone</span>,
+    <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">HrpcService</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">S</span>: <span class="ident">tower::Service</span><span class="op">&lt;</span><span class="ident">BoxRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">BoxResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">S::Future</span>: <span class="ident">Send</span>,
+    <span class="ident">M</span>: <span class="ident">MakeRoutes</span> <span class="op">+</span> <span class="ident">Clone</span>,
 {
     <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
@@ -347,10 +361,12 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">MakeRoutes</span> <span class="kw">for</span> <span class="ident">LayeredService</span><span class="op">&lt;</span><span class="ident">L</span>, <span class="ident">S</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span>, <span class="ident">M</span><span class="op">&gt;</span> <span class="ident">MakeRoutes</span> <span class="kw">for</span> <span class="ident">LayeredService</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span>, <span class="ident">M</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">HrpcService</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">HrpcService</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-    <span class="ident">S</span>: <span class="ident">MakeRoutes</span>,
+    <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">HrpcService</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">S</span>: <span class="ident">tower::Service</span><span class="op">&lt;</span><span class="ident">BoxRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">BoxResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">S::Future</span>: <span class="ident">Send</span>,
+    <span class="ident">M</span>: <span class="ident">MakeRoutes</span>,
 {
     <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span> {
         <span class="kw">let</span> <span class="ident">rb</span> <span class="op">=</span> <span class="ident">MakeRoutes::make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>);
