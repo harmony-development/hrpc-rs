@@ -120,7 +120,7 @@ impl Error {
 
     /// Set the "more details" of this hRPC error.
     pub fn with_details(mut self, details: impl Into<Bytes>) -> Self {
-        self.more_details = details.into();
+        self.details = details.into();
         self
     }
 
@@ -134,6 +134,16 @@ impl Error {
     pub fn with_message(mut self, message: impl Into<String>) -> Self {
         self.human_message = message.into();
         self
+    }
+
+    pub(crate) fn invalid_hrpc_error(details: impl Into<Bytes>) -> Self {
+        Self {
+            human_message:
+                "the server error was an invalid hRPC error, check more_details field for the error"
+                    .to_string(),
+            identifier: "hrpcrs.invalid-hrpc-error".to_string(),
+            details: details.into(),
+        }
     }
 }
 

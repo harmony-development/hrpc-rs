@@ -1,7 +1,4 @@
-use std::{
-    fmt::{self, Debug, Formatter},
-    sync::Arc,
-};
+use std::fmt::{self, Debug, Formatter};
 
 use crate::{
     body::Body,
@@ -10,11 +7,12 @@ use crate::{
     Response,
 };
 
-use self::transport::Transport;
+use self::transport::{TransportRequest, TransportResponse};
 
 use super::Request;
 use error::*;
 use socket::*;
+use tower::{Layer, Service};
 
 /// Error types.
 pub mod error;
@@ -28,20 +26,23 @@ pub mod prelude {
     pub use super::{
         error::{ClientError, ClientResult},
         socket::Socket,
-        transport::Transport,
+        transport::{TransportRequest, TransportResponse},
         Client,
     };
-    pub use crate::{request::IntoRequest, Request, Response};
+    pub use crate::{
+        request::{IntoRequest, Request},
+        response::Response,
+    };
     pub use std::{borrow::Cow, convert::TryInto, fmt::Debug};
+    pub use tower::Service;
 }
 
 /// Generic client implementation with common methods.
-pub struct Client<Inner: Transport> {
+pub struct Client<Inner> {
     transport: Inner,
-    modify_request_preflight: Arc<dyn Fn(&mut BoxRequest) + Send + Sync>,
 }
 
-impl<Inner: Transport + Debug> Debug for Client<Inner> {
+impl<Inner: Debug> Debug for Client<Inner> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Client")
             .field("inner", &self.transport)
@@ -49,31 +50,36 @@ impl<Inner: Transport + Debug> Debug for Client<Inner> {
     }
 }
 
-impl<Inner: Transport + Clone> Clone for Client<Inner> {
+impl<Inner: Clone> Clone for Client<Inner> {
     fn clone(&self) -> Self {
         Self {
             transport: self.transport.clone(),
-            modify_request_preflight: self.modify_request_preflight.clone(),
         }
     }
 }
 
-impl<Inner: Transport> Client<Inner> {
+impl<Inner> Client<Inner> {
     /// Create a new client using the provided transport.
-    pub fn new(transport: Inner) -> Self {
-        Self {
-            transport,
-            modify_request_preflight: Arc::new(|_| ()),
-        }
+    pub fn new(transport: Inner) -> Client<Inner> {
+        Client { transport }
     }
+}
 
-    /// Set the function to modify request with before sending a request.
-    pub fn modify_request_preflight_with(
-        mut self,
-        f: Arc<dyn Fn(&mut BoxRequest) + Send + Sync>,
-    ) -> Self {
-        self.modify_request_preflight = f;
-        self
+impl<Inner> Client<Inner>
+where
+    Inner: Service<TransportRequest, Response = TransportResponse>,
+    Inner::Error: std::error::Error,
+{
+    /// Layer this client with a new [`Layer`].
+    pub fn layer<S, L>(self, l: L) -> Client<S>
+    where
+        L: Layer<Inner, Service = S>,
+        S: Service<TransportRequest, Response = TransportResponse>,
+        S::Error: std::error::Error,
+    {
+        Client {
+            transport: l.layer(self.transport),
+        }
     }
 
     /// Executes a unary request and returns the decoded response.
@@ -81,22 +87,33 @@ impl<Inner: Transport> Client<Inner> {
         &mut self,
         req: Request<Req>,
     ) -> ClientResult<Response<Resp>, Inner::Error> {
-        let mut req = req.map::<()>();
-        (self.modify_request_preflight)(&mut req);
-        self.transport.call_unary(req.map::<Req>()).await
+        Service::call(&mut self.transport, TransportRequest::Unary(req.map()))
+            .await
+            .map(|resp| resp.extract_unary().map::<Resp>())
+            .map_err(ClientError::Transport)
     }
 
     /// Connect a socket with the server and return it.
     pub async fn connect_socket<Req, Resp>(
         &mut self,
-        mut req: Request<()>,
+        req: Request<()>,
     ) -> ClientResult<Socket<Req, Resp>, Inner::Error>
     where
-        Req: prost::Message + 'static,
-        Resp: prost::Message + Default + 'static,
+        Req: prost::Message,
+        Resp: prost::Message + Default,
     {
-        (self.modify_request_preflight)(&mut req);
-        self.transport.call_socket(req).await
+        let resp = Service::call(&mut self.transport, TransportRequest::Socket(req))
+            .await
+            .map_err(ClientError::Transport)?;
+
+        let (tx, rx) = resp.extract_socket();
+
+        Ok(Socket::new(
+            rx,
+            tx,
+            socket::encode_message,
+            socket::decode_message,
+        ))
     }
 
     /// Connect a socket with the server, send a message and return it.
@@ -107,8 +124,8 @@ impl<Inner: Transport> Client<Inner> {
         request: Request<Req>,
     ) -> ClientResult<Socket<Req, Resp>, Inner::Error>
     where
-        Req: prost::Message + Default + 'static,
-        Resp: prost::Message + Default + 'static,
+        Req: prost::Message + Default,
+        Resp: prost::Message + Default,
     {
         let request::Parts {
             body,
@@ -117,15 +134,12 @@ impl<Inner: Transport> Client<Inner> {
             ..
         } = request.into();
 
-        let mut request: BoxRequest = Request::from(request::Parts {
+        let request: BoxRequest = Request::from(request::Parts {
             body: Body::empty(),
             endpoint: endpoint.clone(),
             extensions,
         });
 
-        (self.modify_request_preflight)(&mut request);
-
-        #[allow(unused_mut)]
         let mut socket = self.connect_socket(request).await?;
 
         let message = decode::decode_body(body).await?;

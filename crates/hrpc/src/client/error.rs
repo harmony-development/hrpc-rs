@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use std::{
     borrow::Cow,
     error::Error as StdError,
@@ -24,11 +23,13 @@ pub enum ClientError<TransportError: StdError> {
     /// Occurs if the data server responded with could not be decoded.
     MessageDecode(DecodeBodyError),
     /// Occurs if the data server responded with is not supported for decoding.
-    ContentNotSupported(Bytes),
+    ContentNotSupported,
     /// Occurs if an IO error is returned.
     Io(IoError),
     /// Occures if the underlying transport yields an error.
     Transport(TransportError),
+    /// Occurs if the spec implemented on server doesn't match ours.
+    IncompatibleSpecVersion,
 }
 
 impl<TransportError: StdError> Display for ClientError<TransportError> {
@@ -42,7 +43,7 @@ impl<TransportError: StdError> Display for ClientError<TransportError> {
                 "endpoint {} returned an error '{}': {}",
                 endpoint, hrpc_error.identifier, hrpc_error.human_message,
             ),
-            ClientError::ContentNotSupported(_) => {
+            ClientError::ContentNotSupported => {
                 write!(f, "server responded with a non protobuf response")
             }
             ClientError::MessageDecode(err) => write!(
@@ -52,6 +53,9 @@ impl<TransportError: StdError> Display for ClientError<TransportError> {
             ),
             ClientError::Io(err) => write!(f, "io error: {}", err),
             ClientError::Transport(err) => write!(f, "transport error: {}", err),
+            ClientError::IncompatibleSpecVersion => {
+                write!(f, "server hrpc version is incompatible with ours")
+            }
         }
     }
 }

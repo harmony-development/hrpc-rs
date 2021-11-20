@@ -46,7 +46,7 @@ pub use response::Response;
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 /// The hRPC protobuf mimetype.
-pub const HRPC_CONTENT_MIMETYPE: &[u8] = b"application/hrpc";
+pub const HRPC_CONTENT_MIMETYPE: &str = "application/hrpc";
 /// The hRPC spec version this version of `hrpc-rs` implements.
 pub const HRPC_SPEC_VERSION: &str = "1";
 

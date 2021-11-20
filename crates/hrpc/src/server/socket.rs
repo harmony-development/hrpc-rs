@@ -25,7 +25,7 @@ impl<Req> WriteSocket<Req> {
 pub(super) struct SocketHandler {
     #[allow(dead_code)]
     pub(crate) inner:
-        Box<dyn FnOnce(BoxedWsRx, BoxedWsTx) -> BoxFuture<'static, ()> + Send + Sync + 'static>,
+        Box<dyn FnOnce(BoxedWsRx, BoxedWsTx) -> BoxFuture<'static, ()> + Send + 'static>,
 }
 
 pub(super) fn encode_message<Msg: PbMsg>(buf: &mut BytesMut, msg: &Msg) -> Vec<u8> {

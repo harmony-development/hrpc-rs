@@ -1,4 +1,4 @@
-// This code is taken originally from https://github.com/hyperium/http/blob/cc2f3ed7fc7a119f20e6cbe9a6573dbda5eb38df/src/extensions.rs
+// This code is originally taken from https://github.com/hyperium/http/blob/cc2f3ed7fc7a119f20e6cbe9a6573dbda5eb38df/src/extensions.rs
 // and is licensed under the following:
 /*
 Copyright (c) 2017 http-rs authors
@@ -33,7 +33,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::hash::{BuildHasherDefault, Hasher};
 
-type AnyMap = HashMap<TypeId, Box<dyn Any + Send + Sync>, BuildHasherDefault<IdHasher>>;
+type AnyMap = HashMap<TypeId, Box<dyn Any + Send>, BuildHasherDefault<IdHasher>>;
 
 // With TypeIds as keys, there's no need to hash them. They are already hashes
 // themselves, coming from the compiler. The IdHasher just holds the u64 of
@@ -89,7 +89,7 @@ impl Extensions {
     /// assert!(ext.insert(4u8).is_none());
     /// assert_eq!(ext.insert(9i32), Some(5i32));
     /// ```
-    pub fn insert<T: Send + Sync + 'static>(&mut self, val: T) -> Option<T> {
+    pub fn insert<T: Send + 'static>(&mut self, val: T) -> Option<T> {
         self.map
             .get_or_insert_with(|| Box::new(HashMap::default()))
             .insert(TypeId::of::<T>(), Box::new(val))
@@ -113,7 +113,7 @@ impl Extensions {
     ///
     /// assert_eq!(ext.get::<i32>(), Some(&5i32));
     /// ```
-    pub fn get<T: Send + Sync + 'static>(&self) -> Option<&T> {
+    pub fn get<T: Send + 'static>(&self) -> Option<&T> {
         self.map
             .as_ref()
             .and_then(|map| map.get(&TypeId::of::<T>()))
@@ -132,7 +132,7 @@ impl Extensions {
     ///
     /// assert_eq!(ext.get::<String>().unwrap(), "Hello World");
     /// ```
-    pub fn get_mut<T: Send + Sync + 'static>(&mut self) -> Option<&mut T> {
+    pub fn get_mut<T: Send + 'static>(&mut self) -> Option<&mut T> {
         self.map
             .as_mut()
             .and_then(|map| map.get_mut(&TypeId::of::<T>()))
@@ -152,7 +152,7 @@ impl Extensions {
     /// assert_eq!(ext.remove::<i32>(), Some(5i32));
     /// assert!(ext.get::<i32>().is_none());
     /// ```
-    pub fn remove<T: Send + Sync + 'static>(&mut self) -> Option<T> {
+    pub fn remove<T: Send + 'static>(&mut self) -> Option<T> {
         self.map
             .as_mut()
             .and_then(|map| map.remove(&TypeId::of::<T>()))
@@ -178,7 +178,7 @@ impl Extensions {
     /// assert_eq!(ext.remove::<i32>(), Some(5i32));
     /// assert!(!ext.contains::<i32>());
     /// ```
-    pub fn contains<T: Send + Sync + 'static>(&self) -> bool {
+    pub fn contains<T: Send + 'static>(&self) -> bool {
         self.map
             .as_ref()
             .map_or(false, |map| map.contains_key(&TypeId::of::<T>()))

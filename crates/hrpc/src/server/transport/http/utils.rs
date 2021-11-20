@@ -230,8 +230,6 @@ pub(crate) fn set_http_extensions(mut exts: Extensions, resp: &mut HttpResponse)
     if let Some(headers) = exts.remove::<HeaderMap>() {
         resp.headers_mut().extend(headers);
     }
-
-    resp.extensions_mut().insert(exts);
 }
 
 /// Convert this hRPC response into a unary HTTP response.
@@ -265,7 +263,7 @@ pub(crate) fn from_unary_request<T>(
 
     if !parts
         .headers
-        .header_eq(&header::CONTENT_TYPE, HRPC_CONTENT_MIMETYPE)
+        .header_eq(&header::CONTENT_TYPE, HRPC_CONTENT_MIMETYPE.as_bytes())
     {
         return Err((
             StatusCode::BAD_REQUEST,

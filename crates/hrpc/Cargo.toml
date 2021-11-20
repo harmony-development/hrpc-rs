@@ -45,23 +45,31 @@ http_server = [
     "sha-1",
     "base64",
 ]
-# Enables the default `hyper` HTTP client
+# Enables the `hyper` HTTP client
 http_hyper_client = [
-    "client",
-    "_common_http",
-    "websocket_tokio_tungstenite",
     "_common_http_client",
+    "websocket_tokio_tungstenite",
     "hyper",
     "hyper-rustls",
     "hyper/client",
 ]
+# Enables the HTTP client that can compile to WASM
+http_wasm_client = [
+    "_common_http_client",
+    "reqwasm",
+    "js-sys",
+    "wasm-bindgen",
+    "websocket_wasm",
+]
 # Internal feature used to indicate that a HTTP client is enabled
-_common_http_client = []
+_common_http_client = ["client", "_common_http"]
 # Internal feature used to indicate that HTTP is enabled
 _common_http = ["http", "http-body"]
 
 # Enable the tokio_tungstenite websocket implementation
 websocket_tokio_tungstenite = ["tokio-tungstenite", "tokio"]
+# Enable the wasm websocket implementation
+websocket_wasm = ["ws_stream_wasm", "wasm-streams"]
 
 [build-dependencies]
 # Needed to compile the hRPC proto
@@ -84,12 +92,20 @@ tower = { version = "0.4", default-features = false, features = [
 # Logging
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
-# Used by http server impl in ws handling
-tokio = { version = "1", default-features = false, optional = true }
-
 # Http transport deps
 http = { version = "0.2", optional = true }
 http-body = { version = "0.4", optional = true }
+
+# Used by server for routing
+matchit = { version = "0.4", default-features = false, optional = true }
+
+# Used by server to implement WS request handling
+sha-1 = { version = "0.9", default-features = false, optional = true }
+base64 = { version = "0.13", default-features = false, optional = true }
+
+# Used by http server impl in ws handling
+tokio = { version = "1", default-features = false, optional = true }
+# Used by hyper client
 hyper = { version = "0.14", default-features = false, features = [
     "http1",
     "http2",
@@ -107,9 +123,11 @@ axum-server = { version = "0.3", default-features = false, features = [
     "tls-rustls",
 ], optional = true }
 
-# Used by server for routing
-matchit = { version = "0.4", default-features = false, optional = true }
-
-# Used by server to implement WS request handling
-sha-1 = { version = "0.9", default-features = false, optional = true }
-base64 = { version = "0.13", default-features = false, optional = true }
+# Used by wasm client
+reqwasm = { version = "0.3", default-features = false, features = [
+    "http",
+], optional = true }
+ws_stream_wasm = { version = "0.7", default-features = false, optional = true }
+wasm-streams = { version = "0.2", default-features = false, optional = true }
+js-sys = { version = "0.3", default-features = false, optional = true }
+wasm-bindgen = { version = "0.2", default-features = false, optional = true }

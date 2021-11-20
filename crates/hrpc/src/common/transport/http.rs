@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use futures_util::{StreamExt, TryStreamExt};
+use futures_util::StreamExt;
 use http::{header::HeaderName, HeaderMap, HeaderValue, StatusCode};
 
 use crate::{
@@ -12,7 +12,11 @@ pub const HRPC_VERSION_HEADER: &str = "hrpc-version";
 
 /// Create a header value for the hRPC content type.
 pub fn content_header_value() -> HeaderValue {
-    unsafe { HeaderValue::from_maybe_shared_unchecked(Bytes::from_static(HRPC_CONTENT_MIMETYPE)) }
+    unsafe {
+        HeaderValue::from_maybe_shared_unchecked(Bytes::from_static(
+            HRPC_CONTENT_MIMETYPE.as_bytes(),
+        ))
+    }
 }
 
 /// Create the spec compliant WS protocol with hRPC version, as a header value.
@@ -136,24 +140,6 @@ mod impl_exts {
     }
 
     pub(crate) use impl_exts;
-}
-
-// Trait impls
-
-impl From<Body> for hyper::Body {
-    fn from(body: Body) -> Self {
-        hyper::Body::wrap_stream(body)
-    }
-}
-
-impl From<hyper::Body> for Body {
-    fn from(hbody: hyper::Body) -> Self {
-        Body::new(
-            hbody
-                .into_stream()
-                .map_err(|err| -> BoxError { Box::new(err) }),
-        )
-    }
 }
 
 impl http_body::Body for Body {

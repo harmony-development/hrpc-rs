@@ -4,3 +4,4 @@ resolver = "2"
 
 [workspace.metadata.nix]
 systems = ["x86_64-linux"]
+devshell.packages = ["cargo-watch"]

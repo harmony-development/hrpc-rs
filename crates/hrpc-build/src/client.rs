@@ -10,25 +10,27 @@ use quote::{format_ident, quote};
 pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
     let service_ident = quote::format_ident!("{}Client", service.name());
     let client_mod = quote::format_ident!("{}_client", naive_snake_case(service.name()));
-    let mut methods = generate_methods(service, proto_path);
+    let methods = generate_methods(service, proto_path);
 
     let service_doc = generate_doc_comments(service.comment());
 
-    methods.extend(quote! {
-        /// Create a new client using the provided transport.
-        pub fn new_transport(transport: Inner) -> Self {
-            Self {
-                inner: Client::new(transport)
+    let create_methods = quote! {
+        impl<Inner> #service_ident<Inner> {
+            /// Create a new client using the provided transport.
+            pub fn new_transport(transport: Inner) -> Self {
+                Self {
+                    inner: Client::new(transport)
+                }
             }
-        }
 
-        /// Create a new client using the provided generic client.
-        pub fn new_inner(client: Client<Inner>) -> Self {
-            Self {
-                inner: client,
+            /// Create a new client using the provided generic client.
+            pub fn new_inner(client: Client<Inner>) -> Self {
+                Self {
+                    inner: client,
+                }
             }
         }
-    });
+    };
 
     #[allow(unused_variables)]
     let def_transport_impl = TokenStream::new();
@@ -40,14 +42,15 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
         impl #service_ident<Hyper> {
             /// Create a new client using HTTP transport.
             ///
-            /// Panics if the passed URI is invalid.
-            pub fn new<U>(server: U) -> ClientResult<Self, <Hyper as Transport>::Error>
+            /// Panics if the passed URI is an invalid URI.
+            pub fn new<U>(server: U) -> ClientResult<Self, <Hyper as Service<TransportRequest>>::Error>
             where
                 U: TryInto<Uri>,
                 U::Error: Debug,
             {
                 let transport =
                     Hyper::new(server.try_into().expect("invalid URL"))
+                        .map_err(ClientError::Transport)
                         .map_err(ClientError::Transport)?;
                 Ok(Self {
                     inner: Client::new(transport),
@@ -64,14 +67,19 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
             #service_doc
             #[derive(Debug, Clone)]
-            pub struct #service_ident<Inner: Transport> {
+            pub struct #service_ident<Inner> {
                 inner: Client<Inner>,
             }
 
-            impl<Inner: Transport> #service_ident<Inner> {
+            impl<Inner> #service_ident<Inner>
+            where
+                Inner: Service<TransportRequest, Response = TransportResponse>,
+                Inner::Error: std::error::Error,
+            {
                 #methods
             }
 
+            #create_methods
             #def_transport_impl
         }
     }

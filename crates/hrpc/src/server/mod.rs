@@ -5,7 +5,7 @@ use tower::{Layer, Service as TowerService};
 use router::Routes;
 use service::HrpcService;
 
-use crate::common::future;
+use crate::{common::future, request::BoxRequest, response::BoxResponse};
 
 use self::router::RoutesFinalized;
 
@@ -90,9 +90,11 @@ pub trait MakeRoutes: Send + 'static {
     ///
     /// If your layer does not implement [`Clone`], you can wrap it using
     /// [`HrpcLayer::new`].
-    fn layer<L>(self, layer: L) -> LayeredService<L, Self>
+    fn layer<S, L>(self, layer: L) -> LayeredService<S, L, Self>
     where
-        L: Layer<HrpcService, Service = HrpcService> + Clone + Sync + Send + 'static,
+        L: Layer<HrpcService, Service = S> + Clone + Sync + Send + 'static,
+        S: tower::Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,
+        S::Future: Send,
         Self: Sized,
     {
         LayeredService { inner: self, layer }
@@ -100,19 +102,23 @@ pub trait MakeRoutes: Send + 'static {
 }
 
 /// Type that layers the handlers that are produced by a [`MakeRoutes`].
-pub struct LayeredService<L, S>
+pub struct LayeredService<S, L, M>
 where
-    L: Layer<HrpcService, Service = HrpcService> + Clone + Sync + Send + 'static,
-    S: MakeRoutes,
+    L: Layer<HrpcService, Service = S> + Clone + Sync + Send + 'static,
+    S: tower::Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,
+    S::Future: Send,
+    M: MakeRoutes,
 {
-    inner: S,
+    inner: M,
     layer: L,
 }
 
-impl<L, S> Clone for LayeredService<L, S>
+impl<S, L, M> Clone for LayeredService<S, L, M>
 where
-    L: Layer<HrpcService, Service = HrpcService> + Clone + Sync + Send + 'static,
-    S: MakeRoutes + Clone,
+    L: Layer<HrpcService, Service = S> + Clone + Sync + Send + 'static,
+    S: tower::Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,
+    S::Future: Send,
+    M: MakeRoutes + Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -122,10 +128,12 @@ where
     }
 }
 
-impl<L, S> MakeRoutes for LayeredService<L, S>
+impl<S, L, M> MakeRoutes for LayeredService<S, L, M>
 where
-    L: Layer<HrpcService, Service = HrpcService> + Clone + Sync + Send + 'static,
-    S: MakeRoutes,
+    L: Layer<HrpcService, Service = S> + Clone + Sync + Send + 'static,
+    S: tower::Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,
+    S::Future: Send,
+    M: MakeRoutes,
 {
     fn make_routes(&self) -> Routes {
         let rb = MakeRoutes::make_routes(&self.inner);

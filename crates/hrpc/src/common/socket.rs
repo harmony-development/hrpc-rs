@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::{hint::spin_loop, marker::PhantomData, pin::Pin};
+use std::{marker::PhantomData, pin::Pin};
 
 use futures_util::{FutureExt, Sink, SinkExt, Stream, StreamExt};
 
@@ -9,14 +9,16 @@ use prost::Message as PbMsg;
 
 use crate::proto::Error as HrpcError;
 
-pub(crate) type BoxedWsRx =
-    Pin<Box<dyn Stream<Item = Result<SocketMessage, HrpcError>> + Send + 'static>>;
-pub(crate) type BoxedWsTx = Pin<Box<dyn Sink<SocketMessage, Error = HrpcError> + Send + 'static>>;
 type PingTx = Pin<Box<dyn Sink<Vec<u8>, Error = HrpcError> + Send + 'static>>;
 type PingRx = Pin<Box<dyn Stream<Item = Result<Vec<u8>, HrpcError>> + Send + 'static>>;
 
 type EncodeMessageFn<Msg> = fn(&mut BytesMut, &Msg) -> Vec<u8>;
 type DecodeMessageFn<Msg> = fn(Vec<u8>) -> Result<Msg, HrpcError>;
+
+/// A boxed stream that yields socket messages.
+pub type BoxedWsRx = Pin<Box<dyn Stream<Item = Result<SocketMessage, HrpcError>> + Send + 'static>>;
+/// A boxed sink that accepts socket messages.
+pub type BoxedWsTx = Pin<Box<dyn Sink<SocketMessage, Error = HrpcError> + Send + 'static>>;
 
 /// Generic socket message.
 #[derive(Debug)]
@@ -54,6 +56,12 @@ impl From<SocketError> for HrpcError {
 }
 
 /// A hRPC socket.
+///
+/// Sockets by default **do not** handle pings. You must handle pings manually.
+/// See [`ReadSocket`]'s `set_ping_sink` and [`WriteSocket`]'s `set_ping_stream`
+/// methods. After setting them, you can use the [`WriteSocket`]'s `handle_pings`
+/// method to handle them. Note that all of the methods mentioned are also
+/// available on this type.
 #[must_use = "sockets do nothing unless you use `.send_message(msg)` or `.receive_message()`"]
 pub struct Socket<Req, Resp> {
     pub(crate) write: WriteSocket<Req>,
@@ -81,8 +89,7 @@ where
     ///
     /// ## Notes
     /// - This will block until getting a message (unless an error occurs).
-    /// - This handles responding to pings. You should call this even if you
-    /// aren't going to receive any messages.
+    /// - This will send ping messages over the `ping sink` if one is set (see `ReadSocket::set_ping_sink`).
     pub async fn receive_message(&mut self) -> Result<Resp, HrpcError> {
         self.read.receive_message().await
     }
@@ -90,6 +97,29 @@ where
     /// Send a message over the socket.
     pub async fn send_message(&mut self, req: Req) -> Result<(), HrpcError> {
         self.write.send_message(req).await
+    }
+
+    /// Set ping sink to allow ping messages to be sent to wherever the sink points to.
+    pub fn set_ping_sink<S>(mut self, ping_sink: S) -> Self
+    where
+        S: Sink<Vec<u8>, Error = HrpcError> + Send + 'static,
+    {
+        self.read.ping_tx = Some(Box::pin(ping_sink));
+        self
+    }
+
+    /// Set ping stream to allow ping messages to be received from wherever the stream points to.
+    pub fn set_ping_stream<S>(mut self, ping_stream: S) -> Self
+    where
+        S: Stream<Item = Result<Vec<u8>, HrpcError>> + Send + 'static,
+    {
+        self.write.ping_rx = Some(Box::pin(ping_stream));
+        self
+    }
+
+    /// Handle pings received from the ping stream (if one is set).
+    pub async fn handle_pings(&mut self) -> Result<(), HrpcError> {
+        self.write.handle_pings().await
     }
 
     /// Close the socket.
@@ -146,10 +176,18 @@ impl<Resp: PbMsg + Default> ReadSocket<Resp> {
                             ping_tx.send(data).await?;
                         },
                         SocketMessage::Close => break Err(SocketError::Closed.into()),
-                        _ => spin_loop(),
+                        #[cfg(feature = "tokio")]
+                        _ => tokio::task::yield_now().await,
+                        #[cfg(not(feature = "tokio"))]
+                        _ => std::hint::spin_loop(),
                     }
                 },
-                default => spin_loop(),
+                default => {
+                    #[cfg(feature = "tokio")]
+                    tokio::task::yield_now().await;
+                    #[cfg(not(feature = "tokio"))]
+                    std::hint::spin_loop();
+                },
             }
         }
     }

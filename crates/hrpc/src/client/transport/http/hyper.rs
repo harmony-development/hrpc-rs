@@ -1,16 +1,15 @@
 //! A HTTP client transport implementation using [`hyper`].
 
 use std::{
-    borrow::Cow,
     error::Error as StdError,
     fmt::{self, Display, Formatter},
     ops::Not,
     str::FromStr,
+    task::{Context, Poll},
     time::Duration,
 };
 
-use bytes::BytesMut;
-use futures_util::{future::BoxFuture, StreamExt};
+use futures_util::{StreamExt, TryStreamExt};
 use http::{
     header,
     uri::{PathAndQuery, Scheme},
@@ -18,12 +17,13 @@ use http::{
 };
 use prost::Message;
 use tokio_tungstenite::tungstenite;
+use tower::Service;
 
 use crate::{
+    body::Body,
     client::{
-        error::{ClientError, ClientResult, HrpcError},
-        socket::{self, Socket},
-        Transport,
+        error::{ClientError, HrpcError},
+        transport::{box_socket_stream_sink, CallResult, TransportRequest, TransportResponse},
     },
     common::transport::{
         http::{
@@ -32,8 +32,10 @@ use crate::{
         },
         tokio_tungstenite::WebSocket,
     },
-    request, Request, Response, HRPC_SPEC_VERSION,
+    request, BoxError, Response, HRPC_SPEC_VERSION,
 };
+
+use super::{check_uri, map_scheme_to_ws, InvalidServerUrl};
 
 type SocketRequest = tungstenite::handshake::client::Request;
 /// A `hyper` HTTP client that supports HTTPS.
@@ -46,11 +48,20 @@ pub fn http_client(builder: &mut hyper::client::Builder) -> HttpClient {
 }
 
 /// HTTP transport implemented using [`hyper`].
+///
+/// This client will:
+/// - Adds [`http::HeaderMap`], [`http::StatusCode`], [`http::Version`],
+/// [`http::Extensions`] to the [`Response`] returned in unary requests.
+/// - Looks for a [`http::HeaderMap`] in a [`Request`]s extensions, if it
+/// exists the headers in there will be added to the HTTP request that
+/// will be used. Headers added by the client by default will be overwrited,
+/// so take care while inserting headers that are mentioned in [the spec].
+///
+/// [the spec]: https://github.com/harmony-development/hrpc/blob/main/protocol/SPEC.md
 #[derive(Debug, Clone)]
 pub struct Hyper {
     client: HttpClient,
     server: Uri,
-    buf: BytesMut,
 }
 
 impl Hyper {
@@ -69,20 +80,16 @@ impl Hyper {
     ///
     /// You can create a [`HttpClient`] using [`http_client`].
     pub fn new_with_hyper(server: Uri, hyper_client: HttpClient) -> Result<Self, HyperError> {
-        if let Some("https" | "http") = server.scheme_str() {
-            Ok(Self {
-                client: hyper_client,
-                server,
-                buf: BytesMut::new(),
-            })
-        } else {
-            Err(HyperError::InvalidUrl(InvalidUrlKind::InvalidScheme))
-        }
+        Ok(Self {
+            client: hyper_client,
+            server: check_uri(server).map_err(HyperError::InvalidUrl)?,
+        })
     }
 
     fn make_endpoint(&self, scheme: Option<Scheme>, path: &str) -> Result<Uri, HyperError> {
         let path = PathAndQuery::from_str(path)
-            .map_err(|err| HyperError::FailedRequestBuilder(err.into()))?;
+            .map_err(http::Error::from)
+            .map_err(HyperError::FailedRequestBuilder)?;
 
         let mut parts = self.server.clone().into_parts();
         parts.path_and_query = Some(path);
@@ -90,174 +97,158 @@ impl Hyper {
             parts.scheme = Some(scheme);
         }
 
-        let endpoint =
-            Uri::from_parts(parts).map_err(|err| HyperError::FailedRequestBuilder(err.into()))?;
+        let endpoint = Uri::from_parts(parts)
+            .map_err(http::Error::from)
+            .map_err(HyperError::FailedRequestBuilder)?;
 
         Ok(endpoint)
     }
 }
 
-impl Transport for Hyper {
-    type Error = HyperError;
+impl Service<TransportRequest> for Hyper {
+    type Response = TransportResponse;
 
-    fn call_unary<'a, Req, Resp>(
-        &'a mut self,
-        req: Request<Req>,
-    ) -> BoxFuture<'a, ClientResult<Response<Resp>, Self::Error>>
-    where
-        Req: prost::Message + 'a,
-        Resp: prost::Message + Default,
-    {
-        Box::pin(async move {
-            let endpoint = self
-                .make_endpoint(None, req.endpoint())
-                .map_err(ClientError::Transport)?;
+    type Error = ClientError<HyperError>;
 
-            let request = {
-                let request::Parts {
-                    body,
-                    mut extensions,
-                    ..
-                } = req.into();
+    type Future = CallResult<'static, TransportResponse, HyperError>;
 
-                let mut request = http::Request::builder()
-                    .uri(endpoint.clone())
-                    .method(Method::POST);
-
-                let mut header_map = extensions.remove::<HeaderMap>().unwrap_or_default();
-                // insert content type
-                header_map.insert(header::CONTENT_TYPE, content_header_value());
-                // insert spec version
-                header_map.insert(version_header_name(), version_header_value());
-
-                *request.headers_mut().unwrap() = header_map;
-
-                request
-                    .body(body.into())
-                    .map_err(HyperError::FailedRequestBuilder)
-                    .map_err(ClientError::Transport)?
-            };
-
-            let resp = self
-                .client
-                .request(request)
-                .await
-                .map_err(HyperError::Http)
-                .map_err(ClientError::Transport)?;
-            let status = resp.status();
-
-            let is_error = status.is_success().not();
-            if is_error {
-                let raw_error = hyper::body::to_bytes(resp.into_body())
-                    .await
-                    .map_err(HyperError::Http)
-                    .map_err(ClientError::Transport)?;
-                let hrpc_error = HrpcError::decode(raw_error.as_ref()).unwrap_or_else(|_| HrpcError {
-                    human_message: "the server error was an invalid hRPC error, check more_details field for the error".to_string(),
-                    identifier: "hrpcrs.invalid-hrpc-error".to_string(),
-                    more_details: raw_error,
-                });
-                return Err(ClientError::EndpointError {
-                    hrpc_error,
-                    endpoint: Cow::Owned(endpoint.path().to_string()),
-                });
-            }
-
-            // Handle non-protobuf successful responses
-            let is_hrpc = |t: &[u8]| {
-                !(t.eq_ignore_ascii_case(b"application/octet-stream")
-                    || t.eq_ignore_ascii_case(crate::HRPC_CONTENT_MIMETYPE))
-            };
-            if resp
-                .headers()
-                .get(&http::header::CONTENT_TYPE)
-                .map(|t| t.as_bytes().split(|c| b';'.eq(c)).next())
-                .flatten()
-                .map_or(true, is_hrpc)
-            {
-                let data = hyper::body::to_bytes(resp.into_body())
-                    .await
-                    .map_err(HyperError::Http)
-                    .map_err(ClientError::Transport)?;
-                return Err(ClientError::ContentNotSupported(data));
-            }
-
-            // check if the spec version matches
-            if !resp
-                .headers()
-                .get(version_header_name())
-                .map(|h| h.as_bytes())
-                .map_or(false, |v| {
-                    v.eq_ignore_ascii_case(HRPC_SPEC_VERSION.as_bytes())
-                })
-            {
-                // TODO: parse the header properly and extract the version instead of just doing a contains
-                return Err(ClientError::Transport(HyperError::IncompatibleSpecVersion));
-            }
-
-            Ok(Response::new_with_body(resp.into_body().into()))
-        })
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Ok(()).into()
     }
 
-    fn call_socket<Req, Resp>(
-        &mut self,
-        mut req: Request<()>,
-    ) -> BoxFuture<'_, ClientResult<Socket<Req, Resp>, Self::Error>>
-    where
-        Req: Message + 'static,
-        Resp: Message + Default + 'static,
-    {
-        Box::pin(async move {
-            let ws_scheme = match self.server.scheme_str() {
-                Some("http") => "ws",
-                Some("https") => "wss",
-                _ => unreachable!("scheme cant be anything other than http or https"),
-            };
-            let endpoint = self
-                .make_endpoint(Some(ws_scheme.parse().unwrap()), req.endpoint())
-                .map_err(ClientError::Transport)?;
+    fn call(&mut self, req: TransportRequest) -> Self::Future {
+        match req {
+            TransportRequest::Unary(req) => {
+                let maybe_req_url = self.make_endpoint(None, req.endpoint());
+                let client = self.client.clone();
+                Box::pin(async move {
+                    let req_url = maybe_req_url?;
 
-            let mut request = SocketRequest::get(endpoint).body(()).unwrap();
+                    let request::Parts {
+                        body,
+                        mut extensions,
+                        endpoint,
+                    } = req.into();
 
-            // Insert default protocol (can be overwritten by users)
-            request
-                .headers_mut()
-                .insert(header::SEC_WEBSOCKET_PROTOCOL, ws_version_header_value());
+                    let request = {
+                        let mut request =
+                            http::Request::builder().uri(req_url).method(Method::POST);
 
-            if let Some(header_map) = req.extensions_mut().remove::<HeaderMap>() {
-                for (key, value) in header_map {
-                    if let Some(key) = key {
-                        request.headers_mut().insert(key, value);
+                        let mut header_map = extensions.remove::<HeaderMap>().unwrap_or_default();
+                        // insert content type
+                        header_map.insert(header::CONTENT_TYPE, content_header_value());
+                        // insert spec version
+                        header_map.insert(version_header_name(), version_header_value());
+
+                        *request.headers_mut().unwrap() = header_map;
+
+                        request
+                            .body(body.into())
+                            .map_err(HyperError::FailedRequestBuilder)?
+                    };
+
+                    let resp = client.request(request).await.map_err(HyperError::Http)?;
+
+                    let status = resp.status();
+
+                    if status.is_success().not() {
+                        let raw_error = hyper::body::to_bytes(resp.into_body())
+                            .await
+                            .map_err(HyperError::Http)?;
+                        let hrpc_error = HrpcError::decode(raw_error.as_ref())
+                            .unwrap_or_else(|_| HrpcError::invalid_hrpc_error(raw_error));
+                        return Err(ClientError::EndpointError {
+                            hrpc_error,
+                            endpoint,
+                        });
                     }
-                }
+
+                    // Handle non-protobuf successful responses
+                    let is_hrpc =
+                        |t: &[u8]| t.eq_ignore_ascii_case(crate::HRPC_CONTENT_MIMETYPE.as_bytes());
+                    if !resp
+                        .headers()
+                        .get(&http::header::CONTENT_TYPE)
+                        .and_then(|t| t.as_bytes().split(|c| b';'.eq(c)).next())
+                        .map_or(false, is_hrpc)
+                    {
+                        return Err(ClientError::ContentNotSupported);
+                    }
+
+                    // check if the spec version matches
+                    if !resp
+                        .headers()
+                        .get(version_header_name())
+                        .map(|h| h.as_bytes())
+                        .map_or(false, |v| {
+                            v.eq_ignore_ascii_case(HRPC_SPEC_VERSION.as_bytes())
+                        })
+                    {
+                        // TODO: parse the header properly and extract the version instead of just doing a contains
+                        return Err(ClientError::IncompatibleSpecVersion);
+                    }
+
+                    let (parts, body) = resp.into_parts();
+
+                    let mut response = Response::new_with_body(body.into());
+
+                    let exts_mut = response.extensions_mut();
+                    exts_mut.insert(parts.status);
+                    exts_mut.insert(parts.extensions);
+                    exts_mut.insert(parts.headers);
+                    exts_mut.insert(parts.version);
+
+                    Ok(TransportResponse::new_unary(response))
+                })
             }
+            TransportRequest::Socket(mut req) => {
+                let ws_scheme =
+                    map_scheme_to_ws(self.server.scheme_str().expect("must have scheme"))
+                        .expect("scheme can't be anything other than https or http");
+                let maybe_endpont =
+                    self.make_endpoint(Some(ws_scheme.parse().unwrap()), req.endpoint());
 
-            let (ws_stream, response) = tokio_tungstenite::connect_async(request)
-                .await
-                .map_err(SocketInitError::Tungstenite)
-                .map_err(HyperError::SocketInitError)
-                .map_err(ClientError::Transport)?;
+                Box::pin(async move {
+                    let endpoint = maybe_endpont?;
 
-            if !response
-                .headers()
-                .get(header::SEC_WEBSOCKET_PROTOCOL)
-                .and_then(|h| h.to_str().ok())
-                .map_or(false, |v| v.contains(&ws_version()))
-            {
-                return Err(ClientError::Transport(HyperError::SocketInitError(
-                    SocketInitError::InvalidProtocol,
-                )));
+                    let mut request = SocketRequest::get(endpoint).body(()).unwrap();
+
+                    // Insert default protocol (can be overwritten by users)
+                    request
+                        .headers_mut()
+                        .insert(header::SEC_WEBSOCKET_PROTOCOL, ws_version_header_value());
+
+                    if let Some(header_map) = req.extensions_mut().remove::<HeaderMap>() {
+                        for (key, value) in header_map {
+                            if let Some(key) = key {
+                                request.headers_mut().insert(key, value);
+                            }
+                        }
+                    }
+
+                    let (ws_stream, response) = tokio_tungstenite::connect_async(request)
+                        .await
+                        .map_err(SocketInitError::Tungstenite)
+                        .map_err(HyperError::SocketInitError)?;
+
+                    if !response
+                        .headers()
+                        .get(header::SEC_WEBSOCKET_PROTOCOL)
+                        .and_then(|h| h.to_str().ok())
+                        .map_or(false, |v| v.contains(&ws_version()))
+                    {
+                        return Err(ClientError::Transport(HyperError::SocketInitError(
+                            SocketInitError::InvalidProtocol,
+                        )));
+                    }
+
+                    let (ws_tx, ws_rx) = WebSocket::new(ws_stream).split();
+                    let (tx, rx) = box_socket_stream_sink(ws_tx, ws_rx);
+
+                    Ok(TransportResponse::new_socket(tx, rx))
+                })
             }
-
-            let (ws_tx, ws_rx) = WebSocket::new(ws_stream).split();
-
-            Ok(Socket::new(
-                Box::pin(ws_rx),
-                Box::pin(ws_tx),
-                socket::encode_message,
-                socket::decode_message,
-            ))
-        })
+        }
     }
 }
 
@@ -269,11 +260,9 @@ pub enum HyperError {
     /// Occurs if hyper, the HTTP client, returns an error.
     Http(hyper::Error),
     /// Occurs if the given URL is invalid.
-    InvalidUrl(InvalidUrlKind),
+    InvalidUrl(InvalidServerUrl),
     /// Occurs if socket creation.
     SocketInitError(SocketInitError),
-    /// Occurs if the spec implemented on server doesn't match ours.
-    IncompatibleSpecVersion,
 }
 
 impl Display for HyperError {
@@ -283,7 +272,6 @@ impl Display for HyperError {
             Self::Http(err) => write!(f, "HTTP error: {}", err),
             Self::InvalidUrl(err) => write!(f, "invalid URL: {}", err),
             Self::SocketInitError(err) => write!(f, "failed to create socket: {}", err),
-            Self::IncompatibleSpecVersion => write!(f, "server has incompatible spec version",),
         }
     }
 }
@@ -295,7 +283,6 @@ impl StdError for HyperError {
             Self::Http(err) => Some(err),
             Self::SocketInitError(err) => Some(err),
             Self::InvalidUrl(err) => Some(err),
-            _ => None,
         }
     }
 }
@@ -306,13 +293,17 @@ impl From<hyper::Error> for HyperError {
     }
 }
 
+impl From<HyperError> for ClientError<HyperError> {
+    fn from(err: HyperError) -> Self {
+        ClientError::Transport(err)
+    }
+}
+
 /// Errors that can occur on socket creation.
 #[derive(Debug)]
 pub enum SocketInitError {
     /// Occurs if socket creation fails with a tungstenite error.
     Tungstenite(tungstenite::Error),
-    /// Occurs if the server has an incompatible spec version.
-    IncompatibleSpecVersion,
     /// Occurs if the server sent an invalid protocol (not `hrpc`).
     InvalidProtocol,
 }
@@ -321,7 +312,6 @@ impl Display for SocketInitError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Tungstenite(err) => write!(f, "tungstenite error: {}", err),
-            Self::IncompatibleSpecVersion => write!(f, "server has incompatible spec version",),
             Self::InvalidProtocol => {
                 write!(f, "server sent incompatible protocol, expected 'hrpc'")
             }
@@ -338,21 +328,18 @@ impl StdError for SocketInitError {
     }
 }
 
-#[derive(Debug)]
-/// Errors that can occur while parsing the URL given to `Client::new()`.
-pub enum InvalidUrlKind {
-    /// Occurs if URL scheme isn't `http` or `https`.
-    InvalidScheme,
-}
-
-impl Display for InvalidUrlKind {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            InvalidUrlKind::InvalidScheme => {
-                write!(f, "invalid scheme, expected `http` or `https`")
-            }
-        }
+impl From<Body> for hyper::Body {
+    fn from(body: Body) -> Self {
+        hyper::Body::wrap_stream(body)
     }
 }
 
-impl StdError for InvalidUrlKind {}
+impl From<hyper::Body> for Body {
+    fn from(hbody: hyper::Body) -> Self {
+        Body::new(
+            hbody
+                .into_stream()
+                .map_err(|err| -> BoxError { Box::new(err) }),
+        )
+    }
+}
