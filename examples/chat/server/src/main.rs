@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chat::{
+use chat_common::{
     chat::{chat_server::*, *},
     BoxError,
 };

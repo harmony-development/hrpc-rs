@@ -97,8 +97,8 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
             impl<Inner> #service_ident<Inner>
             where
-                Inner: Service<TransportRequest, Response = TransportResponse>,
-                Inner::Error: std::error::Error,
+                Inner: Service<TransportRequest, Response = TransportResponse> + 'static,
+                Inner::Error: std::error::Error + 'static,
             {
                 #methods
             }
@@ -144,13 +144,13 @@ fn generate_unary<T: Method>(method: &T, proto_path: &str, path: String) -> Toke
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<Response<#response>, Inner::Error>
+        pub fn #ident<Req>(&mut self, req: Req) -> impl Future<Output = ClientResult<Response<#response>, Inner::Error>> + 'static
         where
             Req: IntoRequest<#request>,
         {
             let mut req = req.into_request();
             *req.endpoint_mut() = Cow::Borrowed(#path);
-            self.inner.execute_request(req).await
+            self.inner.execute_request(req)
         }
     }
 }
@@ -160,13 +160,13 @@ fn generate_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> 
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<Socket<#request, #response>, Inner::Error>
+        pub fn #ident<Req>(&mut self, req: Req) -> impl Future<Output = ClientResult<Socket<#request, #response>, Inner::Error>> + 'static
         where
             Req: IntoRequest<()>,
         {
             let mut req = req.into_request();
             *req.endpoint_mut() = Cow::Borrowed(#path);
-            self.inner.connect_socket(req).await
+            self.inner.connect_socket(req)
         }
     }
 }
@@ -176,13 +176,13 @@ fn generate_server_streaming<T: Method>(method: &T, proto_path: &str, path: Stri
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub async fn #ident<Req>(&mut self, req: Req) -> ClientResult<Socket<#request, #response>, Inner::Error>
+        pub fn #ident<Req>(&mut self, req: Req) -> impl Future<Output = ClientResult<Socket<#request, #response>, Inner::Error>> + 'static
         where
             Req: IntoRequest<#request>,
         {
             let mut req = req.into_request();
             *req.endpoint_mut() = Cow::Borrowed(#path);
-            self.inner.connect_socket_req(req).await
+            self.inner.connect_socket_req(req)
         }
     }
 }

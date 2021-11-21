@@ -9,7 +9,7 @@ use std::{
 
 use bytes::Buf;
 use futures_util::StreamExt;
-use http::{header, HeaderMap, Uri};
+use http::{header, HeaderMap, HeaderValue, Uri};
 use js_sys::Uint8Array;
 use prost::Message;
 use reqwasm::http::Request as WasmRequest;
@@ -24,11 +24,11 @@ use crate::{
         ClientError,
     },
     common::transport::{
-        http::{ws_version, HRPC_VERSION_HEADER},
+        http::{version_header_name, ws_version, HRPC_VERSION_HEADER},
         ws_wasm::WebSocket,
     },
     proto::Error as HrpcError,
-    request, BoxError, Response, HRPC_CONTENT_MIMETYPE, HRPC_SPEC_VERSION,
+    request, response, BoxError, Response, HRPC_CONTENT_MIMETYPE, HRPC_SPEC_VERSION,
 };
 
 /// HTTP client that compiles to WASM and works on the Web.
@@ -40,6 +40,10 @@ use crate::{
 /// request that will be used. Headers added by the client by default will
 /// be overwrited, so take care while inserting headers that are mentioned
 /// in [the spec].
+/// - Adds [`http::StatusCode`], to the [`Response`] extension returned in
+/// unary requests. Also adds [`HRPC_VERSION_HEADER`] and [`header::CONTENT_TYPE`]
+/// to a [`http::HeaderMap`] in the response's extensions. See limitations
+/// as for why all of the headers aren't added.
 /// - (For streaming requests) Look for [`SocketProtocols`] in a [`Request`]s
 /// extensions, if it exists it will be used to set the protocols of the
 /// WebSocket that will be created. This will overwrite the protocols added
@@ -49,14 +53,15 @@ use crate::{
 ///
 /// - This client does not support setting headers for streaming requests,
 /// due to Web's `WebSocket` API's limitations.
-/// - This client does not add a [`HeaderMap`] to the returned [`Response`]'s
-/// extensions. This is due to https://github.com/rustwasm/wasm-bindgen/pull/1913
-/// not being in `wasm-bindgen`.
+/// - This client does not add all of the headers of the response to the [`HeaderMap`]
+/// of the returned [`Response`]'s extensions. This is due to
+/// https://github.com/rustwasm/wasm-bindgen/pull/1913 not being in `wasm-bindgen`.
 /// - If inserting [`HeaderMap`] in [`Request`] extensions to add headers,
 /// keep in mind that **header values that are not valid strings won't be added**.
 /// See [`HeaderValue`]'s `to_str` method for information about a "valid string".
 ///
 /// [the spec]: https://github.com/harmony-development/hrpc/blob/main/protocol/SPEC.md
+#[derive(Debug, Clone)]
 pub struct Wasm {
     server: Uri,
     check_spec_version: bool,
@@ -74,7 +79,6 @@ impl Wasm {
     /// Set whether to check for spec version.
     ///
     /// Note that this only affects unary requests.
-    /// Not checking spec version can save some allocations.
     pub fn check_spec_version(mut self, enabled: bool) -> Self {
         self.check_spec_version = enabled;
         self
@@ -109,10 +113,10 @@ impl Service<TransportRequest> for Wasm {
                     scheme,
                     self.server
                         .host()
-                        .expect("expected host on server URI, this is a bug"),
+                        .expect_throw("expected host on server URI, this is a bug"),
                     self.server
                         .port_u16()
-                        .expect("expected port on server URI, this is a bug"),
+                        .expect_throw("expected port on server URI, this is a bug"),
                     endpoint.trim_start_matches('/'),
                 );
 
@@ -125,6 +129,7 @@ impl Service<TransportRequest> for Wasm {
                     let (_, ws_stream) = ws_stream_wasm::WsMeta::connect(url, protocols)
                         .await
                         .map_err(WasmError::SocketInitError)?;
+
                     let ws = WebSocket::new(ws_stream);
                     let (ws_tx, ws_rx) = ws.split();
                     let (tx, rx) = box_socket_stream_sink(ws_tx, ws_rx);
@@ -157,7 +162,7 @@ impl Service<TransportRequest> for Wasm {
                 let check_spec_version = self.check_spec_version;
 
                 Box::pin(async move {
-                    let data = body.aggregate().await.map_err(WasmError::BodyError)?;
+                    let mut data = body.aggregate().await.map_err(WasmError::BodyError)?;
 
                     request = request.body({
                         let buf = Uint8Array::new_with_length(
@@ -167,13 +172,16 @@ impl Service<TransportRequest> for Wasm {
                         );
                         let mut offset = 0;
                         while data.has_remaining() {
-                            let chunk = data.chunk();
-                            unsafe { buf.set(&Uint8Array::view(chunk), offset) }
-                            let chunk_len: u32 = chunk
-                                .len()
+                            let chunk_len = {
+                                let chunk = data.chunk();
+                                unsafe { buf.set(&Uint8Array::view(chunk), offset) }
+                                chunk.len()
+                            };
+                            let chunk_len_js: u32 = chunk_len
                                 .try_into()
                                 .expect_throw("can't send data bigger than a u32");
-                            offset += chunk_len;
+                            offset += chunk_len_js;
+                            data.advance(chunk_len);
                         }
                         buf
                     });
@@ -193,10 +201,13 @@ impl Service<TransportRequest> for Wasm {
                         });
                     }
 
+                    let mut resp = Response::empty();
+
                     let content_type = response
                         .headers()
                         .get(header::CONTENT_TYPE.as_str())
                         .expect_throw("header name is valid");
+
                     if !content_type
                         .as_ref()
                         .and_then(|v| v.split(';').next())
@@ -205,24 +216,37 @@ impl Service<TransportRequest> for Wasm {
                         return Err(ClientError::ContentNotSupported);
                     }
 
-                    if check_spec_version {
-                        let hrpc_version = response
-                            .headers()
-                            .get(HRPC_VERSION_HEADER)
-                            .expect_throw("header name is valid");
-                        if hrpc_version
-                            .as_ref()
-                            .map_or(false, |v| v == HRPC_SPEC_VERSION)
-                        {
-                            return Err(ClientError::IncompatibleSpecVersion);
-                        }
+                    if let Some(value) = content_type.and_then(|v| HeaderValue::from_str(&v).ok()) {
+                        resp.get_or_insert_header_map()
+                            .insert(header::CONTENT_TYPE, value);
                     }
 
-                    let data = response.binary().await.map_err(WasmError::HttpError)?;
+                    let hrpc_version = response
+                        .headers()
+                        .get(HRPC_VERSION_HEADER)
+                        .expect_throw("header name is valid");
 
-                    let mut resp = Response::new_with_body(Body::full(data));
+                    if check_spec_version
+                        && hrpc_version
+                            .as_ref()
+                            .map_or(false, |v| v == HRPC_SPEC_VERSION)
+                            .not()
+                    {
+                        return Err(ClientError::IncompatibleSpecVersion);
+                    }
+
+                    if let Some(value) = hrpc_version.and_then(|v| HeaderValue::from_str(&v).ok()) {
+                        resp.get_or_insert_header_map()
+                            .insert(version_header_name(), value);
+                    }
 
                     resp.extensions_mut().insert(status);
+
+                    let data = response.binary().await.map_err(WasmError::HttpError)?;
+                    let resp = Response::from(response::Parts {
+                        body: Body::full(data),
+                        ..response::Parts::from(resp)
+                    });
 
                     Ok(TransportResponse::new_unary(resp))
                 })

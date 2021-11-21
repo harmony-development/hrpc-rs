@@ -1,7 +1,7 @@
 [workspace]
-members = ["crates/*", "examples/*"]
+members = ["crates/*", "examples/interop", "examples/hello_world", "examples/chat/*"]
 resolver = "2"
 
 [workspace.metadata.nix]
 systems = ["x86_64-linux"]
-devshell.packages = ["cargo-watch"]
+devshell.packages = ["cargo-watch", "trunk"]

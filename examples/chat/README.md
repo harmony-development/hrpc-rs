@@ -5,10 +5,15 @@ transports and layering as a very simple chatting app.
 
 To run the server:
 ```console
-$ cargo run --package chat --bin server
+$ cargo run --package chat_server
 ```
 
-To run the client:
+To run the CLI client:
 ```console
-$ cargo run --package chat --bin client
+$ cargo run --package chat_client
+```
+
+To run the WASM web client, you will need [`trunk`](https://trunkrs.dev):
+```console
+$ trunk serve wasm_client/index.html
 ```

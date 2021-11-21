@@ -1,0 +1,10 @@
+[package]
+name = "chat_wasm_client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chat_common = { path = "../common" }
+hrpc = { path = "../../../crates/hrpc", features = ["http_wasm_client"] }
+yew = { git = "https://github.com/yewstack/yew.git", branch = "master" }
+web-sys = { version = "0.3", features = ["HtmlInputElement"] }

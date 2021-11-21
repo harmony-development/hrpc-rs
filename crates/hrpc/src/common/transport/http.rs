@@ -173,3 +173,26 @@ impl From<HrpcErrorIdentifier> for StatusCode {
         }
     }
 }
+
+#[cfg(feature = "hyper")]
+mod hyper {
+    use futures_util::TryStreamExt;
+
+    use crate::{body::Body, BoxError};
+
+    impl From<Body> for hyper::Body {
+        fn from(body: Body) -> Self {
+            hyper::Body::wrap_stream(body)
+        }
+    }
+
+    impl From<hyper::Body> for Body {
+        fn from(hbody: hyper::Body) -> Self {
+            Body::new(
+                hbody
+                    .into_stream()
+                    .map_err(|err| -> BoxError { Box::new(err) }),
+            )
+        }
+    }
+}

@@ -1,8 +1,12 @@
 #![allow(dead_code)]
 
-use std::{marker::PhantomData, pin::Pin};
+use std::{
+    marker::PhantomData,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
-use futures_util::{FutureExt, Sink, SinkExt, Stream, StreamExt};
+use futures_util::{Future, Sink, SinkExt, Stream, StreamExt};
 
 use bytes::BytesMut;
 use prost::Message as PbMsg;
@@ -166,29 +170,45 @@ impl<Resp: PbMsg + Default> ReadSocket<Resp> {
     /// ## Notes
     /// - This will block until getting a message (unless an error occurs).
     /// - This will send ping messages over the `ping sink` if one is set (see `ReadSocket::set_ping_sink`).
-    pub async fn receive_message(&mut self) -> Result<Resp, HrpcError> {
-        loop {
-            futures_util::select_biased! {
-                maybe_res = self.ws_rx.next().fuse() => if let Some(res) = maybe_res {
-                    match res? {
-                        SocketMessage::Binary(data) => break (self.decode_message)(data),
-                        SocketMessage::Ping(data) => if let Some(ping_tx) = &mut self.ping_tx {
-                            ping_tx.send(data).await?;
-                        },
-                        SocketMessage::Close => break Err(SocketError::Closed.into()),
-                        #[cfg(feature = "tokio")]
-                        _ => tokio::task::yield_now().await,
-                        #[cfg(not(feature = "tokio"))]
-                        _ => std::hint::spin_loop(),
+    pub fn receive_message(&mut self) -> impl Future<Output = Result<Resp, HrpcError>> + '_ {
+        ReceiveMessageFuture {
+            stream: &mut self.ws_rx,
+            ping_tx: &mut self.ping_tx,
+            decode_message: self.decode_message,
+        }
+    }
+}
+
+struct ReceiveMessageFuture<'a, Resp> {
+    stream: &'a mut BoxedWsRx,
+    ping_tx: &'a mut Option<PingTx>,
+    decode_message: DecodeMessageFn<Resp>,
+}
+
+impl<'a, Resp> Future for ReceiveMessageFuture<'a, Resp> {
+    type Output = Result<Resp, HrpcError>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let item = futures_util::ready!(self.stream.poll_next_unpin(cx));
+        match item {
+            Some(res) => match res {
+                Ok(msg) => match msg {
+                    SocketMessage::Binary(data) => Poll::Ready((self.decode_message)(data)),
+                    SocketMessage::Ping(data) => {
+                        if let Some(ping_tx) = &mut self.ping_tx {
+                            ping_tx
+                                .start_send_unpin(data)
+                                .map_or_else(|err| Poll::Ready(Err(err)), |_| Poll::Pending)
+                        } else {
+                            Poll::Pending
+                        }
                     }
+                    SocketMessage::Close => Poll::Ready(Err(SocketError::Closed.into())),
+                    _ => Poll::Pending,
                 },
-                default => {
-                    #[cfg(feature = "tokio")]
-                    tokio::task::yield_now().await;
-                    #[cfg(not(feature = "tokio"))]
-                    std::hint::spin_loop();
-                },
-            }
+                Err(err) => Poll::Ready(Err(err)),
+            },
+            None => Poll::Pending,
         }
     }
 }

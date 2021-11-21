@@ -1,4 +1,7 @@
-use std::fmt::{self, Debug, Formatter};
+use std::{
+    fmt::{self, Debug, Formatter},
+    future::Future,
+};
 
 use crate::{
     body::Body,
@@ -11,6 +14,7 @@ use self::transport::{TransportRequest, TransportResponse};
 
 use super::Request;
 use error::*;
+use futures_util::TryFutureExt;
 use socket::*;
 use tower::{Layer, Service};
 
@@ -33,7 +37,7 @@ pub mod prelude {
         request::{IntoRequest, Request},
         response::Response,
     };
-    pub use std::{borrow::Cow, convert::TryInto, fmt::Debug};
+    pub use std::{borrow::Cow, convert::TryInto, fmt::Debug, future::Future};
     pub use tower::Service;
 }
 
@@ -67,8 +71,8 @@ impl<Inner> Client<Inner> {
 
 impl<Inner> Client<Inner>
 where
-    Inner: Service<TransportRequest, Response = TransportResponse>,
-    Inner::Error: std::error::Error,
+    Inner: Service<TransportRequest, Response = TransportResponse> + 'static,
+    Inner::Error: std::error::Error + 'static,
 {
     /// Layer this client with a new [`Layer`].
     pub fn layer<S, L>(self, l: L) -> Client<S>
@@ -83,49 +87,43 @@ where
     }
 
     /// Executes a unary request and returns the decoded response.
-    pub async fn execute_request<Req: prost::Message, Resp: prost::Message + Default>(
+    pub fn execute_request<Req: prost::Message, Resp: prost::Message + Default>(
         &mut self,
         req: Request<Req>,
-    ) -> ClientResult<Response<Resp>, Inner::Error> {
+    ) -> impl Future<Output = ClientResult<Response<Resp>, Inner::Error>> + 'static {
         Service::call(&mut self.transport, TransportRequest::Unary(req.map()))
-            .await
-            .map(|resp| resp.extract_unary().map::<Resp>())
+            .map_ok(|resp| resp.extract_unary().map::<Resp>())
             .map_err(ClientError::Transport)
     }
 
     /// Connect a socket with the server and return it.
-    pub async fn connect_socket<Req, Resp>(
+    pub fn connect_socket<Req, Resp>(
         &mut self,
         req: Request<()>,
-    ) -> ClientResult<Socket<Req, Resp>, Inner::Error>
+    ) -> impl Future<Output = ClientResult<Socket<Req, Resp>, Inner::Error>> + 'static
     where
         Req: prost::Message,
         Resp: prost::Message + Default,
     {
-        let resp = Service::call(&mut self.transport, TransportRequest::Socket(req))
-            .await
-            .map_err(ClientError::Transport)?;
+        Service::call(&mut self.transport, TransportRequest::Socket(req))
+            .map_ok(|resp| {
+                let (tx, rx) = resp.extract_socket();
 
-        let (tx, rx) = resp.extract_socket();
-
-        Ok(Socket::new(
-            rx,
-            tx,
-            socket::encode_message,
-            socket::decode_message,
-        ))
+                Socket::new(rx, tx, socket::encode_message, socket::decode_message)
+            })
+            .map_err(ClientError::Transport)
     }
 
     /// Connect a socket with the server, send a message and return it.
     ///
     /// Used by the server streaming methods.
-    pub async fn connect_socket_req<Req, Resp>(
+    pub fn connect_socket_req<Req, Resp>(
         &mut self,
         request: Request<Req>,
-    ) -> ClientResult<Socket<Req, Resp>, Inner::Error>
+    ) -> impl Future<Output = ClientResult<Socket<Req, Resp>, Inner::Error>> + 'static
     where
-        Req: prost::Message + Default,
-        Resp: prost::Message + Default,
+        Req: prost::Message + Default + 'static,
+        Resp: prost::Message + Default + 'static,
     {
         let request::Parts {
             body,
@@ -140,17 +138,21 @@ where
             extensions,
         });
 
-        let mut socket = self.connect_socket(request).await?;
+        let connect_fut = self.connect_socket(request);
 
-        let message = decode::decode_body(body).await?;
-        socket
-            .send_message(message)
-            .await
-            .map_err(|err| ClientError::EndpointError {
-                hrpc_error: err,
-                endpoint,
-            })?;
+        async move {
+            let mut socket = connect_fut.await?;
 
-        Ok(socket)
+            let message = decode::decode_body(body).await?;
+            socket
+                .send_message(message)
+                .await
+                .map_err(|err| ClientError::EndpointError {
+                    hrpc_error: err,
+                    endpoint,
+                })?;
+
+            Ok(socket)
+        }
     }
 }

@@ -45,8 +45,10 @@ pub struct Request<T> {
 
 impl<T> Debug for Request<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Response")
-            .field("parts", &self.parts)
+        f.debug_struct("Request")
+            .field("body", &self.parts.body)
+            .field("extensions", &self.parts.extensions)
+            .field("endpoint", &self.parts.endpoint)
             .finish()
     }
 }

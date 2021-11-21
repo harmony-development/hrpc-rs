@@ -1,4 +1,4 @@
-use chat::{
+use chat_common::{
     chat::{chat_client::ChatClient, *},
     BoxError,
 };

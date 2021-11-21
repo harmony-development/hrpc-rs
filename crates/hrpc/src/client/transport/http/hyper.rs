@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use futures_util::{StreamExt, TryStreamExt};
+use futures_util::StreamExt;
 use http::{
     header,
     uri::{PathAndQuery, Scheme},
@@ -20,7 +20,6 @@ use tokio_tungstenite::tungstenite;
 use tower::Service;
 
 use crate::{
-    body::Body,
     client::{
         error::{ClientError, HrpcError},
         transport::{box_socket_stream_sink, CallResult, TransportRequest, TransportResponse},
@@ -32,7 +31,7 @@ use crate::{
         },
         tokio_tungstenite::WebSocket,
     },
-    request, BoxError, Response, HRPC_SPEC_VERSION,
+    request, Response, HRPC_SPEC_VERSION,
 };
 
 use super::{check_uri, map_scheme_to_ws, InvalidServerUrl};
@@ -325,21 +324,5 @@ impl StdError for SocketInitError {
             Self::Tungstenite(err) => Some(err),
             _ => None,
         }
-    }
-}
-
-impl From<Body> for hyper::Body {
-    fn from(body: Body) -> Self {
-        hyper::Body::wrap_stream(body)
-    }
-}
-
-impl From<hyper::Body> for Body {
-    fn from(hbody: hyper::Body) -> Self {
-        Body::new(
-            hbody
-                .into_stream()
-                .map_err(|err| -> BoxError { Box::new(err) }),
-        )
     }
 }

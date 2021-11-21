@@ -1,0 +1,20 @@
+[package]
+name = "chat_client"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chat_common = { path = "../common" }
+# Enable hrpc's server and client features, and the recommended transport
+hrpc = { path = "../../../crates/hrpc", features = ["http_hyper_client"] }
+# Enable tokio's macros so we can mark our main function, and multi threaded
+# runtime
+tokio = { version = "1", features = [
+    "rt",
+    "rt-multi-thread",
+    "macros",
+] }
+# We will use rustyline to read messages from user on our client
+rustyline = "9"

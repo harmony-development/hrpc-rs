@@ -69,7 +69,7 @@ _common_http = ["http", "http-body"]
 # Enable the tokio_tungstenite websocket implementation
 websocket_tokio_tungstenite = ["tokio-tungstenite", "tokio"]
 # Enable the wasm websocket implementation
-websocket_wasm = ["ws_stream_wasm", "wasm-streams"]
+websocket_wasm = ["ws_stream_wasm"]
 
 [build-dependencies]
 # Needed to compile the hRPC proto
@@ -128,6 +128,5 @@ reqwasm = { version = "0.3", default-features = false, features = [
     "http",
 ], optional = true }
 ws_stream_wasm = { version = "0.7", default-features = false, optional = true }
-wasm-streams = { version = "0.2", default-features = false, optional = true }
 js-sys = { version = "0.3", default-features = false, optional = true }
 wasm-bindgen = { version = "0.2", default-features = false, optional = true }

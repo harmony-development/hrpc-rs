@@ -53,7 +53,8 @@ impl Response<()> {
 impl<T> Debug for Response<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Response")
-            .field("parts", &self.parts)
+            .field("body", &self.parts.body)
+            .field("extensions", &self.parts.extensions)
             .finish()
     }
 }
