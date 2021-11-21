@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Msg",""]],"fn":[["main",""]],"struct":[["Model",""],["Props",""]],"type":[["ClientResult",""]]});

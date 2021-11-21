@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["chat_wasm_client"] = [{"text":"impl Component for <a class=\"struct\" href=\"chat_wasm_client/struct.Model.html\" title=\"struct chat_wasm_client::Model\">Model</a>","synthetic":false,"types":["chat_wasm_client::Model"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

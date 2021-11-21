@@ -326,23 +326,6 @@
 <span id="326">326</span>
 <span id="327">327</span>
 <span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A HTTP client transport implementation using [`hyper`].</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -354,7 +337,7 @@
     <span class="ident">time::Duration</span>,
 };
 
-<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">StreamExt</span>, <span class="ident">TryStreamExt</span>};
+<span class="kw">use</span> <span class="ident">futures_util::StreamExt</span>;
 <span class="kw">use</span> <span class="ident">http</span>::{
     <span class="ident">header</span>,
     <span class="ident">uri</span>::{<span class="ident">PathAndQuery</span>, <span class="ident">Scheme</span>},
@@ -365,7 +348,6 @@
 <span class="kw">use</span> <span class="ident">tower::Service</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">body::Body</span>,
     <span class="ident">client</span>::{
         <span class="ident">error</span>::{<span class="ident">ClientError</span>, <span class="ident">HrpcError</span>},
         <span class="ident">transport</span>::{<span class="ident">box_socket_stream_sink</span>, <span class="ident">CallResult</span>, <span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>},
@@ -377,7 +359,7 @@
         },
         <span class="ident">tokio_tungstenite::WebSocket</span>,
     },
-    <span class="ident">request</span>, <span class="ident">BoxError</span>, <span class="ident">Response</span>, <span class="ident">HRPC_SPEC_VERSION</span>,
+    <span class="ident">request</span>, <span class="ident">Response</span>, <span class="ident">HRPC_SPEC_VERSION</span>,
 };
 
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">check_uri</span>, <span class="ident">map_scheme_to_ws</span>, <span class="ident">InvalidServerUrl</span>};
@@ -670,22 +652,6 @@
             <span class="ident"><span class="self">Self</span>::Tungstenite</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
         }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">hyper::Body</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">body</span>: <span class="ident">Body</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">hyper::Body::wrap_stream</span>(<span class="ident">body</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">hyper::Body</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Body</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">hbody</span>: <span class="ident">hyper::Body</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">Body::new</span>(
-            <span class="ident">hbody</span>
-                .<span class="ident">into_stream</span>()
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxError</span> { <span class="ident">Box::new</span>(<span class="ident">err</span>) }),
-        )
     }
 }
 </code></pre></div>

@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["chat_server"] = [{"text":"impl <a class=\"trait\" href=\"chat_common/chat/chat_server/trait.Chat.html\" title=\"trait chat_common::chat::chat_server::Chat\">Chat</a> for <a class=\"struct\" href=\"chat_server/struct.ChatService.html\" title=\"struct chat_server::ChatService\">ChatService</a>","synthetic":false,"types":["chat_server::ChatService"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -281,6 +281,30 @@
 <span id="281">281</span>
 <span id="282">282</span>
 <span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A HTTP transport that compiles to WASM and works on the Web.</span>
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
@@ -292,7 +316,7 @@
 
 <span class="kw">use</span> <span class="ident">bytes::Buf</span>;
 <span class="kw">use</span> <span class="ident">futures_util::StreamExt</span>;
-<span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>, <span class="ident">HeaderMap</span>, <span class="ident">Uri</span>};
+<span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>, <span class="ident">HeaderMap</span>, <span class="ident">HeaderValue</span>, <span class="ident">Uri</span>};
 <span class="kw">use</span> <span class="ident">js_sys::Uint8Array</span>;
 <span class="kw">use</span> <span class="ident">prost::Message</span>;
 <span class="kw">use</span> <span class="ident">reqwasm::http::Request</span> <span class="kw">as</span> <span class="ident">WasmRequest</span>;
@@ -307,11 +331,11 @@
         <span class="ident">ClientError</span>,
     },
     <span class="ident">common::transport</span>::{
-        <span class="ident">http</span>::{<span class="ident">ws_version</span>, <span class="ident">HRPC_VERSION_HEADER</span>},
+        <span class="ident">http</span>::{<span class="ident">version_header_name</span>, <span class="ident">ws_version</span>, <span class="ident">HRPC_VERSION_HEADER</span>},
         <span class="ident">ws_wasm::WebSocket</span>,
     },
     <span class="ident">proto::Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>,
-    <span class="ident">request</span>, <span class="ident">BoxError</span>, <span class="ident">Response</span>, <span class="ident">HRPC_CONTENT_MIMETYPE</span>, <span class="ident">HRPC_SPEC_VERSION</span>,
+    <span class="ident">request</span>, <span class="ident">response</span>, <span class="ident">BoxError</span>, <span class="ident">Response</span>, <span class="ident">HRPC_CONTENT_MIMETYPE</span>, <span class="ident">HRPC_SPEC_VERSION</span>,
 };
 
 <span class="doccomment">/// HTTP client that compiles to WASM and works on the Web.</span>
@@ -323,6 +347,10 @@
 <span class="doccomment">/// request that will be used. Headers added by the client by default will</span>
 <span class="doccomment">/// be overwrited, so take care while inserting headers that are mentioned</span>
 <span class="doccomment">/// in [the spec].</span>
+<span class="doccomment">/// - Adds [`http::StatusCode`], to the [`Response`] extension returned in</span>
+<span class="doccomment">/// unary requests. Also adds [`HRPC_VERSION_HEADER`] and [`header::CONTENT_TYPE`]</span>
+<span class="doccomment">/// to a [`http::HeaderMap`] in the response&#39;s extensions. See limitations</span>
+<span class="doccomment">/// as for why all of the headers aren&#39;t added.</span>
 <span class="doccomment">/// - (For streaming requests) Look for [`SocketProtocols`] in a [`Request`]s</span>
 <span class="doccomment">/// extensions, if it exists it will be used to set the protocols of the</span>
 <span class="doccomment">/// WebSocket that will be created. This will overwrite the protocols added</span>
@@ -332,14 +360,15 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// - This client does not support setting headers for streaming requests,</span>
 <span class="doccomment">/// due to Web&#39;s `WebSocket` API&#39;s limitations.</span>
-<span class="doccomment">/// - This client does not add a [`HeaderMap`] to the returned [`Response`]&#39;s</span>
-<span class="doccomment">/// extensions. This is due to https://github.com/rustwasm/wasm-bindgen/pull/1913</span>
-<span class="doccomment">/// not being in `wasm-bindgen`.</span>
+<span class="doccomment">/// - This client does not add all of the headers of the response to the [`HeaderMap`]</span>
+<span class="doccomment">/// of the returned [`Response`]&#39;s extensions. This is due to</span>
+<span class="doccomment">/// https://github.com/rustwasm/wasm-bindgen/pull/1913 not being in `wasm-bindgen`.</span>
 <span class="doccomment">/// - If inserting [`HeaderMap`] in [`Request`] extensions to add headers,</span>
 <span class="doccomment">/// keep in mind that **header values that are not valid strings won&#39;t be added**.</span>
 <span class="doccomment">/// See [`HeaderValue`]&#39;s `to_str` method for information about a &quot;valid string&quot;.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// [the spec]: https://github.com/harmony-development/hrpc/blob/main/protocol/SPEC.md</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Wasm</span> {
     <span class="ident">server</span>: <span class="ident">Uri</span>,
     <span class="ident">check_spec_version</span>: <span class="ident">bool</span>,
@@ -357,7 +386,6 @@
     <span class="doccomment">/// Set whether to check for spec version.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Note that this only affects unary requests.</span>
-    <span class="doccomment">/// Not checking spec version can save some allocations.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">check_spec_version</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">enabled</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">check_spec_version</span> <span class="op">=</span> <span class="ident">enabled</span>;
         <span class="self">self</span>
@@ -392,10 +420,10 @@
                     <span class="ident">scheme</span>,
                     <span class="self">self</span>.<span class="ident">server</span>
                         .<span class="ident">host</span>()
-                        .<span class="ident">expect</span>(<span class="string">&quot;expected host on server URI, this is a bug&quot;</span>),
+                        .<span class="ident">expect_throw</span>(<span class="string">&quot;expected host on server URI, this is a bug&quot;</span>),
                     <span class="self">self</span>.<span class="ident">server</span>
                         .<span class="ident">port_u16</span>()
-                        .<span class="ident">expect</span>(<span class="string">&quot;expected port on server URI, this is a bug&quot;</span>),
+                        .<span class="ident">expect_throw</span>(<span class="string">&quot;expected port on server URI, this is a bug&quot;</span>),
                     <span class="ident">endpoint</span>.<span class="ident">trim_start_matches</span>(<span class="string">&#39;/&#39;</span>),
                 );
 
@@ -408,6 +436,7 @@
                     <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">ws_stream</span>) <span class="op">=</span> <span class="ident">ws_stream_wasm::WsMeta::connect</span>(<span class="ident">url</span>, <span class="ident">protocols</span>)
                         .<span class="kw">await</span>
                         .<span class="ident">map_err</span>(<span class="ident">WasmError::SocketInitError</span>)<span class="question-mark">?</span>;
+
                     <span class="kw">let</span> <span class="ident">ws</span> <span class="op">=</span> <span class="ident">WebSocket::new</span>(<span class="ident">ws_stream</span>);
                     <span class="kw">let</span> (<span class="ident">ws_tx</span>, <span class="ident">ws_rx</span>) <span class="op">=</span> <span class="ident">ws</span>.<span class="ident">split</span>();
                     <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">box_socket_stream_sink</span>(<span class="ident">ws_tx</span>, <span class="ident">ws_rx</span>);
@@ -440,7 +469,7 @@
                 <span class="kw">let</span> <span class="ident">check_spec_version</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">check_spec_version</span>;
 
                 <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
-                    <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">body</span>.<span class="ident">aggregate</span>().<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="ident">WasmError::BodyError</span>)<span class="question-mark">?</span>;
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">body</span>.<span class="ident">aggregate</span>().<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="ident">WasmError::BodyError</span>)<span class="question-mark">?</span>;
 
                     <span class="ident">request</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">body</span>({
                         <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">Uint8Array::new_with_length</span>(
@@ -450,13 +479,16 @@
                         );
                         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">offset</span> <span class="op">=</span> <span class="number">0</span>;
                         <span class="kw">while</span> <span class="ident">data</span>.<span class="ident">has_remaining</span>() {
-                            <span class="kw">let</span> <span class="ident">chunk</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">chunk</span>();
-                            <span class="kw">unsafe</span> { <span class="ident">buf</span>.<span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="ident">Uint8Array::view</span>(<span class="ident">chunk</span>), <span class="ident">offset</span>) }
-                            <span class="kw">let</span> <span class="ident">chunk_len</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">chunk</span>
-                                .<span class="ident">len</span>()
+                            <span class="kw">let</span> <span class="ident">chunk_len</span> <span class="op">=</span> {
+                                <span class="kw">let</span> <span class="ident">chunk</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">chunk</span>();
+                                <span class="kw">unsafe</span> { <span class="ident">buf</span>.<span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="ident">Uint8Array::view</span>(<span class="ident">chunk</span>), <span class="ident">offset</span>) }
+                                <span class="ident">chunk</span>.<span class="ident">len</span>()
+                            };
+                            <span class="kw">let</span> <span class="ident">chunk_len_js</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">chunk_len</span>
                                 .<span class="ident">try_into</span>()
                                 .<span class="ident">expect_throw</span>(<span class="string">&quot;can&#39;t send data bigger than a u32&quot;</span>);
-                            <span class="ident">offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">chunk_len</span>;
+                            <span class="ident">offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">chunk_len_js</span>;
+                            <span class="ident">data</span>.<span class="ident">advance</span>(<span class="ident">chunk_len</span>);
                         }
                         <span class="ident">buf</span>
                     });
@@ -476,10 +508,13 @@
                         });
                     }
 
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">Response::empty</span>();
+
                     <span class="kw">let</span> <span class="ident">content_type</span> <span class="op">=</span> <span class="ident">response</span>
                         .<span class="ident">headers</span>()
                         .<span class="ident">get</span>(<span class="ident">header::CONTENT_TYPE</span>.<span class="ident">as_str</span>())
                         .<span class="ident">expect_throw</span>(<span class="string">&quot;header name is valid&quot;</span>);
+
                     <span class="kw">if</span> <span class="op">!</span><span class="ident">content_type</span>
                         .<span class="ident">as_ref</span>()
                         .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">split</span>(<span class="string">&#39;;&#39;</span>).<span class="ident">next</span>())
@@ -488,24 +523,37 @@
                         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::ContentNotSupported</span>);
                     }
 
-                    <span class="kw">if</span> <span class="ident">check_spec_version</span> {
-                        <span class="kw">let</span> <span class="ident">hrpc_version</span> <span class="op">=</span> <span class="ident">response</span>
-                            .<span class="ident">headers</span>()
-                            .<span class="ident">get</span>(<span class="ident">HRPC_VERSION_HEADER</span>)
-                            .<span class="ident">expect_throw</span>(<span class="string">&quot;header name is valid&quot;</span>);
-                        <span class="kw">if</span> <span class="ident">hrpc_version</span>
-                            .<span class="ident">as_ref</span>()
-                            .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span> <span class="op">=</span><span class="op">=</span> <span class="ident">HRPC_SPEC_VERSION</span>)
-                        {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::IncompatibleSpecVersion</span>);
-                        }
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">value</span>) <span class="op">=</span> <span class="ident">content_type</span>.<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">HeaderValue::from_str</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>).<span class="ident">ok</span>()) {
+                        <span class="ident">resp</span>.<span class="ident">get_or_insert_header_map</span>()
+                            .<span class="ident">insert</span>(<span class="ident">header::CONTENT_TYPE</span>, <span class="ident">value</span>);
                     }
 
-                    <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">response</span>.<span class="ident">binary</span>().<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="ident">WasmError::HttpError</span>)<span class="question-mark">?</span>;
+                    <span class="kw">let</span> <span class="ident">hrpc_version</span> <span class="op">=</span> <span class="ident">response</span>
+                        .<span class="ident">headers</span>()
+                        .<span class="ident">get</span>(<span class="ident">HRPC_VERSION_HEADER</span>)
+                        .<span class="ident">expect_throw</span>(<span class="string">&quot;header name is valid&quot;</span>);
 
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">Response::new_with_body</span>(<span class="ident">Body::full</span>(<span class="ident">data</span>));
+                    <span class="kw">if</span> <span class="ident">check_spec_version</span>
+                        <span class="op">&amp;&amp;</span> <span class="ident">hrpc_version</span>
+                            .<span class="ident">as_ref</span>()
+                            .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span> <span class="op">=</span><span class="op">=</span> <span class="ident">HRPC_SPEC_VERSION</span>)
+                            .<span class="ident">not</span>()
+                    {
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::IncompatibleSpecVersion</span>);
+                    }
+
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">value</span>) <span class="op">=</span> <span class="ident">hrpc_version</span>.<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">HeaderValue::from_str</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>).<span class="ident">ok</span>()) {
+                        <span class="ident">resp</span>.<span class="ident">get_or_insert_header_map</span>()
+                            .<span class="ident">insert</span>(<span class="ident">version_header_name</span>(), <span class="ident">value</span>);
+                    }
 
                     <span class="ident">resp</span>.<span class="ident">extensions_mut</span>().<span class="ident">insert</span>(<span class="ident">status</span>);
+
+                    <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">response</span>.<span class="ident">binary</span>().<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="ident">WasmError::HttpError</span>)<span class="question-mark">?</span>;
+                    <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">Response::from</span>(<span class="ident">response::Parts</span> {
+                        <span class="ident">body</span>: <span class="ident">Body::full</span>(<span class="ident">data</span>),
+                        ..<span class="ident">response::Parts::from</span>(<span class="ident">resp</span>)
+                    });
 
                     <span class="prelude-val">Ok</span>(<span class="ident">TransportResponse::new_unary</span>(<span class="ident">resp</span>))
                 })

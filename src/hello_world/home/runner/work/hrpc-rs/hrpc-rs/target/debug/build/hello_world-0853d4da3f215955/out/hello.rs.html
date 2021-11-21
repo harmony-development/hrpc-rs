@@ -132,6 +132,7 @@
 <span id="132">132</span>
 <span id="133">133</span>
 <span id="134">134</span>
+<span id="135">135</span>
 </pre><pre class="rust"><code><span class="doccomment">/// Request used in `WelcomeUser` endpoint.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">::prost::Message</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WelcomeUserRequest</span> {
@@ -157,20 +158,21 @@
     }
     <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> <span class="ident">GreeterClient</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>
     <span class="kw">where</span>
-        <span class="ident">Inner</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span><span class="op">&gt;</span>,
-        <span class="ident">Inner::Error</span>: <span class="ident">std::error::Error</span>,
+        <span class="ident">Inner</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">Inner::Error</span>: <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     {
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot; Endpoint to welcome a user.&quot;</span>]</span>
-        <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">welcome_user</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">welcome_user</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
             <span class="ident">req</span>: <span class="ident">Req</span>,
-        ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::WelcomeUserResponse</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span>
+        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::WelcomeUserResponse</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span>
+               <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::WelcomeUserRequest</span><span class="op">&gt;</span>,
         {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into_request</span>();
             <span class="kw-2">*</span><span class="ident">req</span>.<span class="ident">endpoint_mut</span>() <span class="op">=</span> <span class="ident">Cow::Borrowed</span>(<span class="string">&quot;/hello.Greeter/WelcomeUser&quot;</span>);
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">execute_request</span>(<span class="ident">req</span>).<span class="kw">await</span>
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">execute_request</span>(<span class="ident">req</span>)
         }
     }
     <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> <span class="ident">GreeterClient</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> {

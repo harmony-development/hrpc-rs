@@ -228,47 +228,47 @@
     }
     <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> <span class="ident">MuClient</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>
     <span class="kw">where</span>
-        <span class="ident">Inner</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span><span class="op">&gt;</span>,
-        <span class="ident">Inner::Error</span>: <span class="ident">std::error::Error</span>,
+        <span class="ident">Inner</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">Inner::Error</span>: <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     {
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot; Mu RPC.&quot;</span>]</span>
-        <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mu</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
             <span class="ident">req</span>: <span class="ident">Req</span>,
-        ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span>
+        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span><span class="op">&gt;</span>,
         {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into_request</span>();
             <span class="kw-2">*</span><span class="ident">req</span>.<span class="ident">endpoint_mut</span>() <span class="op">=</span> <span class="ident">Cow::Borrowed</span>(<span class="string">&quot;/test.Mu/Mu&quot;</span>);
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">execute_request</span>(<span class="ident">req</span>).<span class="kw">await</span>
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">execute_request</span>(<span class="ident">req</span>)
         }
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot; MuMute RPC.&quot;</span>]</span>
-        <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu_mute</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mu_mute</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
             <span class="ident">req</span>: <span class="ident">Req</span>,
-        ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span>, <span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span>
+        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span>, <span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
         {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into_request</span>();
             <span class="kw-2">*</span><span class="ident">req</span>.<span class="ident">endpoint_mut</span>() <span class="op">=</span> <span class="ident">Cow::Borrowed</span>(<span class="string">&quot;/test.Mu/MuMute&quot;</span>);
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">connect_socket</span>(<span class="ident">req</span>).<span class="kw">await</span>
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">connect_socket</span>(<span class="ident">req</span>)
         }
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot; MuMu RPC.&quot;</span>]</span>
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot; \\`\\`\\`&quot;</span>]</span>
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot; test&quot;</span>]</span>
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot; \\`\\`\\`&quot;</span>]</span>
-        <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mu_mu</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mu_mu</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
             <span class="ident">req</span>: <span class="ident">Req</span>,
-        ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span>, <span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span>
+        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span>, <span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span><span class="op">&gt;</span>,
         {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into_request</span>();
             <span class="kw-2">*</span><span class="ident">req</span>.<span class="ident">endpoint_mut</span>() <span class="op">=</span> <span class="ident">Cow::Borrowed</span>(<span class="string">&quot;/test.Mu/MuMu&quot;</span>);
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">connect_socket_req</span>(<span class="ident">req</span>).<span class="kw">await</span>
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">connect_socket_req</span>(<span class="ident">req</span>)
         }
     }
     <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> <span class="ident">MuClient</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> {
