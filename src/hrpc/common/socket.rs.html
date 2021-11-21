@@ -269,16 +269,14 @@
 <span id="269">269</span>
 <span id="270">270</span>
 <span id="271">271</span>
-<span id="272">272</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">marker::PhantomData</span>,
     <span class="ident">pin::Pin</span>,
     <span class="ident">task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>},
 };
 
-<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">Future</span>, <span class="ident">Sink</span>, <span class="ident">SinkExt</span>, <span class="ident">Stream</span>, <span class="ident">StreamExt</span>};
+<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">ready</span>, <span class="ident">Future</span>, <span class="ident">Sink</span>, <span class="ident">SinkExt</span>, <span class="ident">Stream</span>, <span class="ident">StreamExt</span>};
 
 <span class="kw">use</span> <span class="ident">bytes::BytesMut</span>;
 <span class="kw">use</span> <span class="ident">prost::Message</span> <span class="kw">as</span> <span class="ident">PbMsg</span>;
@@ -413,7 +411,6 @@
 <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;read sockets do nothing unless you use `.receive_message()`&quot;</span>]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ReadSocket</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span> {
     <span class="ident">ws_rx</span>: <span class="ident">BoxedWsRx</span>,
-    <span class="ident">_resp</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>,
     <span class="ident">decode_message</span>: <span class="ident">DecodeMessageFn</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>,
     <span class="ident">ping_tx</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PingTx</span><span class="op">&gt;</span>,
 }
@@ -422,7 +419,6 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">ws_rx</span>: <span class="ident">BoxedWsRx</span>, <span class="ident">decode_message</span>: <span class="ident">DecodeMessageFn</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">ws_rx</span>,
-            <span class="ident">_resp</span>: <span class="ident">PhantomData</span>,
             <span class="ident">decode_message</span>,
             <span class="ident">ping_tx</span>: <span class="prelude-val">None</span>,
         }
@@ -468,9 +464,13 @@
                     <span class="ident">SocketMessage::Binary</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Poll::Ready</span>((<span class="self">self</span>.<span class="ident">decode_message</span>)(<span class="ident">data</span>)),
                     <span class="ident">SocketMessage::Ping</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ping_tx</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">ping_tx</span> {
-                            <span class="ident">ping_tx</span>
-                                .<span class="ident">start_send_unpin</span>(<span class="ident">data</span>)
-                                .<span class="ident">map_or_else</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)), <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Poll::Pending</span>)
+                            <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="macro">ready!</span>(<span class="ident">ping_tx</span>.<span class="ident">poll_ready_unpin</span>(<span class="ident">cx</span>));
+                            <span class="kw">match</span> <span class="ident">res</span> {
+                                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ping_tx</span>
+                                    .<span class="ident">start_send_unpin</span>(<span class="ident">data</span>)
+                                    .<span class="ident">map_or_else</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)), <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Poll::Pending</span>),
+                                <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)),
+                            }
                         } <span class="kw">else</span> {
                             <span class="ident">Poll::Pending</span>
                         }
@@ -490,7 +490,6 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">ws_tx</span>: <span class="ident">BoxedWsTx</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">buf</span>: <span class="ident">BytesMut</span>,
-    <span class="ident">_req</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
     <span class="ident">encode_message</span>: <span class="ident">EncodeMessageFn</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
     <span class="ident">ping_rx</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PingRx</span><span class="op">&gt;</span>,
 }
@@ -500,7 +499,6 @@
         <span class="self">Self</span> {
             <span class="ident">ws_tx</span>,
             <span class="ident">buf</span>: <span class="ident">BytesMut::new</span>(),
-            <span class="ident">_req</span>: <span class="ident">PhantomData</span>,
             <span class="ident">encode_message</span>,
             <span class="ident">ping_rx</span>: <span class="prelude-val">None</span>,
         }
