@@ -5,7 +5,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures_util::{Future, Sink, SinkExt, Stream, StreamExt};
+use futures_util::{ready, Future, Sink, SinkExt, Stream, StreamExt};
 
 use bytes::BytesMut;
 use prost::Message as PbMsg;
@@ -193,9 +193,13 @@ impl<'a, Resp> Future for ReceiveMessageFuture<'a, Resp> {
                     SocketMessage::Binary(data) => Poll::Ready((self.decode_message)(data)),
                     SocketMessage::Ping(data) => {
                         if let Some(ping_tx) = &mut self.ping_tx {
-                            ping_tx
-                                .start_send_unpin(data)
-                                .map_or_else(|err| Poll::Ready(Err(err)), |_| Poll::Pending)
+                            let res = ready!(ping_tx.poll_ready_unpin(cx));
+                            match res {
+                                Ok(_) => ping_tx
+                                    .start_send_unpin(data)
+                                    .map_or_else(|err| Poll::Ready(Err(err)), |_| Poll::Pending),
+                                Err(err) => Poll::Ready(Err(err)),
+                            }
                         } else {
                             Poll::Pending
                         }
