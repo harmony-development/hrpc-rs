@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use std::{
-    marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -141,7 +140,6 @@ where
 #[must_use = "read sockets do nothing unless you use `.receive_message()`"]
 pub struct ReadSocket<Resp> {
     ws_rx: BoxedWsRx,
-    _resp: PhantomData<Resp>,
     decode_message: DecodeMessageFn<Resp>,
     ping_tx: Option<PingTx>,
 }
@@ -150,7 +148,6 @@ impl<Resp: PbMsg + Default> ReadSocket<Resp> {
     pub(crate) fn new(ws_rx: BoxedWsRx, decode_message: DecodeMessageFn<Resp>) -> Self {
         Self {
             ws_rx,
-            _resp: PhantomData,
             decode_message,
             ping_tx: None,
         }
@@ -218,7 +215,6 @@ impl<'a, Resp> Future for ReceiveMessageFuture<'a, Resp> {
 pub struct WriteSocket<Req> {
     pub(crate) ws_tx: BoxedWsTx,
     pub(crate) buf: BytesMut,
-    _req: PhantomData<Req>,
     encode_message: EncodeMessageFn<Req>,
     ping_rx: Option<PingRx>,
 }
@@ -228,7 +224,6 @@ impl<Req: PbMsg> WriteSocket<Req> {
         Self {
             ws_tx,
             buf: BytesMut::new(),
-            _req: PhantomData,
             encode_message,
             ping_rx: None,
         }
