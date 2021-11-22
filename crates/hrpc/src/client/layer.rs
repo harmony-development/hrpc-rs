@@ -17,6 +17,7 @@ pub type ModifyReq = fn(&mut BoxRequest);
 pub type ModifyResp = fn(&mut BoxResponse);
 
 /// Layer for creating [`Modify`] instances.
+/// Please see it's documentation for more information and limitations.
 #[derive(Clone)]
 pub struct ModifyLayer {
     req_fn: ModifyReq,
@@ -27,6 +28,16 @@ impl ModifyLayer {
     /// Create a new layer.
     pub fn new(req_fn: ModifyReq, resp_fn: ModifyResp) -> Self {
         Self { req_fn, resp_fn }
+    }
+
+    /// Create a new layer that only modifies requests.
+    pub fn new_request(f: ModifyReq) -> Self {
+        Self::new(f, |_| ())
+    }
+
+    /// Create a new layer that only modifies responses.
+    pub fn new_response(f: ModifyResp) -> Self {
+        Self::new(|_| (), f)
     }
 }
 
