@@ -48,17 +48,21 @@
 <span id="48">48</span>
 <span id="49">49</span>
 <span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">chat_common</span>::{
     <span class="ident">chat</span>::{<span class="ident">chat_client::ChatClient</span>, <span class="kw-2">*</span>},
     <span class="ident">BoxError</span>,
 };
 
+<span class="kw">use</span> <span class="ident">hrpc::client::transport::http::Hyper</span>;
 <span class="kw">use</span> <span class="ident">rustyline</span>::{<span class="ident">error::ReadlineError</span>, <span class="ident">Editor</span> <span class="kw">as</span> <span class="ident">Rustyline</span>};
 
 <span class="attribute">#[<span class="ident">tokio::main</span>]</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">BoxError</span><span class="op">&gt;</span> {
     <span class="comment">// Create a new chat client</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">ChatClient::new</span>(<span class="string">&quot;http://localhost:2289&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span> <span class="ident">Hyper::new</span>(<span class="string">&quot;http://localhost:2289&quot;</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">ChatClient::new_transport</span>(<span class="ident">transport</span>);
 
     <span class="comment">// Connect to message socket</span>
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">client</span>.<span class="ident">stream_messages</span>(<span class="ident">Empty</span> {}).<span class="kw">await</span><span class="question-mark">?</span>;
