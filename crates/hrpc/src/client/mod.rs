@@ -80,7 +80,6 @@ where
     where
         L: Layer<Inner, Service = S>,
         S: Service<TransportRequest, Response = TransportResponse>,
-        S::Error: std::error::Error,
     {
         Client {
             transport: l.layer(self.transport),
