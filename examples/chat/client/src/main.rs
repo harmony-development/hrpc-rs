@@ -13,15 +13,12 @@ use rustyline::{error::ReadlineError, Editor as Rustyline};
 async fn main() -> Result<(), BoxError> {
     // Create a new chat client
     let transport = Hyper::new("http://localhost:2289".parse()?)?;
-    let generic_client = Client::new(transport).layer(ModifyLayer::new(
-        |_| (),
-        |resp| {
-            println!(
-                "response status: {:?}",
-                resp.extensions().get::<StatusCode>()
-            )
-        },
-    ));
+    let generic_client = Client::new(transport).layer(ModifyLayer::new_response(|resp| {
+        println!(
+            "response status: {:?}",
+            resp.extensions().get::<StatusCode>()
+        )
+    }));
     let mut client = ChatClient::new_inner(generic_client);
 
     // Connect to message socket
