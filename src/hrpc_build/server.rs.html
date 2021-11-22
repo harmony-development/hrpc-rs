@@ -184,11 +184,6 @@
 <span id="184">184</span>
 <span id="185">185</span>
 <span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Method</span>, <span class="ident">Service</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">generate_doc_comment</span>, <span class="ident">generate_doc_comments</span>, <span class="ident">naive_snake_case</span>};
 <span class="kw">use</span> <span class="ident">proc_macro2::TokenStream</span>;
@@ -303,11 +298,10 @@
                 #<span class="ident">method_doc</span>
                 <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>#<span class="ident">req_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">HrpcResponse</span><span class="op">&lt;</span>#<span class="ident">res_message</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>;
             },
-            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">|</span> (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">quote!</span> {
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">|</span> (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">|</span> (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">quote!</span> {
                 #<span class="ident">method_doc</span>
                 <span class="kw">fn</span> #<span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">res_message</span>, #<span class="ident">req_message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">ServerResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span>;
             },
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;{}: Client streaming server unary method is invalid.&quot;</span>, <span class="ident">name</span>),
         };
 
         <span class="ident">stream</span>.<span class="ident">extend</span>(<span class="ident">method</span>);
@@ -350,11 +344,7 @@
                     <span class="ident">unary_handler</span>(<span class="ident">handler</span>)
                 }
             }
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(
-                <span class="string">&quot;{}.{}: Client streaming server unary method is invalid.&quot;</span>,
-                <span class="ident">package_name</span>, <span class="ident">method_name</span>
-            ),
-            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">|</span> (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">|</span> (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">|</span> (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">quote!</span> {
                     <span class="kw">let</span> <span class="ident">svr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">service</span>.<span class="ident">clone</span>();
                     <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">request</span>: <span class="ident">HrpcRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">res_message</span>, #<span class="ident">req_message</span><span class="op">&gt;</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">svr</span>. #<span class="ident">name</span> (<span class="ident">request</span>, <span class="ident">socket</span>).<span class="kw">await</span> };
