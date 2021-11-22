@@ -114,6 +114,17 @@
 <span id="114">114</span>
 <span id="115">115</span>
 <span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">pin::Pin</span>,
     <span class="ident">task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>},
@@ -133,6 +144,7 @@
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">ModifyResp</span> <span class="op">=</span> <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">BoxResponse</span>);
 
 <span class="doccomment">/// Layer for creating [`Modify`] instances.</span>
+<span class="doccomment">/// Please see it&#39;s documentation for more information and limitations.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ModifyLayer</span> {
     <span class="ident">req_fn</span>: <span class="ident">ModifyReq</span>,
@@ -143,6 +155,16 @@
     <span class="doccomment">/// Create a new layer.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">req_fn</span>: <span class="ident">ModifyReq</span>, <span class="ident">resp_fn</span>: <span class="ident">ModifyResp</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> { <span class="ident">req_fn</span>, <span class="ident">resp_fn</span> }
+    }
+
+    <span class="doccomment">/// Create a new layer that only modifies requests.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_request</span>(<span class="ident">f</span>: <span class="ident">ModifyReq</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">f</span>, <span class="op">|</span><span class="kw">_</span><span class="op">|</span> ())
+    }
+
+    <span class="doccomment">/// Create a new layer that only modifies responses.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_response</span>(<span class="ident">f</span>: <span class="ident">ModifyResp</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::new</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> (), <span class="ident">f</span>)
     }
 }
 
