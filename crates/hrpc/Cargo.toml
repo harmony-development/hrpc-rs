@@ -90,7 +90,7 @@ futures-util = { version = "0.3", default-features = false, features = ["std"] }
 pin-project-lite = { version = "0.2", default-features = false, optional = true }
 
 # Re-exported by server
-hrpc-proc-macro = { version = "0.29.0", path = "../hrpc-proc-macro", optional = true }
+hrpc-proc-macro = { version = "0.30.0", path = "../hrpc-proc-macro", optional = true }
 # Used by server for it's incredible Service trait and other utilities
 tower = { version = "0.4", default-features = false, features = [
     "util",
@@ -119,8 +119,11 @@ hyper = { version = "0.14", default-features = false, features = [
     "runtime",
     "stream",
 ], optional = true }
-hyper-rustls = { version = "0.22", default-features = false, features = [
+hyper-rustls = { version = "0.23", default-features = false, features = [
     "native-tokio",
+    "tls12",
+    "http1",
+    "http2",
 ], optional = true }
 tokio-tungstenite = { version = "0.16", default-features = false, features = [
     "rustls-tls-native-roots",

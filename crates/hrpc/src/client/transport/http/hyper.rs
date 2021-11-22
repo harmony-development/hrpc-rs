@@ -46,7 +46,12 @@ pub type HttpClient = hyper::Client<hyper_rustls::HttpsConnector<hyper::client::
 
 /// Creates a new [`HttpClient`] that you can use.
 pub fn http_client(builder: &mut hyper::client::Builder) -> HttpClient {
-    let connector = hyper_rustls::HttpsConnector::with_native_roots();
+    let connector = hyper_rustls::HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .https_or_http()
+        .enable_http1()
+        .enable_http2()
+        .build();
     builder.build(connector)
 }
 
