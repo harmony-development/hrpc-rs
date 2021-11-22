@@ -5,6 +5,7 @@ use std::{
 
 use futures_util::{Future, FutureExt};
 use http::StatusCode;
+use pin_project_lite::pin_project;
 use tower::{Layer, Service};
 
 use crate::{proto::Error as HrpcError, request::BoxRequest, response::BoxResponse};
@@ -53,7 +54,6 @@ impl<S> ErrorIdentifierToStatus<S> {
 impl<S> Service<BoxRequest> for ErrorIdentifierToStatus<S>
 where
     S: Service<BoxRequest, Response = BoxResponse>,
-    S::Future: Unpin,
 {
     type Response = BoxResponse;
 
@@ -73,24 +73,29 @@ where
     }
 }
 
-/// Future for [`ErrorIdentifierToStatus`].
-pub struct ErrorIdentifierToStatusFuture<Fut> {
-    resp_fut: Fut,
-    to_status: ToStatus,
+pin_project! {
+    /// Future for [`ErrorIdentifierToStatus`].
+    pub struct ErrorIdentifierToStatusFuture<Fut> {
+        #[pin]
+        resp_fut: Fut,
+        to_status: ToStatus,
+    }
 }
 
 impl<Fut, Err> Future for ErrorIdentifierToStatusFuture<Fut>
 where
-    Fut: Future<Output = Result<BoxResponse, Err>> + Unpin,
+    Fut: Future<Output = Result<BoxResponse, Err>>,
 {
     type Output = Result<BoxResponse, Err>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.resp_fut.poll_unpin(cx).map_ok(|mut resp| {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
+
+        this.resp_fut.poll_unpin(cx).map_ok(|mut resp| {
             if let Some(status) = resp
                 .extensions()
                 .get::<HrpcError>()
-                .and_then(|err| (self.to_status)(&err.identifier))
+                .and_then(|err| (this.to_status)(&err.identifier))
             {
                 resp.extensions_mut().insert(status);
             }
