@@ -87,10 +87,14 @@ where
     }
 
     /// Executes a unary request and returns the decoded response.
-    pub fn execute_request<Req: prost::Message, Resp: prost::Message + Default>(
+    pub fn execute_request<Req, Resp>(
         &mut self,
         req: Request<Req>,
-    ) -> impl Future<Output = ClientResult<Response<Resp>, InnerErr>> + 'static {
+    ) -> impl Future<Output = ClientResult<Response<Resp>, InnerErr>> + 'static
+    where
+        Req: prost::Message,
+        Resp: prost::Message + Default,
+    {
         Service::call(&mut self.transport, TransportRequest::Unary(req.map()))
             .map_ok(|resp| resp.extract_unary().map::<Resp>())
             .map_err(ClientError::from)
