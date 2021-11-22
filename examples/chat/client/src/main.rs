@@ -6,7 +6,6 @@ use chat_common::{
 use hrpc::{
     client::{layer::ModifyLayer, transport::http::Hyper, Client},
     exports::http::StatusCode,
-    response::BoxResponse,
 };
 use rustyline::{error::ReadlineError, Editor as Rustyline};
 
@@ -16,7 +15,7 @@ async fn main() -> Result<(), BoxError> {
     let transport = Hyper::new("http://localhost:2289".parse()?)?;
     let generic_client = Client::new(transport).layer(ModifyLayer::new(
         |_| (),
-        |resp: &mut BoxResponse| {
+        |resp| {
             println!(
                 "response status: {:?}",
                 resp.extensions().get::<StatusCode>()
