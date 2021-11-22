@@ -10,6 +10,7 @@ use tower::{Layer, Service};
 use crate::{proto::Error as HrpcError, request::BoxRequest, response::BoxResponse};
 
 /// Layer for layering services with [`ErrorIdentifierToStatus`].
+#[derive(Clone)]
 pub struct ErrorIdentifierToStatusLayer {
     to_status: ToStatus,
 }
@@ -35,6 +36,7 @@ impl<S> Layer<S> for ErrorIdentifierToStatusLayer {
 pub type ToStatus = fn(&str) -> Option<StatusCode>;
 
 /// Service to set response status from possible errors.
+#[derive(Clone)]
 pub struct ErrorIdentifierToStatus<S> {
     inner: S,
     to_status: ToStatus,
@@ -50,12 +52,12 @@ impl<S> ErrorIdentifierToStatus<S> {
 
 impl<S> Service<BoxRequest> for ErrorIdentifierToStatus<S>
 where
-    S: Service<BoxRequest, Response = BoxResponse, Error = HrpcError>,
+    S: Service<BoxRequest, Response = BoxResponse>,
     S::Future: Unpin,
 {
     type Response = BoxResponse;
 
-    type Error = HrpcError;
+    type Error = S::Error;
 
     type Future = ErrorIdentifierToStatusFuture<S::Future>;
 
@@ -77,11 +79,11 @@ pub struct ErrorIdentifierToStatusFuture<Fut> {
     to_status: ToStatus,
 }
 
-impl<Fut> Future for ErrorIdentifierToStatusFuture<Fut>
+impl<Fut, Err> Future for ErrorIdentifierToStatusFuture<Fut>
 where
-    Fut: Future<Output = Result<BoxResponse, HrpcError>> + Unpin,
+    Fut: Future<Output = Result<BoxResponse, Err>> + Unpin,
 {
-    type Output = Result<BoxResponse, HrpcError>;
+    type Output = Result<BoxResponse, Err>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.resp_fut.poll_unpin(cx).map_ok(|mut resp| {
