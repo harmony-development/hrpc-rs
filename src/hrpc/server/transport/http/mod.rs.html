@@ -107,6 +107,8 @@
 <span id="107">107</span>
 <span id="108">108</span>
 <span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
 <span class="kw">use</span> <span class="ident">futures_util::future::BoxFuture</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -125,6 +127,8 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::Transport</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">server::MakeRoutes</span>, <span class="ident">BoxError</span>};
 
+<span class="doccomment">/// Useful layers for HTTP.</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">layer</span>;
 <span class="doccomment">/// Utilities for working with this transport.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">utils</span>;
 <span class="kw">mod</span> <span class="ident">ws</span>;
