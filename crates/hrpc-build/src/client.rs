@@ -129,7 +129,7 @@ fn generate_methods<T: Service>(service: &T, proto_path: &str) -> TokenStream {
             (false, false) => generate_unary,
             (true, true) => generate_streaming,
             (false, true) => generate_server_streaming,
-            (true, false) => panic!("{}: Client streaming server unary method is invalid.", path),
+            (true, false) => generate_client_streaming,
         };
 
         stream.extend(generate_doc_comments(method.comment()));
@@ -156,6 +156,22 @@ fn generate_unary<T: Method>(method: &T, proto_path: &str, path: String) -> Toke
 }
 
 fn generate_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> TokenStream {
+    let ident = format_ident!("{}", method.name());
+    let (request, response) = method.request_response_name(proto_path);
+
+    quote! {
+        pub fn #ident<Req>(&mut self, req: Req) -> impl Future<Output = ClientResult<Socket<#request, #response>, InnerErr>> + 'static
+        where
+            Req: IntoRequest<()>,
+        {
+            let mut req = req.into_request();
+            *req.endpoint_mut() = Cow::Borrowed(#path);
+            self.inner.connect_socket(req)
+        }
+    }
+}
+
+fn generate_client_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> TokenStream {
     let ident = format_ident!("{}", method.name());
     let (request, response) = method.request_response_name(proto_path);
 

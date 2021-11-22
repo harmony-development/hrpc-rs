@@ -112,11 +112,10 @@ fn generate_trait_methods<T: Service>(service: &T, proto_path: &str) -> TokenStr
                 #method_doc
                 fn #name(&self, request: HrpcRequest<#req_message>) -> BoxFuture<'_, ServerResult<HrpcResponse<#res_message>>>;
             },
-            (true, true) | (false, true) => quote! {
+            (true, false) | (true, true) | (false, true) => quote! {
                 #method_doc
                 fn #name(&self, request: HrpcRequest<()>, socket: Socket<#res_message, #req_message>) -> BoxFuture<'_, ServerResult<()>>;
             },
-            (true, false) => panic!("{}: Client streaming server unary method is invalid.", name),
         };
 
         stream.extend(method);
@@ -159,11 +158,7 @@ fn generate_handlers<T: Service>(service: &T, proto_path: &str) -> (TokenStream,
                     unary_handler(handler)
                 }
             }
-            (true, false) => panic!(
-                "{}.{}: Client streaming server unary method is invalid.",
-                package_name, method_name
-            ),
-            (true, true) | (false, true) => {
+            (true, false) | (true, true) | (false, true) => {
                 quote! {
                     let svr = self.service.clone();
                     let handler = move |request: HrpcRequest<()>, socket: Socket<#res_message, #req_message>| async move { svr. #name (request, socket).await };
