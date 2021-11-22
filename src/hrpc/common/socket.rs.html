@@ -318,6 +318,8 @@
 <span id="318">318</span>
 <span id="319">319</span>
 <span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -422,6 +424,8 @@
 <span class="doccomment">/// A hRPC socket.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Sockets only handle pings if you call `.receive_message()` continously.</span>
+<span class="doccomment">/// See the respective socket transports used for more information on their behaviour.</span>
+<span class="doccomment">/// The socket transports are located in [`crate::common::transport`].</span>
 <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;sockets do nothing unless you use `.send_message(msg)` or `.receive_message()`&quot;</span>]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">write</span>: <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
