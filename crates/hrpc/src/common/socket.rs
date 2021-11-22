@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
 use std::{
+    fmt::{self, Display, Formatter},
     pin::Pin,
+    sync::atomic::AtomicUsize,
     task::{Context, Poll},
 };
 
@@ -56,6 +58,17 @@ impl From<SocketError> for HrpcError {
     }
 }
 
+/// Error used when socket halfs could not be combined.
+#[derive(Debug)]
+#[non_exhaustive]
+pub struct CombineError;
+
+impl Display for CombineError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("cannot combine sockets, they aren't split from the same socket!")
+    }
+}
+
 /// A hRPC socket.
 ///
 /// Sockets by default **do not** handle pings. You must handle pings manually.
@@ -80,10 +93,13 @@ where
         encode_message: EncodeMessageFn<Req>,
         decode_message: DecodeMessageFn<Resp>,
     ) -> Self {
+        static SOCKET_ID: AtomicUsize = AtomicUsize::new(0);
+
+        let socket_id = SOCKET_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let (first_tx, second_tx) = BiLock::new(tx);
         Self {
-            write: WriteSocket::new(first_tx, encode_message),
-            read: ReadSocket::new(rx, second_tx, decode_message),
+            write: WriteSocket::new(first_tx, encode_message, socket_id),
+            read: ReadSocket::new(rx, second_tx, decode_message, socket_id),
         }
     }
 
@@ -119,6 +135,16 @@ where
     pub fn split(self) -> (WriteSocket<Req>, ReadSocket<Resp>) {
         (self.write, self.read)
     }
+
+    /// Combine a write and read half back to a socket.
+    ///
+    /// # Errors
+    /// - Returns [`CombineError`] if the socket halfs aren't split from the same socket.
+    pub fn combine(write: WriteSocket<Req>, read: ReadSocket<Resp>) -> Result<Self, CombineError> {
+        (write.socket_id == read.socket_id)
+            .then(|| Self { write, read })
+            .ok_or(CombineError)
+    }
 }
 
 /// Read half of a socket.
@@ -127,6 +153,7 @@ pub struct ReadSocket<Resp> {
     rx: BoxedSocketRx,
     tx: BiLock<BoxedSocketTx>,
     decode_message: DecodeMessageFn<Resp>,
+    socket_id: usize,
 }
 
 impl<Resp: PbMsg + Default> ReadSocket<Resp> {
@@ -134,11 +161,13 @@ impl<Resp: PbMsg + Default> ReadSocket<Resp> {
         rx: BoxedSocketRx,
         tx: BiLock<BoxedSocketTx>,
         decode_message: DecodeMessageFn<Resp>,
+        socket_id: usize,
     ) -> Self {
         Self {
             rx,
             tx,
             decode_message,
+            socket_id,
         }
     }
 
@@ -205,14 +234,20 @@ pub struct WriteSocket<Req> {
     pub(crate) tx: BiLock<BoxedSocketTx>,
     pub(crate) buf: BytesMut,
     encode_message: EncodeMessageFn<Req>,
+    socket_id: usize,
 }
 
 impl<Req: PbMsg> WriteSocket<Req> {
-    pub(crate) fn new(tx: BiLock<BoxedSocketTx>, encode_message: EncodeMessageFn<Req>) -> Self {
+    pub(crate) fn new(
+        tx: BiLock<BoxedSocketTx>,
+        encode_message: EncodeMessageFn<Req>,
+        socket_id: usize,
+    ) -> Self {
         Self {
             tx,
             buf: BytesMut::new(),
             encode_message,
+            socket_id,
         }
     }
 
