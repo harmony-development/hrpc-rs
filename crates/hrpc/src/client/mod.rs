@@ -20,6 +20,8 @@ use tower::{Layer, Service};
 
 /// Error types.
 pub mod error;
+/// Useful layers to use with the generic client.
+pub mod layer;
 /// hRPC socket used for streaming RPCs.
 pub mod socket;
 /// hRPC client transports.
