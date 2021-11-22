@@ -6,7 +6,11 @@ use chat_common::{
 };
 use hrpc::{
     bail,
-    server::{prelude::*, transport::http::Hyper},
+    exports::http::StatusCode,
+    server::{
+        prelude::*,
+        transport::http::{layer::ErrorIdentifierToStatusLayer, Hyper},
+    },
 };
 use tokio::sync::broadcast;
 use tower::limit::RateLimitLayer;
@@ -80,7 +84,10 @@ async fn main() -> Result<(), BoxError> {
     tracing_subscriber::fmt().init();
 
     // Create our chat service
-    let service = ChatServer::new(ChatService::new());
+    let service =
+        ChatServer::new(ChatService::new()).layer(ErrorIdentifierToStatusLayer::new(|id| {
+            id.eq("empty-message").then(|| StatusCode::BAD_REQUEST)
+        }));
 
     // Create our transport that we will use to serve our service
     let transport = Hyper::new("127.0.0.1:2289")?;
