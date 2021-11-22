@@ -3,12 +3,14 @@ use chat_common::{
     BoxError,
 };
 
+use hrpc::client::transport::http::Hyper;
 use rustyline::{error::ReadlineError, Editor as Rustyline};
 
 #[tokio::main]
 async fn main() -> Result<(), BoxError> {
     // Create a new chat client
-    let mut client = ChatClient::new("http://localhost:2289")?;
+    let transport = Hyper::new("http://localhost:2289".parse()?)?;
+    let mut client = ChatClient::new_transport(transport);
 
     // Connect to message socket
     let mut socket = client.stream_messages(Empty {}).await?;

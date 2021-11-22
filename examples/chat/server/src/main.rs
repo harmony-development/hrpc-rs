@@ -4,7 +4,10 @@ use chat_common::{
     chat::{chat_server::*, *},
     BoxError,
 };
-use hrpc::server::{prelude::*, transport::http::Hyper};
+use hrpc::{
+    bail,
+    server::{prelude::*, transport::http::Hyper},
+};
 use tokio::sync::broadcast;
 use tower::limit::RateLimitLayer;
 use tower_http::cors::CorsLayer;
@@ -32,6 +35,10 @@ impl Chat for ChatService {
     async fn send_message(&self, request: Request<Message>) -> ServerResult<Response<Empty>> {
         // Extract the message from the request
         let message = request.into_message().await?;
+
+        if message.content.is_empty() {
+            bail!(("empty-message", "empty messages aren't allowed"));
+        }
 
         // Log message content
         tracing::info!("got message: {}", message.content);

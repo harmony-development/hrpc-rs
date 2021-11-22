@@ -1,30 +1,32 @@
 //! A HTTP client transport implementation using [`hyper`].
 
 use std::{
+    borrow::Cow,
     error::Error as StdError,
     fmt::{self, Display, Formatter},
     ops::Not,
+    pin::Pin,
     str::FromStr,
     task::{Context, Poll},
     time::Duration,
 };
 
-use futures_util::StreamExt;
+use bytes::Bytes;
+use futures_util::{future::BoxFuture, ready, Future, FutureExt, StreamExt, TryFutureExt};
 use http::{
     header,
     uri::{PathAndQuery, Scheme},
     HeaderMap, Method, Uri,
 };
 use prost::Message;
-use tokio_tungstenite::tungstenite;
+use tokio::net::TcpStream;
+use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 use tower::Service;
 
 use crate::{
     client::{
         error::{ClientError, HrpcError},
-        transport::{
-            box_socket_stream_sink, CallResult, TransportError, TransportRequest, TransportResponse,
-        },
+        transport::{box_socket_stream_sink, TransportError, TransportRequest, TransportResponse},
     },
     common::transport::{
         http::{
@@ -111,7 +113,7 @@ impl Service<TransportRequest> for Hyper {
 
     type Error = TransportError<HyperError>;
 
-    type Future = CallResult<'static, TransportResponse, HyperError>;
+    type Future = HyperCallFuture;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Ok(()).into()
@@ -121,134 +123,225 @@ impl Service<TransportRequest> for Hyper {
         match req {
             TransportRequest::Unary(req) => {
                 let maybe_req_url = self.make_endpoint(None, req.endpoint());
-                let client = self.client.clone();
-                Box::pin(async move {
-                    let req_url = maybe_req_url?;
 
-                    let request::Parts {
-                        body,
-                        mut extensions,
-                        endpoint,
-                    } = req.into();
-
-                    let request = {
-                        let mut request =
-                            http::Request::builder().uri(req_url).method(Method::POST);
-
-                        let mut header_map = extensions.remove::<HeaderMap>().unwrap_or_default();
-                        // insert content type
-                        header_map.insert(header::CONTENT_TYPE, content_header_value());
-                        // insert spec version
-                        header_map.insert(version_header_name(), version_header_value());
-
-                        *request.headers_mut().unwrap() = header_map;
-
-                        request
-                            .body(body.into())
-                            .map_err(HyperError::FailedRequestBuilder)?
-                    };
-
-                    let resp = client.request(request).await.map_err(HyperError::Http)?;
-
-                    let status = resp.status();
-
-                    if status.is_success().not() {
-                        let raw_error = hyper::body::to_bytes(resp.into_body())
-                            .await
-                            .map_err(HyperError::Http)?;
-                        let hrpc_error = HrpcError::decode(raw_error.as_ref())
-                            .unwrap_or_else(|_| HrpcError::invalid_hrpc_error(raw_error));
-                        return Err((ClientError::EndpointError {
-                            hrpc_error,
-                            endpoint,
-                        })
-                        .into());
+                let req_url = match maybe_req_url {
+                    Ok(uri) => uri,
+                    Err(err) => {
+                        return HyperCallFuture(HyperCallFutureInner::Err(Some(err.into())))
                     }
+                };
 
-                    // Handle non-protobuf successful responses
-                    let is_hrpc =
-                        |t: &[u8]| t.eq_ignore_ascii_case(crate::HRPC_CONTENT_MIMETYPE.as_bytes());
-                    if !resp
-                        .headers()
-                        .get(&http::header::CONTENT_TYPE)
-                        .and_then(|t| t.as_bytes().split(|c| b';'.eq(c)).next())
-                        .map_or(false, is_hrpc)
-                    {
-                        return Err(ClientError::ContentNotSupported.into());
+                let request::Parts {
+                    body,
+                    mut extensions,
+                    endpoint,
+                } = req.into();
+
+                let request = {
+                    let mut request = http::Request::builder().uri(req_url).method(Method::POST);
+
+                    let mut header_map = extensions.remove::<HeaderMap>().unwrap_or_default();
+                    // insert content type
+                    header_map.insert(header::CONTENT_TYPE, content_header_value());
+                    // insert spec version
+                    header_map.insert(version_header_name(), version_header_value());
+
+                    *request.headers_mut().unwrap() = header_map;
+
+                    let maybe_resp = request
+                        .body(body.into())
+                        .map_err(HyperError::FailedRequestBuilder);
+
+                    match maybe_resp {
+                        Ok(resp) => resp,
+                        Err(err) => {
+                            return HyperCallFuture(HyperCallFutureInner::Err(Some(err.into())))
+                        }
                     }
+                };
 
-                    // check if the spec version matches
-                    if !resp
-                        .headers()
-                        .get(version_header_name())
-                        .map(|h| h.as_bytes())
-                        .map_or(false, |v| {
-                            v.eq_ignore_ascii_case(HRPC_SPEC_VERSION.as_bytes())
-                        })
-                    {
-                        // TODO: parse the header properly and extract the version instead of just doing a contains
-                        return Err(ClientError::IncompatibleSpecVersion.into());
-                    }
+                let resp_fut = self.client.request(request);
 
-                    let (parts, body) = resp.into_parts();
-
-                    let mut response = Response::new_with_body(body.into());
-
-                    let exts_mut = response.extensions_mut();
-                    exts_mut.insert(parts.status);
-                    exts_mut.insert(parts.extensions);
-                    exts_mut.insert(parts.headers);
-                    exts_mut.insert(parts.version);
-
-                    Ok(TransportResponse::new_unary(response))
+                HyperCallFuture(HyperCallFutureInner::Unary {
+                    request_fut: resp_fut,
+                    error_fut: None,
+                    endpoint: Some(endpoint),
                 })
             }
             TransportRequest::Socket(mut req) => {
                 let ws_scheme =
                     map_scheme_to_ws(self.server.scheme_str().expect("must have scheme"))
                         .expect("scheme can't be anything other than https or http");
-                let maybe_endpont =
+                let maybe_endpoint =
                     self.make_endpoint(Some(ws_scheme.parse().unwrap()), req.endpoint());
 
-                Box::pin(async move {
-                    let endpoint = maybe_endpont?;
+                let endpoint = match maybe_endpoint {
+                    Ok(uri) => uri,
+                    Err(err) => {
+                        return HyperCallFuture(HyperCallFutureInner::Err(Some(err.into())))
+                    }
+                };
 
-                    let mut request = SocketRequest::get(endpoint).body(()).unwrap();
+                let mut request = SocketRequest::get(endpoint).body(()).unwrap();
 
-                    // Insert default protocol (can be overwritten by users)
-                    request
-                        .headers_mut()
-                        .insert(header::SEC_WEBSOCKET_PROTOCOL, ws_version_header_value());
+                // Insert default protocol (can be overwritten by users)
+                request
+                    .headers_mut()
+                    .insert(header::SEC_WEBSOCKET_PROTOCOL, ws_version_header_value());
 
-                    if let Some(header_map) = req.extensions_mut().remove::<HeaderMap>() {
-                        for (key, value) in header_map {
-                            if let Some(key) = key {
-                                request.headers_mut().insert(key, value);
-                            }
+                if let Some(header_map) = req.extensions_mut().remove::<HeaderMap>() {
+                    for (key, value) in header_map {
+                        if let Some(key) = key {
+                            request.headers_mut().insert(key, value);
                         }
                     }
+                }
 
-                    let (ws_stream, response) = tokio_tungstenite::connect_async(request)
-                        .await
-                        .map_err(SocketInitError::Tungstenite)
-                        .map_err(HyperError::SocketInitError)?;
+                let connect_fut = tokio_tungstenite::connect_async(request);
 
-                    if !response
-                        .headers()
-                        .get(header::SEC_WEBSOCKET_PROTOCOL)
-                        .and_then(|h| h.to_str().ok())
-                        .map_or(false, |v| v.contains(&ws_version()))
-                    {
-                        return Err(
-                            HyperError::SocketInitError(SocketInitError::InvalidProtocol).into(),
-                        );
-                    }
-
-                    let (ws_tx, ws_rx) = WebSocket::new(ws_stream).split();
-                    let (tx, rx) = box_socket_stream_sink(ws_tx, ws_rx);
-
-                    Ok(TransportResponse::new_socket(tx, rx))
+                HyperCallFuture(HyperCallFutureInner::Socket {
+                    connect_fut: Box::pin(connect_fut),
                 })
+            }
+        }
+    }
+}
+
+enum HyperCallFutureInner {
+    Err(Option<TransportError<HyperError>>),
+    #[allow(clippy::type_complexity)]
+    Socket {
+        connect_fut: BoxFuture<
+            'static,
+            Result<
+                (
+                    WebSocketStream<MaybeTlsStream<TcpStream>>,
+                    tungstenite::handshake::client::Response,
+                ),
+                tungstenite::Error,
+            >,
+        >,
+    },
+    Unary {
+        request_fut: hyper::client::ResponseFuture,
+        error_fut: Option<BoxFuture<'static, Result<Bytes, HyperError>>>,
+        endpoint: Option<Cow<'static, str>>,
+    },
+}
+
+/// Call future used by this transport.
+pub struct HyperCallFuture(HyperCallFutureInner);
+
+impl Future for HyperCallFuture {
+    type Output = Result<TransportResponse, TransportError<HyperError>>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match &mut self.get_mut().0 {
+            HyperCallFutureInner::Err(err) => Poll::Ready(Err(err
+                .take()
+                .expect("called call future again - this is a bug"))),
+            HyperCallFutureInner::Socket { connect_fut } => {
+                match ready!(connect_fut.poll_unpin(cx)) {
+                    Ok((ws_stream, response)) => {
+                        if !response
+                            .headers()
+                            .get(header::SEC_WEBSOCKET_PROTOCOL)
+                            .and_then(|h| h.to_str().ok())
+                            .map_or(false, |v| v.contains(&ws_version()))
+                        {
+                            return Poll::Ready(Err(HyperError::SocketInitError(
+                                SocketInitError::InvalidProtocol,
+                            )
+                            .into()));
+                        }
+
+                        let (ws_tx, ws_rx) = WebSocket::new(ws_stream).split();
+                        let (tx, rx) = box_socket_stream_sink(ws_tx, ws_rx);
+
+                        Poll::Ready(Ok(TransportResponse::new_socket(tx, rx)))
+                    }
+                    Err(err) => Poll::Ready(Err(HyperError::SocketInitError(
+                        SocketInitError::Tungstenite(err),
+                    )
+                    .into())),
+                }
+            }
+            HyperCallFutureInner::Unary {
+                request_fut,
+                error_fut,
+                endpoint,
+            } => {
+                if let Some(fut) = error_fut.as_mut() {
+                    match ready!(fut.poll_unpin(cx)) {
+                        Ok(raw_error) => {
+                            let hrpc_error = HrpcError::decode(raw_error.as_ref())
+                                .unwrap_or_else(|_| HrpcError::invalid_hrpc_error(raw_error));
+                            return Poll::Ready(Err((ClientError::EndpointError {
+                                hrpc_error,
+                                endpoint: endpoint.take().expect(
+                                    "hyper call future polled after copmletion - this is a bug",
+                                ),
+                            })
+                            .into()));
+                        }
+                        Err(err) => {
+                            return Poll::Ready(Err(err.into()));
+                        }
+                    }
+                }
+                match ready!(request_fut.poll_unpin(cx)) {
+                    Ok(resp) => {
+                        let status = resp.status();
+
+                        if status.is_success().not() {
+                            let fut = Box::pin(
+                                hyper::body::to_bytes(resp.into_body()).map_err(HyperError::Http),
+                            );
+                            error_fut.replace(fut);
+                            cx.waker().wake_by_ref();
+                            return Poll::Pending;
+                        }
+
+                        // Handle non-protobuf successful responses
+                        let is_hrpc = |t: &[u8]| {
+                            t.eq_ignore_ascii_case(crate::HRPC_CONTENT_MIMETYPE.as_bytes())
+                        };
+                        if !resp
+                            .headers()
+                            .get(&http::header::CONTENT_TYPE)
+                            .and_then(|t| t.as_bytes().split(|c| b';'.eq(c)).next())
+                            .map_or(false, is_hrpc)
+                        {
+                            return Poll::Ready(Err(ClientError::ContentNotSupported.into()));
+                        }
+
+                        // check if the spec version matches
+                        if !resp
+                            .headers()
+                            .get(version_header_name())
+                            .map(|h| h.as_bytes())
+                            .map_or(false, |v| {
+                                v.eq_ignore_ascii_case(HRPC_SPEC_VERSION.as_bytes())
+                            })
+                        {
+                            // TODO: parse the header properly and extract the version instead of just doing a contains
+                            return Poll::Ready(Err(ClientError::IncompatibleSpecVersion.into()));
+                        }
+
+                        let (parts, body) = resp.into_parts();
+
+                        let mut response = Response::new_with_body(body.into());
+
+                        let exts_mut = response.extensions_mut();
+                        exts_mut.insert(parts.status);
+                        exts_mut.insert(parts.extensions);
+                        exts_mut.insert(parts.headers);
+                        exts_mut.insert(parts.version);
+
+                        Poll::Ready(Ok(TransportResponse::new_unary(response)))
+                    }
+                    Err(err) => Poll::Ready(Err(HyperError::Http(err).into())),
+                }
             }
         }
     }
