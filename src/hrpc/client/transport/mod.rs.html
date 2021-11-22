@@ -85,7 +85,7 @@
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::LocalBoxFuture</span>, <span class="ident">Sink</span>, <span class="ident">Stream</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">common::socket</span>::{<span class="ident">BoxedWsRx</span>, <span class="ident">BoxedWsTx</span>, <span class="ident">SocketMessage</span>},
+    <span class="ident">common::socket</span>::{<span class="ident">BoxedSocketRx</span>, <span class="ident">BoxedSocketTx</span>, <span class="ident">SocketMessage</span>},
     <span class="ident">proto::Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>,
     <span class="ident">request::BoxRequest</span>,
     <span class="ident">response::BoxResponse</span>,
@@ -118,9 +118,9 @@
     <span class="doccomment">/// A socket response.</span>
     <span class="ident">Socket</span> {
         <span class="doccomment">/// Sender part of the socket.</span>
-        <span class="ident">tx</span>: <span class="ident">BoxedWsTx</span>,
+        <span class="ident">tx</span>: <span class="ident">BoxedSocketTx</span>,
         <span class="doccomment">/// Receiver part of the socket.</span>
-        <span class="ident">rx</span>: <span class="ident">BoxedWsRx</span>,
+        <span class="ident">rx</span>: <span class="ident">BoxedSocketRx</span>,
     },
 }
 
@@ -131,7 +131,7 @@
     }
 
     <span class="doccomment">/// Create a new socket transport response.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_socket</span>(<span class="ident">tx</span>: <span class="ident">BoxedWsTx</span>, <span class="ident">rx</span>: <span class="ident">BoxedWsRx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_socket</span>(<span class="ident">tx</span>: <span class="ident">BoxedSocketTx</span>, <span class="ident">rx</span>: <span class="ident">BoxedSocketRx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::Socket</span> { <span class="ident">tx</span>, <span class="ident">rx</span> }
     }
 
@@ -150,7 +150,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Panics</span>
     <span class="doccomment">/// - Panics if the transport response isn&#39;t a socket response.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">extract_socket</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">BoxedWsTx</span>, <span class="ident">BoxedWsRx</span>) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">extract_socket</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">BoxedSocketTx</span>, <span class="ident">BoxedSocketRx</span>) {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident"><span class="self">Self</span>::Socket</span> { <span class="ident">tx</span>, <span class="ident">rx</span> } <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">tx</span>, <span class="ident">rx</span>),
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;expected socket response&quot;</span>),
@@ -159,7 +159,7 @@
 }
 
 <span class="doccomment">/// Function that helps you meet bounds for boxed socket streams and sinks.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_socket_stream_sink</span><span class="op">&lt;</span><span class="ident">Tx</span>, <span class="ident">Rx</span><span class="op">&gt;</span>(<span class="ident">tx</span>: <span class="ident">Tx</span>, <span class="ident">rx</span>: <span class="ident">Rx</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">BoxedWsTx</span>, <span class="ident">BoxedWsRx</span>)
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_socket_stream_sink</span><span class="op">&lt;</span><span class="ident">Tx</span>, <span class="ident">Rx</span><span class="op">&gt;</span>(<span class="ident">tx</span>: <span class="ident">Tx</span>, <span class="ident">rx</span>: <span class="ident">Rx</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">BoxedSocketTx</span>, <span class="ident">BoxedSocketRx</span>)
 <span class="kw">where</span>
     <span class="ident">Tx</span>: <span class="ident">Sink</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">HrpcError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     <span class="ident">Rx</span>: <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
