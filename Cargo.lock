@@ -604,7 +604,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-build"
-version = "0.29.0"
+version = "0.30.0"
 dependencies = [
  "proc-macro2",
  "prost-build",

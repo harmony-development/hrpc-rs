@@ -79,7 +79,7 @@ websocket_wasm = ["ws_stream_wasm"]
 
 [build-dependencies]
 # Needed to compile the hRPC proto
-hrpc-build = { version = "0.29.0", path = "../hrpc-build", default-features = false }
+hrpc-build = { version = "0.30.0", path = "../hrpc-build", default-features = false }
 prost-build = "0.9"
 
 [dependencies]
