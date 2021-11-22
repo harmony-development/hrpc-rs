@@ -18,14 +18,14 @@ impl<Req> WriteSocket<Req> {
     /// Send an error over the socket.
     pub async fn send_error(&mut self, err: HrpcError) -> Result<(), HrpcError> {
         let data = encode_hrpc_error(&mut self.buf, &err);
-        self.ws_tx.send(SocketMessage::Binary(data)).await
+        self.tx.lock().await.send(SocketMessage::Binary(data)).await
     }
 }
 
 pub(super) struct SocketHandler {
     #[allow(dead_code)]
     pub(crate) inner:
-        Box<dyn FnOnce(BoxedWsRx, BoxedWsTx) -> BoxFuture<'static, ()> + Send + 'static>,
+        Box<dyn FnOnce(BoxedSocketRx, BoxedSocketTx) -> BoxFuture<'static, ()> + Send + 'static>,
 }
 
 pub(super) fn encode_message<Msg: PbMsg>(buf: &mut BytesMut, msg: &Msg) -> Vec<u8> {

@@ -1,7 +1,7 @@
 use futures_util::{future::LocalBoxFuture, Sink, Stream};
 
 use crate::{
-    common::socket::{BoxedWsRx, BoxedWsTx, SocketMessage},
+    common::socket::{BoxedSocketRx, BoxedSocketTx, SocketMessage},
     proto::Error as HrpcError,
     request::BoxRequest,
     response::BoxResponse,
@@ -34,9 +34,9 @@ pub enum TransportResponse {
     /// A socket response.
     Socket {
         /// Sender part of the socket.
-        tx: BoxedWsTx,
+        tx: BoxedSocketTx,
         /// Receiver part of the socket.
-        rx: BoxedWsRx,
+        rx: BoxedSocketRx,
     },
 }
 
@@ -47,7 +47,7 @@ impl TransportResponse {
     }
 
     /// Create a new socket transport response.
-    pub fn new_socket(tx: BoxedWsTx, rx: BoxedWsRx) -> Self {
+    pub fn new_socket(tx: BoxedSocketTx, rx: BoxedSocketRx) -> Self {
         Self::Socket { tx, rx }
     }
 
@@ -66,7 +66,7 @@ impl TransportResponse {
     ///
     /// # Panics
     /// - Panics if the transport response isn't a socket response.
-    pub fn extract_socket(self) -> (BoxedWsTx, BoxedWsRx) {
+    pub fn extract_socket(self) -> (BoxedSocketTx, BoxedSocketRx) {
         match self {
             Self::Socket { tx, rx } => (tx, rx),
             _ => panic!("expected socket response"),
@@ -75,7 +75,7 @@ impl TransportResponse {
 }
 
 /// Function that helps you meet bounds for boxed socket streams and sinks.
-pub fn box_socket_stream_sink<Tx, Rx>(tx: Tx, rx: Rx) -> (BoxedWsTx, BoxedWsRx)
+pub fn box_socket_stream_sink<Tx, Rx>(tx: Tx, rx: Rx) -> (BoxedSocketTx, BoxedSocketRx)
 where
     Tx: Sink<SocketMessage, Error = HrpcError> + Send + 'static,
     Rx: Stream<Item = Result<SocketMessage, HrpcError>> + Send + 'static,

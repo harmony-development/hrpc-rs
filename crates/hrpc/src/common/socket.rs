@@ -5,23 +5,21 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures_util::{ready, Future, Sink, SinkExt, Stream, StreamExt};
+use futures_util::{lock::BiLock, Future, Sink, SinkExt, Stream, StreamExt};
 
 use bytes::BytesMut;
 use prost::Message as PbMsg;
 
 use crate::proto::Error as HrpcError;
 
-type PingTx = Pin<Box<dyn Sink<Vec<u8>, Error = HrpcError> + Send + 'static>>;
-type PingRx = Pin<Box<dyn Stream<Item = Result<Vec<u8>, HrpcError>> + Send + 'static>>;
-
 type EncodeMessageFn<Msg> = fn(&mut BytesMut, &Msg) -> Vec<u8>;
 type DecodeMessageFn<Msg> = fn(Vec<u8>) -> Result<Msg, HrpcError>;
 
 /// A boxed stream that yields socket messages.
-pub type BoxedWsRx = Pin<Box<dyn Stream<Item = Result<SocketMessage, HrpcError>> + Send + 'static>>;
+pub type BoxedSocketRx =
+    Pin<Box<dyn Stream<Item = Result<SocketMessage, HrpcError>> + Send + 'static>>;
 /// A boxed sink that accepts socket messages.
-pub type BoxedWsTx = Pin<Box<dyn Sink<SocketMessage, Error = HrpcError> + Send + 'static>>;
+pub type BoxedSocketTx = Pin<Box<dyn Sink<SocketMessage, Error = HrpcError> + Send + 'static>>;
 
 /// Generic socket message.
 #[derive(Debug)]
@@ -77,14 +75,15 @@ where
     Resp: PbMsg + Default,
 {
     pub(crate) fn new(
-        ws_rx: BoxedWsRx,
-        ws_tx: BoxedWsTx,
+        rx: BoxedSocketRx,
+        tx: BoxedSocketTx,
         encode_message: EncodeMessageFn<Req>,
         decode_message: DecodeMessageFn<Resp>,
     ) -> Self {
+        let (first_tx, second_tx) = BiLock::new(tx);
         Self {
-            write: WriteSocket::new(ws_tx, encode_message),
-            read: ReadSocket::new(ws_rx, decode_message),
+            write: WriteSocket::new(first_tx, encode_message),
+            read: ReadSocket::new(rx, second_tx, decode_message),
         }
     }
 
@@ -92,40 +91,26 @@ where
     ///
     /// ## Notes
     /// - This will block until getting a message (unless an error occurs).
-    /// - This will send ping messages over the `ping sink` if one is set (see `ReadSocket::set_ping_sink`).
+    /// - This will handle ping messages.
+    #[inline]
     pub async fn receive_message(&mut self) -> Result<Resp, HrpcError> {
         self.read.receive_message().await
     }
 
     /// Send a message over the socket.
+    #[inline]
     pub async fn send_message(&mut self, req: Req) -> Result<(), HrpcError> {
         self.write.send_message(req).await
     }
 
-    /// Set ping sink to allow ping messages to be sent to wherever the sink points to.
-    pub fn set_ping_sink<S>(mut self, ping_sink: S) -> Self
-    where
-        S: Sink<Vec<u8>, Error = HrpcError> + Send + 'static,
-    {
-        self.read.ping_tx = Some(Box::pin(ping_sink));
-        self
-    }
-
-    /// Set ping stream to allow ping messages to be received from wherever the stream points to.
-    pub fn set_ping_stream<S>(mut self, ping_stream: S) -> Self
-    where
-        S: Stream<Item = Result<Vec<u8>, HrpcError>> + Send + 'static,
-    {
-        self.write.ping_rx = Some(Box::pin(ping_stream));
-        self
-    }
-
-    /// Handle pings received from the ping stream (if one is set).
-    pub async fn handle_pings(&mut self) -> Result<(), HrpcError> {
-        self.write.handle_pings().await
+    /// Send a ping over the socket.
+    #[inline]
+    pub async fn ping(&mut self) -> Result<(), HrpcError> {
+        self.write.ping().await
     }
 
     /// Close the socket.
+    #[inline]
     pub async fn close(self) -> Result<(), HrpcError> {
         self.write.close().await
     }
@@ -139,71 +124,71 @@ where
 /// Read half of a socket.
 #[must_use = "read sockets do nothing unless you use `.receive_message()`"]
 pub struct ReadSocket<Resp> {
-    ws_rx: BoxedWsRx,
+    rx: BoxedSocketRx,
+    tx: BiLock<BoxedSocketTx>,
     decode_message: DecodeMessageFn<Resp>,
-    ping_tx: Option<PingTx>,
 }
 
 impl<Resp: PbMsg + Default> ReadSocket<Resp> {
-    pub(crate) fn new(ws_rx: BoxedWsRx, decode_message: DecodeMessageFn<Resp>) -> Self {
+    pub(crate) fn new(
+        rx: BoxedSocketRx,
+        tx: BiLock<BoxedSocketTx>,
+        decode_message: DecodeMessageFn<Resp>,
+    ) -> Self {
         Self {
-            ws_rx,
+            rx,
+            tx,
             decode_message,
-            ping_tx: None,
         }
-    }
-
-    /// Set ping sink to allow ping messages to be sent to wherever the sink points to.
-    pub fn set_ping_sink<S>(mut self, ping_sink: S) -> Self
-    where
-        S: Sink<Vec<u8>, Error = HrpcError> + Send + 'static,
-    {
-        self.ping_tx = Some(Box::pin(ping_sink));
-        self
     }
 
     /// Receive a message from the socket.
     ///
     /// ## Notes
     /// - This will block until getting a message (unless an error occurs).
-    /// - This will send ping messages over the `ping sink` if one is set (see `ReadSocket::set_ping_sink`).
-    pub fn receive_message(&mut self) -> impl Future<Output = Result<Resp, HrpcError>> + '_ {
-        ReceiveMessageFuture {
-            stream: &mut self.ws_rx,
-            ping_tx: &mut self.ping_tx,
-            decode_message: self.decode_message,
+    /// - This will handle ping messages.
+    pub async fn receive_message(&mut self) -> Result<Resp, HrpcError> {
+        loop {
+            let msg_fut = ReceiveMessageFuture {
+                rx: &mut self.rx,
+                decode_message: self.decode_message,
+            };
+            match msg_fut.await? {
+                RecvMsg::Msg(resp) => break Ok(resp),
+                RecvMsg::Ping(ping_data) => {
+                    self.tx
+                        .lock()
+                        .await
+                        .send(SocketMessage::Pong(ping_data))
+                        .await?;
+                }
+            }
         }
     }
 }
 
+enum RecvMsg<Resp> {
+    Ping(Vec<u8>),
+    Msg(Resp),
+}
+
 struct ReceiveMessageFuture<'a, Resp> {
-    stream: &'a mut BoxedWsRx,
-    ping_tx: &'a mut Option<PingTx>,
+    rx: &'a mut BoxedSocketRx,
     decode_message: DecodeMessageFn<Resp>,
 }
 
 impl<'a, Resp> Future for ReceiveMessageFuture<'a, Resp> {
-    type Output = Result<Resp, HrpcError>;
+    type Output = Result<RecvMsg<Resp>, HrpcError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let item = futures_util::ready!(self.stream.poll_next_unpin(cx));
+        let item = futures_util::ready!(self.rx.poll_next_unpin(cx));
         match item {
             Some(res) => match res {
                 Ok(msg) => match msg {
-                    SocketMessage::Binary(data) => Poll::Ready((self.decode_message)(data)),
-                    SocketMessage::Ping(data) => {
-                        if let Some(ping_tx) = &mut self.ping_tx {
-                            let res = ready!(ping_tx.poll_ready_unpin(cx));
-                            match res {
-                                Ok(_) => ping_tx
-                                    .start_send_unpin(data)
-                                    .map_or_else(|err| Poll::Ready(Err(err)), |_| Poll::Pending),
-                                Err(err) => Poll::Ready(Err(err)),
-                            }
-                        } else {
-                            Poll::Pending
-                        }
+                    SocketMessage::Binary(data) => {
+                        Poll::Ready((self.decode_message)(data).map(RecvMsg::Msg))
                     }
+                    SocketMessage::Ping(data) => Poll::Ready(Ok(RecvMsg::Ping(data))),
                     SocketMessage::Close => Poll::Ready(Err(SocketError::Closed.into())),
                     _ => Poll::Pending,
                 },
@@ -217,55 +202,37 @@ impl<'a, Resp> Future for ReceiveMessageFuture<'a, Resp> {
 /// Write half of a socket.
 #[must_use = "write sockets do nothing unless you use `.send_message(msg)`"]
 pub struct WriteSocket<Req> {
-    pub(crate) ws_tx: BoxedWsTx,
+    pub(crate) tx: BiLock<BoxedSocketTx>,
     pub(crate) buf: BytesMut,
     encode_message: EncodeMessageFn<Req>,
-    ping_rx: Option<PingRx>,
 }
 
 impl<Req: PbMsg> WriteSocket<Req> {
-    pub(crate) fn new(ws_tx: BoxedWsTx, encode_message: EncodeMessageFn<Req>) -> Self {
+    pub(crate) fn new(tx: BiLock<BoxedSocketTx>, encode_message: EncodeMessageFn<Req>) -> Self {
         Self {
-            ws_tx,
+            tx,
             buf: BytesMut::new(),
             encode_message,
-            ping_rx: None,
         }
-    }
-
-    /// Set ping stream to allow ping messages to be received from wherever the stream points to.
-    pub fn set_ping_stream<S>(mut self, ping_stream: S) -> Self
-    where
-        S: Stream<Item = Result<Vec<u8>, HrpcError>> + Send + 'static,
-    {
-        self.ping_rx = Some(Box::pin(ping_stream));
-        self
     }
 
     /// Send a message over the socket.
     pub async fn send_message(&mut self, req: Req) -> Result<(), HrpcError> {
         let data = (self.encode_message)(&mut self.buf, &req);
-        self.ws_tx.send(SocketMessage::Binary(data)).await
+        self.tx.lock().await.send(SocketMessage::Binary(data)).await
     }
 
     /// Close the socket.
-    pub async fn close(mut self) -> Result<(), HrpcError> {
-        self.ws_tx.send(SocketMessage::Close).await
+    pub async fn close(self) -> Result<(), HrpcError> {
+        self.tx.lock().await.send(SocketMessage::Close).await
     }
 
     /// Send a ping over the socket.
     pub async fn ping(&mut self) -> Result<(), HrpcError> {
-        self.ws_tx.send(SocketMessage::Ping(Vec::new())).await
-    }
-
-    /// Handle pings received from the ping stream (if one is set).
-    pub async fn handle_pings(&mut self) -> Result<(), HrpcError> {
-        if let Some(ping_rx) = &mut self.ping_rx {
-            while let Some(data) = ping_rx.next().await.transpose()? {
-                self.ws_tx.send(SocketMessage::Pong(data)).await?;
-            }
-        }
-
-        Ok(())
+        self.tx
+            .lock()
+            .await
+            .send(SocketMessage::Ping(Vec::new()))
+            .await
     }
 }
