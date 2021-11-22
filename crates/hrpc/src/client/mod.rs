@@ -75,13 +75,14 @@ impl<Inner, InnerErr> Client<Inner>
 where
     Inner: Service<TransportRequest, Response = TransportResponse, Error = TransportError<InnerErr>>
         + 'static,
+    Inner::Future: Unpin,
     InnerErr: 'static,
 {
     /// Layer this client with a new [`Layer`].
     pub fn layer<S, L>(self, l: L) -> Client<S>
     where
         L: Layer<Inner, Service = S>,
-        S: Service<TransportRequest, Response = TransportResponse>,
+        S: Service<TransportRequest>,
     {
         Client {
             transport: l.layer(self.transport),

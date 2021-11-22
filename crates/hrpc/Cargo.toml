@@ -30,7 +30,7 @@ default = []
 # Enable common server code
 server = ["_common", "matchit", "hrpc-proc-macro"]
 # Enable common client code
-client = ["_common"]
+client = ["_common", "pin-project-lite"]
 # Internal feature used to indicate common server / client is enabled
 _common = [
     "futures-util/unstable",
@@ -87,6 +87,7 @@ prost-build = "0.9"
 prost = "0.9"
 bytes = "1.0"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
+pin-project-lite = { version = "0.2", default-features = false, optional = true }
 
 # Re-exported by server
 hrpc-proc-macro = { version = "0.29.0", path = "../hrpc-proc-macro", optional = true }

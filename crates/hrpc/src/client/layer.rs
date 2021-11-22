@@ -4,6 +4,7 @@ use std::{
 };
 
 use futures_util::{Future, FutureExt};
+use pin_project_lite::pin_project;
 use tower::{Layer, Service};
 
 use crate::{request::BoxRequest, response::BoxResponse};
@@ -61,9 +62,8 @@ impl<ReqFn, RespFn, S> Modify<ReqFn, RespFn, S> {
 impl<ReqFn, RespFn, S> Service<TransportRequest> for Modify<ReqFn, RespFn, S>
 where
     S: Service<TransportRequest, Response = TransportResponse>,
-    S::Future: Unpin,
     ReqFn: FnMut(&mut BoxRequest),
-    RespFn: FnMut(&mut BoxResponse) + Clone + Unpin,
+    RespFn: FnMut(&mut BoxResponse) + Clone,
 {
     type Response = TransportResponse;
 
@@ -88,23 +88,31 @@ where
     }
 }
 
-/// Future for [`Modify`].
-pub struct ModifyFuture<Fut, RespFn> {
-    fut: Fut,
-    resp_fn: RespFn,
+pin_project! {
+    /// Future for [`Modify`].
+    pub struct ModifyFuture<Fut, RespFn> {
+        #[pin]
+        fut: Fut,
+        #[pin]
+        resp_fn: RespFn,
+    }
 }
 
 impl<Fut, Err, RespFn> Future for ModifyFuture<Fut, RespFn>
 where
-    Fut: Future<Output = Result<TransportResponse, Err>> + Unpin,
-    RespFn: FnMut(&mut BoxResponse) + Unpin,
+    Fut: Future<Output = Result<TransportResponse, Err>>,
+    RespFn: FnMut(&mut BoxResponse),
 {
     type Output = Result<TransportResponse, Err>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.fut.poll_unpin(cx).map_ok(|mut resp| {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
+
+        this.fut.poll_unpin(cx).map_ok(|mut resp| {
             match &mut resp {
-                TransportResponse::Unary(resp) => (self.resp_fn)(resp),
+                TransportResponse::Unary(resp) => {
+                    (unsafe { this.resp_fn.get_unchecked_mut() })(resp)
+                }
                 TransportResponse::Socket { .. } => {}
             }
             resp

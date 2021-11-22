@@ -598,6 +598,7 @@ dependencies = [
  "hyper-rustls",
  "js-sys",
  "matchit",
+ "pin-project-lite",
  "prost",
  "prost-build",
  "reqwasm",
