@@ -1,4 +1,9 @@
-use std::{borrow::Cow, convert::Infallible, str::FromStr};
+use std::{
+    borrow::Cow,
+    convert::Infallible,
+    str::FromStr,
+    task::{Context, Poll},
+};
 
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
 use http::{header, HeaderMap, Method, StatusCode};
@@ -23,8 +28,7 @@ use crate::{
         },
     },
     proto::{Error as HrpcError, HrpcErrorIdentifier},
-    request::{self},
-    response,
+    request, response,
     server::{service::HrpcService, socket::SocketHandler, IntoMakeService, MakeRoutes},
     Request, Response, HRPC_CONTENT_MIMETYPE,
 };
@@ -53,10 +57,7 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
 
     type Future = BoxFuture<'static, Result<HttpResponse, Infallible>>;
 
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Service::poll_ready(&mut self.inner, cx)
     }
 
@@ -204,10 +205,7 @@ where
 
     type Future = Ready<Result<HttpService, Infallible>>;
 
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Service::<T>::poll_ready(&mut self.inner, cx)
     }
 

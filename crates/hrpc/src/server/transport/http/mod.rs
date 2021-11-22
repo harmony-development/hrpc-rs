@@ -16,6 +16,8 @@ use self::utils::HrpcServiceToHttp;
 use super::Transport;
 use crate::{server::MakeRoutes, BoxError};
 
+/// Useful layers for HTTP.
+pub mod layer;
 /// Utilities for working with this transport.
 pub mod utils;
 mod ws;
