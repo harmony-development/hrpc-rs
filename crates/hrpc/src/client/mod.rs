@@ -75,7 +75,6 @@ impl<Inner, InnerErr> Client<Inner>
 where
     Inner: Service<TransportRequest, Response = TransportResponse, Error = TransportError<InnerErr>>
         + 'static,
-    Inner::Future: Unpin,
     InnerErr: 'static,
 {
     /// Layer this client with a new [`Layer`].

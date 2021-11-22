@@ -11,29 +11,30 @@ use crate::{request::BoxRequest, response::BoxResponse};
 
 use super::transport::{TransportRequest, TransportResponse};
 
+/// Function to modify a request.
+pub type ModifyReq = fn(&mut BoxRequest);
+/// Function to modify a response.
+pub type ModifyResp = fn(&mut BoxResponse);
+
 /// Layer for creating [`Modify`] instances.
-#[derive(Debug, Clone)]
-pub struct ModifyLayer<ReqFn, RespFn> {
-    req_fn: ReqFn,
-    resp_fn: RespFn,
+#[derive(Clone)]
+pub struct ModifyLayer {
+    req_fn: ModifyReq,
+    resp_fn: ModifyResp,
 }
 
-impl<ReqFn, RespFn> ModifyLayer<ReqFn, RespFn> {
+impl ModifyLayer {
     /// Create a new layer.
-    pub fn new(req_fn: ReqFn, resp_fn: RespFn) -> Self {
+    pub fn new(req_fn: ModifyReq, resp_fn: ModifyResp) -> Self {
         Self { req_fn, resp_fn }
     }
 }
 
-impl<ReqFn, RespFn, S> Layer<S> for ModifyLayer<ReqFn, RespFn>
-where
-    ReqFn: Clone,
-    RespFn: Clone,
-{
-    type Service = Modify<ReqFn, RespFn, S>;
+impl<S> Layer<S> for ModifyLayer {
+    type Service = Modify<S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        Modify::new(inner, self.req_fn.clone(), self.resp_fn.clone())
+        Modify::new(inner, self.req_fn, self.resp_fn)
     }
 }
 
@@ -41,16 +42,16 @@ where
 ///
 /// **Note:** only unary responses can be modified for responses. This is because
 /// there is no response to modify with a socket response.
-#[derive(Debug, Clone)]
-pub struct Modify<ReqFn, RespFn, S> {
+#[derive(Clone)]
+pub struct Modify<S> {
     inner: S,
-    req_fn: ReqFn,
-    resp_fn: RespFn,
+    req_fn: ModifyReq,
+    resp_fn: ModifyResp,
 }
 
-impl<ReqFn, RespFn, S> Modify<ReqFn, RespFn, S> {
+impl<S> Modify<S> {
     /// Create a new service by wrapping a given service.
-    pub fn new(inner: S, req_fn: ReqFn, resp_fn: RespFn) -> Self {
+    pub fn new(inner: S, req_fn: ModifyReq, resp_fn: ModifyResp) -> Self {
         Self {
             inner,
             req_fn,
@@ -59,17 +60,15 @@ impl<ReqFn, RespFn, S> Modify<ReqFn, RespFn, S> {
     }
 }
 
-impl<ReqFn, RespFn, S> Service<TransportRequest> for Modify<ReqFn, RespFn, S>
+impl<S> Service<TransportRequest> for Modify<S>
 where
     S: Service<TransportRequest, Response = TransportResponse>,
-    ReqFn: FnMut(&mut BoxRequest),
-    RespFn: FnMut(&mut BoxResponse) + Clone,
 {
     type Response = TransportResponse;
 
     type Error = S::Error;
 
-    type Future = ModifyFuture<S::Future, RespFn>;
+    type Future = ModifyFuture<S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Service::poll_ready(&mut self.inner, cx)
@@ -83,25 +82,23 @@ where
 
         ModifyFuture {
             fut: Service::call(&mut self.inner, req),
-            resp_fn: self.resp_fn.clone(),
+            resp_fn: self.resp_fn,
         }
     }
 }
 
 pin_project! {
     /// Future for [`Modify`].
-    pub struct ModifyFuture<Fut, RespFn> {
+    pub struct ModifyFuture<Fut> {
         #[pin]
         fut: Fut,
-        #[pin]
-        resp_fn: RespFn,
+        resp_fn: ModifyResp,
     }
 }
 
-impl<Fut, Err, RespFn> Future for ModifyFuture<Fut, RespFn>
+impl<Fut, Err> Future for ModifyFuture<Fut>
 where
     Fut: Future<Output = Result<TransportResponse, Err>>,
-    RespFn: FnMut(&mut BoxResponse),
 {
     type Output = Result<TransportResponse, Err>;
 
@@ -110,9 +107,7 @@ where
 
         this.fut.poll_unpin(cx).map_ok(|mut resp| {
             match &mut resp {
-                TransportResponse::Unary(resp) => {
-                    (unsafe { this.resp_fn.get_unchecked_mut() })(resp)
-                }
+                TransportResponse::Unary(resp) => (this.resp_fn)(resp),
                 TransportResponse::Socket { .. } => {}
             }
             resp
