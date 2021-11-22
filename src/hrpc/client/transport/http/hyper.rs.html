@@ -422,6 +422,11 @@
 <span id="422">422</span>
 <span id="423">423</span>
 <span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A HTTP client transport implementation using [`hyper`].</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -470,7 +475,12 @@
 
 <span class="doccomment">/// Creates a new [`HttpClient`] that you can use.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_client</span>(<span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">hyper::client::Builder</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HttpClient</span> {
-    <span class="kw">let</span> <span class="ident">connector</span> <span class="op">=</span> <span class="ident">hyper_rustls::HttpsConnector::with_native_roots</span>();
+    <span class="kw">let</span> <span class="ident">connector</span> <span class="op">=</span> <span class="ident">hyper_rustls::HttpsConnectorBuilder::new</span>()
+        .<span class="ident">with_native_roots</span>()
+        .<span class="ident">https_or_http</span>()
+        .<span class="ident">enable_http1</span>()
+        .<span class="ident">enable_http2</span>()
+        .<span class="ident">build</span>();
     <span class="ident">builder</span>.<span class="ident">build</span>(<span class="ident">connector</span>)
 }
 
