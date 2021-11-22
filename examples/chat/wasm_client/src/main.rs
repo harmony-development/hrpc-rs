@@ -9,23 +9,22 @@ use chat_common::{
 };
 use hrpc::{
     client::{
-        error::{ClientError, ClientResult as HrpcClientResult},
-        socket::Socket,
+        error::ClientResult as HrpcClientResult,
+        socket::{Socket, SocketError},
         transport::http::{Wasm, WasmError},
     },
     exports::futures_util::FutureExt,
-    proto::Error as HrpcError,
     Response,
 };
 
-type ClientResult<T> = HrpcClientResult<T, ClientError<WasmError>>;
+type ClientResult<T> = HrpcClientResult<T, WasmError>;
 
 enum Msg {
     SendMessage(String),
     SendMessageResult(ClientResult<Response<Empty>>),
     PollMessagesResult {
         socket: Socket<Empty, Message>,
-        res: Result<Message, HrpcError>,
+        res: Result<Message, SocketError>,
     },
     SocketCreateResult(ClientResult<Socket<Empty, Message>>),
     Nothing,

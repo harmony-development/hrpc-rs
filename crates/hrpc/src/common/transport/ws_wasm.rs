@@ -6,7 +6,7 @@ use std::{
 use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use ws_stream_wasm::{WsErr, WsMessage, WsStream};
 
-use crate::{common::socket::SocketMessage, proto::Error as HrpcError};
+use crate::{common::socket::SocketMessage, proto::Error as HrpcError, BoxError};
 
 /// Type that wraps a [`WsStream`] and implements [`Sink`] and [`Stream`]
 /// for working with [`SocketMessage`]s.
@@ -22,7 +22,7 @@ impl WebSocket {
 }
 
 impl Stream for WebSocket {
-    type Item = Result<SocketMessage, HrpcError>;
+    type Item = Result<SocketMessage, BoxError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.stream
@@ -32,24 +32,24 @@ impl Stream for WebSocket {
 }
 
 impl Sink<SocketMessage> for WebSocket {
-    type Error = HrpcError;
+    type Error = BoxError;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.stream.poll_ready_unpin(cx).map_err(HrpcError::from)
+        self.stream.poll_ready_unpin(cx).map_err(BoxError::from)
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: SocketMessage) -> Result<(), Self::Error> {
         self.stream
             .start_send_unpin(WsMessage::try_from(item)?)
-            .map_err(HrpcError::from)
+            .map_err(BoxError::from)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.stream.poll_flush_unpin(cx).map_err(HrpcError::from)
+        self.stream.poll_flush_unpin(cx).map_err(BoxError::from)
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.stream.poll_close_unpin(cx).map_err(HrpcError::from)
+        self.stream.poll_close_unpin(cx).map_err(BoxError::from)
     }
 }
 

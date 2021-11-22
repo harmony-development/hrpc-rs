@@ -4,21 +4,26 @@ use prost::Message as PbMsg;
 
 use crate::{common::socket::*, decode::DecodeBodyError, proto::Error as HrpcError};
 
-pub use crate::common::socket::{ReadSocket, Socket, WriteSocket};
+pub use crate::common::socket::{ReadSocket, Socket, SocketError, WriteSocket};
 
 impl<Req, Resp> Socket<Req, Resp> {
     /// Send an error over the socket.
     #[inline]
-    pub async fn send_error(&mut self, err: HrpcError) -> Result<(), HrpcError> {
+    pub async fn send_error(&mut self, err: HrpcError) -> Result<(), SocketError> {
         self.write.send_error(err).await
     }
 }
 
 impl<Req> WriteSocket<Req> {
     /// Send an error over the socket.
-    pub async fn send_error(&mut self, err: HrpcError) -> Result<(), HrpcError> {
+    pub async fn send_error(&mut self, err: HrpcError) -> Result<(), SocketError> {
         let data = encode_hrpc_error(&mut self.buf, &err);
-        self.tx.lock().await.send(SocketMessage::Binary(data)).await
+        self.tx
+            .lock()
+            .await
+            .send(SocketMessage::Binary(data))
+            .await
+            .map_err(SocketError::Transport)
     }
 }
 
@@ -44,14 +49,16 @@ fn encode_hrpc_error(buf: &mut BytesMut, err: &HrpcError) -> Vec<u8> {
     data
 }
 
-pub(super) fn decode_message<Msg: PbMsg + Default>(raw: Vec<u8>) -> Result<Msg, HrpcError> {
+pub(super) fn decode_message<Msg: PbMsg + Default>(
+    raw: Vec<u8>,
+) -> Result<DecodeResult<Msg>, DecodeBodyError> {
     if raw.is_empty() {
-        return Err(
-            DecodeBodyError::InvalidProtoMessage(prost::DecodeError::new("empty protobuf message"))
-                .into(),
-        );
+        return Err(DecodeBodyError::InvalidProtoMessage(
+            prost::DecodeError::new("empty protobuf message"),
+        ));
     }
 
     Msg::decode(raw.as_slice())
-        .map_err(|err| HrpcError::from(DecodeBodyError::InvalidProtoMessage(err)))
+        .map(DecodeResult::Msg)
+        .map_err(DecodeBodyError::InvalidProtoMessage)
 }

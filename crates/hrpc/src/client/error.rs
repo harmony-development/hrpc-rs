@@ -12,7 +12,7 @@ pub type ClientResult<T, TransportError> = Result<T, ClientError<TransportError>
 
 /// Errors that can occur within `Client` operation.
 #[derive(Debug)]
-pub enum ClientError<TransportError: StdError> {
+pub enum ClientError<TransportError> {
     /// Occurs if an endpoint returns an error.
     EndpointError {
         /// The hRPC error.
@@ -60,13 +60,13 @@ impl<TransportError: StdError> Display for ClientError<TransportError> {
     }
 }
 
-impl<TransportError: StdError> From<DecodeBodyError> for ClientError<TransportError> {
+impl<TransportError> From<DecodeBodyError> for ClientError<TransportError> {
     fn from(err: DecodeBodyError) -> Self {
         ClientError::MessageDecode(err)
     }
 }
 
-impl<TransportError: StdError> From<IoError> for ClientError<TransportError> {
+impl<TransportError> From<IoError> for ClientError<TransportError> {
     fn from(err: IoError) -> Self {
         ClientError::Io(err)
     }

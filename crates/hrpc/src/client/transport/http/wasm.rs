@@ -20,7 +20,9 @@ use super::{check_uri, map_scheme_to_ws, InvalidServerUrl};
 use crate::{
     body::Body,
     client::{
-        transport::{box_socket_stream_sink, CallResult, TransportRequest, TransportResponse},
+        transport::{
+            box_socket_stream_sink, CallResult, TransportError, TransportRequest, TransportResponse,
+        },
         ClientError,
     },
     common::transport::{
@@ -88,7 +90,7 @@ impl Wasm {
 impl Service<TransportRequest> for Wasm {
     type Response = TransportResponse;
 
-    type Error = ClientError<WasmError>;
+    type Error = TransportError<WasmError>;
 
     type Future = CallResult<'static, TransportResponse, WasmError>;
 
@@ -195,10 +197,11 @@ impl Service<TransportRequest> for Wasm {
                         let raw_error = response.binary().await.map_err(WasmError::HttpError)?;
                         let hrpc_error = HrpcError::decode(raw_error.as_ref())
                             .unwrap_or_else(|_| HrpcError::invalid_hrpc_error(raw_error));
-                        return Err(ClientError::EndpointError {
+                        return Err((ClientError::EndpointError {
                             hrpc_error,
                             endpoint,
-                        });
+                        })
+                        .into());
                     }
 
                     let mut resp = Response::empty();
@@ -213,7 +216,7 @@ impl Service<TransportRequest> for Wasm {
                         .and_then(|v| v.split(';').next())
                         .map_or(false, |v| v == HRPC_CONTENT_MIMETYPE)
                     {
-                        return Err(ClientError::ContentNotSupported);
+                        return Err(ClientError::ContentNotSupported.into());
                     }
 
                     if let Some(value) = content_type.and_then(|v| HeaderValue::from_str(&v).ok()) {
@@ -232,7 +235,7 @@ impl Service<TransportRequest> for Wasm {
                             .map_or(false, |v| v == HRPC_SPEC_VERSION)
                             .not()
                     {
-                        return Err(ClientError::IncompatibleSpecVersion);
+                        return Err(ClientError::IncompatibleSpecVersion.into());
                     }
 
                     if let Some(value) = hrpc_version.and_then(|v| HeaderValue::from_str(&v).ok()) {
@@ -283,9 +286,9 @@ pub enum WasmError {
     SocketInitError(ws_stream_wasm::WsErr),
 }
 
-impl From<WasmError> for ClientError<WasmError> {
+impl From<WasmError> for TransportError<WasmError> {
     fn from(err: WasmError) -> Self {
-        ClientError::Transport(err)
+        TransportError::Transport(err)
     }
 }
 

@@ -31,7 +31,7 @@ macro_rules! bail_result {
     ($res:expr) => {
         match $res {
             Ok(val) => val,
-            Err(err) => return Err(err),
+            Err(err) => return Err(err.into()),
         }
     };
     ($res:expr, |$err:ident| $func:expr) => {
@@ -39,7 +39,7 @@ macro_rules! bail_result {
             Ok(val) => val,
             Err($err) => {
                 $func
-                return Err(err);
+                return Err($err.into());
             },
         }
     };

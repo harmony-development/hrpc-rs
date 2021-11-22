@@ -1,20 +1,75 @@
+use std::convert::Infallible;
+
 use futures_util::{future::LocalBoxFuture, Sink, Stream};
 
 use crate::{
     common::socket::{BoxedSocketRx, BoxedSocketTx, SocketMessage},
-    proto::Error as HrpcError,
     request::BoxRequest,
     response::BoxResponse,
+    BoxError,
 };
 
-use super::error::ClientResult;
+use super::error::ClientError;
 
 /// Client HTTP transport.
 #[cfg(feature = "_common_http_client")]
 pub mod http;
 
 /// A type alias that represents a result of a call.
-pub type CallResult<'a, T, TransportError> = LocalBoxFuture<'a, ClientResult<T, TransportError>>;
+pub type CallResult<'a, T, Err> = LocalBoxFuture<'a, Result<T, TransportError<Err>>>;
+
+/// Error type that transports need to return.
+pub enum TransportError<Err> {
+    /// A transport specific error.
+    Transport(Err),
+    /// A generic client error. This can be used by transports to reduce
+    /// duplicated error variants.
+    GenericClient(ClientError<Infallible>),
+}
+
+impl<Err> From<TransportError<Err>> for ClientError<Err> {
+    fn from(err: TransportError<Err>) -> Self {
+        match err {
+            TransportError::Transport(err) => ClientError::Transport(err),
+            TransportError::GenericClient(err) => match err {
+                ClientError::ContentNotSupported => ClientError::ContentNotSupported,
+                ClientError::EndpointError {
+                    hrpc_error,
+                    endpoint,
+                } => ClientError::EndpointError {
+                    hrpc_error,
+                    endpoint,
+                },
+                ClientError::IncompatibleSpecVersion => ClientError::IncompatibleSpecVersion,
+                ClientError::Io(err) => ClientError::Io(err),
+                ClientError::MessageDecode(err) => ClientError::MessageDecode(err),
+                ClientError::Transport(_) => unreachable!("infallible"),
+            },
+        }
+    }
+}
+
+impl<Err> From<ClientError<Err>> for TransportError<Err> {
+    fn from(err: ClientError<Err>) -> Self {
+        match err {
+            ClientError::Transport(err) => TransportError::Transport(err),
+            other => TransportError::GenericClient(match other {
+                ClientError::ContentNotSupported => ClientError::ContentNotSupported,
+                ClientError::EndpointError {
+                    hrpc_error,
+                    endpoint,
+                } => ClientError::EndpointError {
+                    hrpc_error,
+                    endpoint,
+                },
+                ClientError::IncompatibleSpecVersion => ClientError::IncompatibleSpecVersion,
+                ClientError::Io(err) => ClientError::Io(err),
+                ClientError::MessageDecode(err) => ClientError::MessageDecode(err),
+                ClientError::Transport(_) => unreachable!("infallible"),
+            }),
+        }
+    }
+}
 
 /// A request that a transport can get.
 pub enum TransportRequest {
@@ -77,8 +132,8 @@ impl TransportResponse {
 /// Function that helps you meet bounds for boxed socket streams and sinks.
 pub fn box_socket_stream_sink<Tx, Rx>(tx: Tx, rx: Rx) -> (BoxedSocketTx, BoxedSocketRx)
 where
-    Tx: Sink<SocketMessage, Error = HrpcError> + Send + 'static,
-    Rx: Stream<Item = Result<SocketMessage, HrpcError>> + Send + 'static,
+    Tx: Sink<SocketMessage, Error = BoxError> + Send + 'static,
+    Rx: Stream<Item = Result<SocketMessage, BoxError>> + Send + 'static,
 {
     (Box::pin(tx), Box::pin(rx))
 }

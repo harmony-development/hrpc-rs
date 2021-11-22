@@ -37,21 +37,21 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
     #[cfg(feature = "client_default_transport_hyper_http")]
     def_transport_impl.extend(quote! {
-        use hrpc::{client::transport::http::Hyper, exports::http::Uri};
+        use hrpc::{client::transport::http::{Hyper, HyperError}, exports::http::Uri};
 
         impl #service_ident<Hyper> {
             /// Create a new client using HTTP transport.
             ///
             /// Panics if the passed URI is an invalid URI.
-            pub fn new<U>(server: U) -> ClientResult<Self, <Hyper as Service<TransportRequest>>::Error>
+            pub fn new<U>(server: U) -> ClientResult<Self, HyperError>
             where
                 U: TryInto<Uri>,
                 U::Error: Debug,
             {
                 let transport =
                     Hyper::new(server.try_into().expect("invalid URL"))
-                        .map_err(ClientError::Transport)
-                        .map_err(ClientError::Transport)?;
+                        .map_err(TransportError::from)
+                        .map_err(ClientError::from)?;
                 Ok(Self {
                     inner: Client::new(transport),
                 })
@@ -61,21 +61,21 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
     #[cfg(feature = "client_default_transport_wasm_http")]
     def_transport_impl.extend(quote! {
-        use hrpc::{client::transport::http::Wasm, exports::http::Uri};
+        use hrpc::{client::transport::http::{Wasm, WasmError}, exports::http::Uri};
 
         impl #service_ident<Hyper> {
             /// Create a new client using HTTP transport.
             ///
             /// Panics if the passed URI is an invalid URI.
-            pub fn new<U>(server: U) -> ClientResult<Self, <Wasm as Service<TransportRequest>>::Error>
+            pub fn new<U>(server: U) -> ClientResult<Self, WasmError>
             where
                 U: TryInto<Uri>,
                 U::Error: Debug,
             {
                 let transport =
                     Wasm::new(server.try_into().expect("invalid URL"))
-                        .map_err(ClientError::Transport)
-                        .map_err(ClientError::Transport)?;
+                        .map_err(TransportError::from)
+                        .map_err(ClientError::from)?;
                 Ok(Self {
                     inner: Client::new(transport),
                 })
@@ -95,10 +95,10 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
                 inner: Client<Inner>,
             }
 
-            impl<Inner> #service_ident<Inner>
+            impl<Inner, InnerErr> #service_ident<Inner>
             where
-                Inner: Service<TransportRequest, Response = TransportResponse> + 'static,
-                Inner::Error: std::error::Error + 'static,
+                Inner: Service<TransportRequest, Response = TransportResponse, Error = TransportError<InnerErr>> + 'static,
+                InnerErr: 'static,
             {
                 #methods
             }
@@ -144,7 +144,7 @@ fn generate_unary<T: Method>(method: &T, proto_path: &str, path: String) -> Toke
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub fn #ident<Req>(&mut self, req: Req) -> impl Future<Output = ClientResult<Response<#response>, Inner::Error>> + 'static
+        pub fn #ident<Req>(&mut self, req: Req) -> impl Future<Output = ClientResult<Response<#response>, InnerErr>> + 'static
         where
             Req: IntoRequest<#request>,
         {
@@ -160,7 +160,7 @@ fn generate_streaming<T: Method>(method: &T, proto_path: &str, path: String) -> 
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub fn #ident<Req>(&mut self, req: Req) -> impl Future<Output = ClientResult<Socket<#request, #response>, Inner::Error>> + 'static
+        pub fn #ident<Req>(&mut self, req: Req) -> impl Future<Output = ClientResult<Socket<#request, #response>, InnerErr>> + 'static
         where
             Req: IntoRequest<()>,
         {
@@ -176,7 +176,7 @@ fn generate_server_streaming<T: Method>(method: &T, proto_path: &str, path: Stri
     let (request, response) = method.request_response_name(proto_path);
 
     quote! {
-        pub fn #ident<Req>(&mut self, req: Req) -> impl Future<Output = ClientResult<Socket<#request, #response>, Inner::Error>> + 'static
+        pub fn #ident<Req>(&mut self, req: Req) -> impl Future<Output = ClientResult<Socket<#request, #response>, InnerErr>> + 'static
         where
             Req: IntoRequest<#request>,
         {

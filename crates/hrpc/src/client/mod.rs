@@ -10,7 +10,7 @@ use crate::{
     Response,
 };
 
-use self::transport::{TransportRequest, TransportResponse};
+use self::transport::{TransportError, TransportRequest, TransportResponse};
 
 use super::Request;
 use error::*;
@@ -30,7 +30,7 @@ pub mod prelude {
     pub use super::{
         error::{ClientError, ClientResult},
         socket::Socket,
-        transport::{TransportRequest, TransportResponse},
+        transport::{TransportError, TransportRequest, TransportResponse},
         Client,
     };
     pub use crate::{
@@ -69,10 +69,11 @@ impl<Inner> Client<Inner> {
     }
 }
 
-impl<Inner> Client<Inner>
+impl<Inner, InnerErr> Client<Inner>
 where
-    Inner: Service<TransportRequest, Response = TransportResponse> + 'static,
-    Inner::Error: std::error::Error + 'static,
+    Inner: Service<TransportRequest, Response = TransportResponse, Error = TransportError<InnerErr>>
+        + 'static,
+    InnerErr: 'static,
 {
     /// Layer this client with a new [`Layer`].
     pub fn layer<S, L>(self, l: L) -> Client<S>
@@ -90,17 +91,17 @@ where
     pub fn execute_request<Req: prost::Message, Resp: prost::Message + Default>(
         &mut self,
         req: Request<Req>,
-    ) -> impl Future<Output = ClientResult<Response<Resp>, Inner::Error>> + 'static {
+    ) -> impl Future<Output = ClientResult<Response<Resp>, InnerErr>> + 'static {
         Service::call(&mut self.transport, TransportRequest::Unary(req.map()))
             .map_ok(|resp| resp.extract_unary().map::<Resp>())
-            .map_err(ClientError::Transport)
+            .map_err(ClientError::from)
     }
 
     /// Connect a socket with the server and return it.
     pub fn connect_socket<Req, Resp>(
         &mut self,
         req: Request<()>,
-    ) -> impl Future<Output = ClientResult<Socket<Req, Resp>, Inner::Error>> + 'static
+    ) -> impl Future<Output = ClientResult<Socket<Req, Resp>, InnerErr>> + 'static
     where
         Req: prost::Message,
         Resp: prost::Message + Default,
@@ -111,7 +112,7 @@ where
 
                 Socket::new(rx, tx, socket::encode_message, socket::decode_message)
             })
-            .map_err(ClientError::Transport)
+            .map_err(ClientError::from)
     }
 
     /// Connect a socket with the server, send a message and return it.
@@ -120,7 +121,7 @@ where
     pub fn connect_socket_req<Req, Resp>(
         &mut self,
         request: Request<Req>,
-    ) -> impl Future<Output = ClientResult<Socket<Req, Resp>, Inner::Error>> + 'static
+    ) -> impl Future<Output = ClientResult<Socket<Req, Resp>, InnerErr>> + 'static
     where
         Req: prost::Message + Default + 'static,
         Resp: prost::Message + Default + 'static,
@@ -147,9 +148,18 @@ where
             socket
                 .send_message(message)
                 .await
-                .map_err(|err| ClientError::EndpointError {
-                    hrpc_error: err,
-                    endpoint,
+                .map_err(|err| match err {
+                    SocketError::MessageDecode(err) => ClientError::MessageDecode(err),
+                    SocketError::Protocol(err) => ClientError::EndpointError {
+                        hrpc_error: err,
+                        endpoint,
+                    },
+                    // TODO: this is not good... we need a proper way to expose this error to the user
+                    // maybe by returning double result?
+                    SocketError::Transport(err) => ClientError::EndpointError {
+                        hrpc_error: HrpcError::from(err).with_identifier("hrpcrs.socket-error"),
+                        endpoint,
+                    },
                 })?;
 
             Ok(socket)

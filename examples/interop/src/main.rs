@@ -115,7 +115,7 @@ impl mu_server::Mu for MuService {
                 res = sock.receive_message() => {
                     match res {
                         Ok(msg) => println!("{:?}", msg),
-                        Err(err) => return Err(err),
+                        Err(err) => return Err(err.into()),
                     }
                 }
                 _ = int.tick() => {

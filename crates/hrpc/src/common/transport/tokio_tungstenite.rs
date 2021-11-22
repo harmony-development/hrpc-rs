@@ -5,7 +5,7 @@ use tokio_tungstenite::{
     WebSocketStream,
 };
 
-use crate::{common::socket::SocketMessage, proto::Error as HrpcError};
+use crate::{common::socket::SocketMessage, proto::Error as HrpcError, BoxError};
 
 /// Wrapper over a [`tokio_tungstenite::WebSocketStream`] that produces
 /// and takes [`SocketMessage`].
@@ -24,7 +24,7 @@ impl<S> Stream for WebSocket<S>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    type Item = Result<SocketMessage, HrpcError>;
+    type Item = Result<SocketMessage, BoxError>;
 
     fn poll_next(
         mut self: std::pin::Pin<&mut Self>,
@@ -33,7 +33,7 @@ where
         self.inner
             .poll_next_unpin(cx)
             .map_ok(SocketMessage::from)
-            .map_err(HrpcError::from)
+            .map_err(BoxError::from)
     }
 }
 
@@ -41,13 +41,13 @@ impl<S> Sink<SocketMessage> for WebSocket<S>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    type Error = HrpcError;
+    type Error = BoxError;
 
     fn poll_ready(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready_unpin(cx).map_err(HrpcError::from)
+        self.inner.poll_ready_unpin(cx).map_err(BoxError::from)
     }
 
     fn start_send(
@@ -56,21 +56,21 @@ where
     ) -> Result<(), Self::Error> {
         self.inner
             .start_send_unpin(item.into())
-            .map_err(HrpcError::from)
+            .map_err(BoxError::from)
     }
 
     fn poll_flush(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        self.inner.poll_flush_unpin(cx).map_err(HrpcError::from)
+        self.inner.poll_flush_unpin(cx).map_err(BoxError::from)
     }
 
     fn poll_close(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        self.inner.poll_close_unpin(cx).map_err(HrpcError::from)
+        self.inner.poll_close_unpin(cx).map_err(BoxError::from)
     }
 }
 

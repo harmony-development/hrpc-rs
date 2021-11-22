@@ -22,7 +22,9 @@ use tower::Service;
 use crate::{
     client::{
         error::{ClientError, HrpcError},
-        transport::{box_socket_stream_sink, CallResult, TransportRequest, TransportResponse},
+        transport::{
+            box_socket_stream_sink, CallResult, TransportError, TransportRequest, TransportResponse,
+        },
     },
     common::transport::{
         http::{
@@ -107,7 +109,7 @@ impl Hyper {
 impl Service<TransportRequest> for Hyper {
     type Response = TransportResponse;
 
-    type Error = ClientError<HyperError>;
+    type Error = TransportError<HyperError>;
 
     type Future = CallResult<'static, TransportResponse, HyperError>;
 
@@ -156,10 +158,11 @@ impl Service<TransportRequest> for Hyper {
                             .map_err(HyperError::Http)?;
                         let hrpc_error = HrpcError::decode(raw_error.as_ref())
                             .unwrap_or_else(|_| HrpcError::invalid_hrpc_error(raw_error));
-                        return Err(ClientError::EndpointError {
+                        return Err((ClientError::EndpointError {
                             hrpc_error,
                             endpoint,
-                        });
+                        })
+                        .into());
                     }
 
                     // Handle non-protobuf successful responses
@@ -171,7 +174,7 @@ impl Service<TransportRequest> for Hyper {
                         .and_then(|t| t.as_bytes().split(|c| b';'.eq(c)).next())
                         .map_or(false, is_hrpc)
                     {
-                        return Err(ClientError::ContentNotSupported);
+                        return Err(ClientError::ContentNotSupported.into());
                     }
 
                     // check if the spec version matches
@@ -184,7 +187,7 @@ impl Service<TransportRequest> for Hyper {
                         })
                     {
                         // TODO: parse the header properly and extract the version instead of just doing a contains
-                        return Err(ClientError::IncompatibleSpecVersion);
+                        return Err(ClientError::IncompatibleSpecVersion.into());
                     }
 
                     let (parts, body) = resp.into_parts();
@@ -236,9 +239,9 @@ impl Service<TransportRequest> for Hyper {
                         .and_then(|h| h.to_str().ok())
                         .map_or(false, |v| v.contains(&ws_version()))
                     {
-                        return Err(ClientError::Transport(HyperError::SocketInitError(
-                            SocketInitError::InvalidProtocol,
-                        )));
+                        return Err(
+                            HyperError::SocketInitError(SocketInitError::InvalidProtocol).into(),
+                        );
                     }
 
                     let (ws_tx, ws_rx) = WebSocket::new(ws_stream).split();
@@ -292,9 +295,9 @@ impl From<hyper::Error> for HyperError {
     }
 }
 
-impl From<HyperError> for ClientError<HyperError> {
+impl From<HyperError> for TransportError<HyperError> {
     fn from(err: HyperError) -> Self {
-        ClientError::Transport(err)
+        TransportError::Transport(err)
     }
 }
 
