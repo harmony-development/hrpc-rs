@@ -102,6 +102,8 @@ impl StdError for CombineError {}
 /// A hRPC socket.
 ///
 /// Sockets only handle pings if you call `.receive_message()` continously.
+/// See the respective socket transports used for more information on their behaviour.
+/// The socket transports are located in [`crate::common::transport`].
 #[must_use = "sockets do nothing unless you use `.send_message(msg)` or `.receive_message()`"]
 pub struct Socket<Req, Resp> {
     pub(crate) write: WriteSocket<Req>,

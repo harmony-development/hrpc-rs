@@ -1,11 +1,8 @@
 use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_tungstenite::{
-    tungstenite::{Error as WsError, Message as WsMessage},
-    WebSocketStream,
-};
+use tokio_tungstenite::{tungstenite::Message as WsMessage, WebSocketStream};
 
-use crate::{common::socket::SocketMessage, proto::Error as HrpcError, BoxError};
+use crate::{common::socket::SocketMessage, BoxError};
 
 /// Wrapper over a [`tokio_tungstenite::WebSocketStream`] that produces
 /// and takes [`SocketMessage`].
@@ -95,13 +92,5 @@ impl From<SocketMessage> for WsMessage {
             SocketMessage::Pong(data) => Self::Pong(data),
             SocketMessage::Ping(data) => Self::Ping(data),
         }
-    }
-}
-
-impl From<WsError> for HrpcError {
-    fn from(err: WsError) -> Self {
-        HrpcError::default()
-            .with_identifier("hrpcrs.socket-error")
-            .with_message(err.to_string())
     }
 }

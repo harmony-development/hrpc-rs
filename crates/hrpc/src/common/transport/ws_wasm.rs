@@ -4,12 +4,16 @@ use std::{
 };
 
 use futures_util::{Sink, SinkExt, Stream, StreamExt};
-use ws_stream_wasm::{WsErr, WsMessage, WsStream};
+use ws_stream_wasm::{WsMessage, WsStream};
 
 use crate::{common::socket::SocketMessage, proto::Error as HrpcError, BoxError};
 
 /// Type that wraps a [`WsStream`] and implements [`Sink`] and [`Stream`]
 /// for working with [`SocketMessage`]s.
+///
+/// # Limitations
+/// - This does not support sending or receiving [`SocketMessage::Ping`],
+/// [`SocketMessage::Pong`], [`SocketMessage::Close`] messages.
 pub struct WebSocket {
     stream: WsStream,
 }
@@ -75,13 +79,5 @@ impl From<WsMessage> for SocketMessage {
             WsMessage::Binary(data) => SocketMessage::Binary(data),
             WsMessage::Text(data) => SocketMessage::Text(data),
         }
-    }
-}
-
-impl From<WsErr> for HrpcError {
-    fn from(err: WsErr) -> Self {
-        HrpcError::default()
-            .with_identifier("hrpcrs.socket-error")
-            .with_message(err.to_string())
     }
 }
