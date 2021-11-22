@@ -156,6 +156,16 @@
 <span id="156">156</span>
 <span id="157">157</span>
 <span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Formatter</span>},
     <span class="ident">future::Future</span>,
@@ -168,7 +178,7 @@
     <span class="ident">Response</span>,
 };
 
-<span class="kw">use</span> <span class="ident"><span class="self">self</span>::transport</span>::{<span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>};
+<span class="kw">use</span> <span class="ident"><span class="self">self</span>::transport</span>::{<span class="ident">TransportError</span>, <span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::Request</span>;
 <span class="kw">use</span> <span class="ident">error</span>::<span class="kw-2">*</span>;
@@ -188,7 +198,7 @@
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{
         <span class="ident">error</span>::{<span class="ident">ClientError</span>, <span class="ident">ClientResult</span>},
         <span class="ident">socket::Socket</span>,
-        <span class="ident">transport</span>::{<span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>},
+        <span class="ident">transport</span>::{<span class="ident">TransportError</span>, <span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>},
         <span class="ident">Client</span>,
     };
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -227,10 +237,11 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> <span class="ident">Client</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span> <span class="ident">Client</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">Inner</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-    <span class="ident">Inner::Error</span>: <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">Inner</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span>
+        <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">InnerErr</span>: <span class="lifetime">&#39;static</span>,
 {
     <span class="doccomment">/// Layer this client with a new [`Layer`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">layer</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">l</span>: <span class="ident">L</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Client</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>
@@ -248,17 +259,17 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute_request</span><span class="op">&lt;</span><span class="ident">Req</span>: <span class="ident">prost::Message</span>, <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
         <span class="ident">Service::call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">transport</span>, <span class="ident">TransportRequest::Unary</span>(<span class="ident">req</span>.<span class="ident">map</span>()))
             .<span class="ident">map_ok</span>(<span class="op">|</span><span class="ident">resp</span><span class="op">|</span> <span class="ident">resp</span>.<span class="ident">extract_unary</span>().<span class="ident">map</span>::<span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>())
-            .<span class="ident">map_err</span>(<span class="ident">ClientError::Transport</span>)
+            .<span class="ident">map_err</span>(<span class="ident">ClientError::from</span>)
     }
 
     <span class="doccomment">/// Connect a socket with the server and return it.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">connect_socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
     <span class="kw">where</span>
         <span class="ident">Req</span>: <span class="ident">prost::Message</span>,
         <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span>,
@@ -269,7 +280,7 @@
 
                 <span class="ident">Socket::new</span>(<span class="ident">rx</span>, <span class="ident">tx</span>, <span class="ident">socket::encode_message</span>, <span class="ident">socket::decode_message</span>)
             })
-            .<span class="ident">map_err</span>(<span class="ident">ClientError::Transport</span>)
+            .<span class="ident">map_err</span>(<span class="ident">ClientError::from</span>)
     }
 
     <span class="doccomment">/// Connect a socket with the server, send a message and return it.</span>
@@ -278,7 +289,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">connect_socket_req</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
     <span class="kw">where</span>
         <span class="ident">Req</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
         <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
@@ -305,9 +316,18 @@
             <span class="ident">socket</span>
                 .<span class="ident">send_message</span>(<span class="ident">message</span>)
                 .<span class="kw">await</span>
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">ClientError::EndpointError</span> {
-                    <span class="ident">hrpc_error</span>: <span class="ident">err</span>,
-                    <span class="ident">endpoint</span>,
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">err</span> {
+                    <span class="ident">SocketError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>),
+                    <span class="ident">SocketError::Protocol</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::EndpointError</span> {
+                        <span class="ident">hrpc_error</span>: <span class="ident">err</span>,
+                        <span class="ident">endpoint</span>,
+                    },
+                    <span class="comment">// TODO: this is not good... we need a proper way to expose this error to the user</span>
+                    <span class="comment">// maybe by returning double result?</span>
+                    <span class="ident">SocketError::Transport</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::EndpointError</span> {
+                        <span class="ident">hrpc_error</span>: <span class="ident">HrpcError::from</span>(<span class="ident">err</span>).<span class="ident">with_identifier</span>(<span class="string">&quot;hrpcrs.socket-error&quot;</span>),
+                        <span class="ident">endpoint</span>,
+                    },
                 })<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(<span class="ident">socket</span>)

@@ -271,9 +271,57 @@
 <span id="271">271</span>
 <span id="272">272</span>
 <span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">error::Error</span> <span class="kw">as</span> <span class="ident">StdError</span>,
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>},
     <span class="ident">pin::Pin</span>,
     <span class="ident">sync::atomic::AtomicUsize</span>,
@@ -285,16 +333,21 @@
 <span class="kw">use</span> <span class="ident">bytes::BytesMut</span>;
 <span class="kw">use</span> <span class="ident">prost::Message</span> <span class="kw">as</span> <span class="ident">PbMsg</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::proto::Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">decode::DecodeBodyError</span>, <span class="ident">proto::Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>, <span class="ident">BoxError</span>};
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">DecodeResult</span><span class="op">&lt;</span><span class="ident">Msg</span><span class="op">&gt;</span> {
+    <span class="ident">Msg</span>(<span class="ident">Msg</span>),
+    <span class="ident">Error</span>(<span class="ident">HrpcError</span>),
+}
 
 <span class="kw">type</span> <span class="ident">EncodeMessageFn</span><span class="op">&lt;</span><span class="ident">Msg</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">BytesMut</span>, <span class="kw-2">&amp;</span><span class="ident">Msg</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>;
-<span class="kw">type</span> <span class="ident">DecodeMessageFn</span><span class="op">&lt;</span><span class="ident">Msg</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">fn</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Msg</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span>;
+<span class="kw">type</span> <span class="ident">DecodeMessageFn</span><span class="op">&lt;</span><span class="ident">Msg</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">fn</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">DecodeResult</span><span class="op">&lt;</span><span class="ident">Msg</span><span class="op">&gt;</span>, <span class="ident">DecodeBodyError</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// A boxed stream that yields socket messages.</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">BoxedSocketRx</span> <span class="op">=</span>
-    <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">BoxError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 <span class="doccomment">/// A boxed sink that accepts socket messages.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">BoxedSocketTx</span> <span class="op">=</span> <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Sink</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">HrpcError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">BoxedSocketTx</span> <span class="op">=</span> <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Sink</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">BoxError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// Generic socket message.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -311,22 +364,44 @@
     <span class="ident">Close</span>,
 }
 
+<span class="doccomment">/// Errors that can occur during a socket&#39;s operation.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">SocketError</span> {
-    <span class="ident">Closed</span>,
-    <span class="ident">AlreadyClosed</span>,
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SocketError</span> {
+    <span class="doccomment">/// Currently only occurs if a server sends an error to a client.</span>
+    <span class="doccomment">/// This means that this will never occur on a server, only on clients.</span>
+    <span class="ident">Protocol</span>(<span class="ident">HrpcError</span>),
+    <span class="doccomment">/// Occurs if a message failed to decode.</span>
+    <span class="ident">MessageDecode</span>(<span class="ident">DecodeBodyError</span>),
+    <span class="doccomment">/// Occurs if the underlying transport for this socket yields an error.</span>
+    <span class="ident">Transport</span>(<span class="ident">BoxError</span>),
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">SocketError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">HrpcError</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">SocketError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">hrpc_err</span> <span class="op">=</span> <span class="ident">HrpcError::default</span>();
         <span class="kw">match</span> <span class="ident">err</span> {
-            <span class="ident">SocketError::Closed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">hrpc_err</span>
-                .<span class="ident">with_identifier</span>(<span class="string">&quot;hrpcrs.socket-closed&quot;</span>)
-                .<span class="ident">with_message</span>(<span class="string">&quot;socket was closed&quot;</span>),
-            <span class="ident">SocketError::AlreadyClosed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">hrpc_err</span>
-                .<span class="ident">with_identifier</span>(<span class="string">&quot;hrpcrs.socket-already-closed&quot;</span>)
-                .<span class="ident">with_message</span>(<span class="string">&quot;socket was already closed&quot;</span>),
+            <span class="ident">SocketError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">err</span>.<span class="ident">into</span>(),
+            <span class="ident">SocketError::Protocol</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">err</span>,
+            <span class="ident">SocketError::Transport</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> (<span class="string">&quot;hrpcrs.socket-error&quot;</span>, <span class="ident">err</span>).<span class="ident">into</span>(),
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Display</span> <span class="kw">for</span> <span class="ident">SocketError</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">SocketError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;message decode error: {}&quot;</span>, <span class="ident">err</span>),
+            <span class="ident">SocketError::Protocol</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>),
+            <span class="ident">SocketError::Transport</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;transport error: {}&quot;</span>, <span class="ident">err</span>),
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">StdError</span> <span class="kw">for</span> <span class="ident">SocketError</span> {
+    <span class="kw">fn</span> <span class="ident">source</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">StdError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>)<span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">SocketError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
+            <span class="ident">SocketError::Protocol</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
+            <span class="ident">SocketError::Transport</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="ident">as_ref</span>()),
         }
     }
 }
@@ -342,13 +417,11 @@
     }
 }
 
+<span class="kw">impl</span> <span class="ident">StdError</span> <span class="kw">for</span> <span class="ident">CombineError</span> {}
+
 <span class="doccomment">/// A hRPC socket.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Sockets by default **do not** handle pings. You must handle pings manually.</span>
-<span class="doccomment">/// See [`ReadSocket`]&#39;s `set_ping_sink` and [`WriteSocket`]&#39;s `set_ping_stream`</span>
-<span class="doccomment">/// methods. After setting them, you can use the [`WriteSocket`]&#39;s `handle_pings`</span>
-<span class="doccomment">/// method to handle them. Note that all of the methods mentioned are also</span>
-<span class="doccomment">/// available on this type.</span>
+<span class="doccomment">/// Sockets only handle pings if you call `.receive_message()` continously.</span>
 <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;sockets do nothing unless you use `.send_message(msg)` or `.receive_message()`&quot;</span>]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">write</span>: <span class="ident">WriteSocket</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
@@ -382,25 +455,25 @@
     <span class="doccomment">/// - This will block until getting a message (unless an error occurs).</span>
     <span class="doccomment">/// - This will handle ping messages.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Resp</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Resp</span>, <span class="ident">SocketError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">read</span>.<span class="ident">receive_message</span>().<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Send a message over the socket.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">write</span>.<span class="ident">send_message</span>(<span class="ident">req</span>).<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Send a ping over the socket.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">ping</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">ping</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">write</span>.<span class="ident">ping</span>().<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Close the socket.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">close</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">close</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">write</span>.<span class="ident">close</span>().<span class="kw">await</span>
     }
 
@@ -449,7 +522,7 @@
     <span class="doccomment">/// ## Notes</span>
     <span class="doccomment">/// - This will block until getting a message (unless an error occurs).</span>
     <span class="doccomment">/// - This will handle ping messages.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Resp</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">receive_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Resp</span>, <span class="ident">SocketError</span><span class="op">&gt;</span> {
         <span class="kw">loop</span> {
             <span class="kw">let</span> <span class="ident">msg_fut</span> <span class="op">=</span> <span class="ident">ReceiveMessageFuture</span> {
                 <span class="ident">rx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">rx</span>,
@@ -462,7 +535,8 @@
                         .<span class="ident">lock</span>()
                         .<span class="kw">await</span>
                         .<span class="ident">send</span>(<span class="ident">SocketMessage::Pong</span>(<span class="ident">ping_data</span>))
-                        .<span class="kw">await</span><span class="question-mark">?</span>;
+                        .<span class="kw">await</span>
+                        .<span class="ident">map_err</span>(<span class="ident">SocketError::Transport</span>)<span class="question-mark">?</span>;
                 }
             }
         }
@@ -480,21 +554,30 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Resp</span><span class="op">&gt;</span> <span class="ident">Future</span> <span class="kw">for</span> <span class="ident">ReceiveMessageFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Resp</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">RecvMsg</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">RecvMsg</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">SocketError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">poll</span>(<span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Output</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="macro">futures_util::ready!</span>(<span class="self">self</span>.<span class="ident">rx</span>.<span class="ident">poll_next_unpin</span>(<span class="ident">cx</span>));
         <span class="kw">match</span> <span class="ident">item</span> {
             <span class="prelude-val">Some</span>(<span class="ident">res</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">res</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">msg</span> {
-                    <span class="ident">SocketMessage::Binary</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">Poll::Ready</span>((<span class="self">self</span>.<span class="ident">decode_message</span>)(<span class="ident">data</span>).<span class="ident">map</span>(<span class="ident">RecvMsg::Msg</span>))
-                    }
+                    <span class="ident">SocketMessage::Binary</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Poll::Ready</span>(<span class="kw">match</span> (<span class="self">self</span>.<span class="ident">decode_message</span>)(<span class="ident">data</span>) {
+                        <span class="prelude-val">Ok</span>(<span class="ident">res</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">res</span> {
+                            <span class="ident">DecodeResult::Msg</span>(<span class="ident">resp</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">RecvMsg::Msg</span>(<span class="ident">resp</span>)),
+                            <span class="ident">DecodeResult::Error</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError::Protocol</span>(<span class="ident">err</span>)),
+                        },
+                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">SocketError::MessageDecode</span>(<span class="ident">err</span>)),
+                    }),
                     <span class="ident">SocketMessage::Ping</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">RecvMsg::Ping</span>(<span class="ident">data</span>))),
-                    <span class="ident">SocketMessage::Close</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Closed</span>.<span class="ident">into</span>())),
+                    <span class="ident">SocketMessage::Close</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Transport</span>(<span class="ident">Box::new</span>(<span class="ident">HrpcError::from</span>((
+                            <span class="string">&quot;hrpcrs.socket-error&quot;</span>,
+                            <span class="string">&quot;socket is closed by the other end&quot;</span>,
+                        ))))))
+                    }
                     <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Poll::Pending</span>,
                 },
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)),
+                <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">SocketError::Transport</span>(<span class="ident">err</span>))),
             },
             <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Poll::Pending</span>,
         }
@@ -525,23 +608,34 @@
     }
 
     <span class="doccomment">/// Send a message over the socket.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> (<span class="self">self</span>.<span class="ident">encode_message</span>)(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">buf</span>, <span class="kw-2">&amp;</span><span class="ident">req</span>);
-        <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">send</span>(<span class="ident">SocketMessage::Binary</span>(<span class="ident">data</span>)).<span class="kw">await</span>
+        <span class="self">self</span>.<span class="ident">tx</span>
+            .<span class="ident">lock</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">send</span>(<span class="ident">SocketMessage::Binary</span>(<span class="ident">data</span>))
+            .<span class="kw">await</span>
+            .<span class="ident">map_err</span>(<span class="ident">SocketError::Transport</span>)
     }
 
     <span class="doccomment">/// Close the socket.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">close</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">send</span>(<span class="ident">SocketMessage::Close</span>).<span class="kw">await</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">close</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">tx</span>
+            .<span class="ident">lock</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">send</span>(<span class="ident">SocketMessage::Close</span>)
+            .<span class="kw">await</span>
+            .<span class="ident">map_err</span>(<span class="ident">SocketError::Transport</span>)
     }
 
     <span class="doccomment">/// Send a ping over the socket.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">ping</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HrpcError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">ping</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SocketError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">tx</span>
             .<span class="ident">lock</span>()
             .<span class="kw">await</span>
             .<span class="ident">send</span>(<span class="ident">SocketMessage::Ping</span>(<span class="ident">Vec::new</span>()))
             .<span class="kw">await</span>
+            .<span class="ident">map_err</span>(<span class="ident">SocketError::Transport</span>)
     }
 }
 </code></pre></div>

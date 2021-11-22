@@ -326,6 +326,9 @@
 <span id="326">326</span>
 <span id="327">327</span>
 <span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A HTTP client transport implementation using [`hyper`].</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -350,7 +353,9 @@
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">client</span>::{
         <span class="ident">error</span>::{<span class="ident">ClientError</span>, <span class="ident">HrpcError</span>},
-        <span class="ident">transport</span>::{<span class="ident">box_socket_stream_sink</span>, <span class="ident">CallResult</span>, <span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>},
+        <span class="ident">transport</span>::{
+            <span class="ident">box_socket_stream_sink</span>, <span class="ident">CallResult</span>, <span class="ident">TransportError</span>, <span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>,
+        },
     },
     <span class="ident">common::transport</span>::{
         <span class="ident">http</span>::{
@@ -435,7 +440,7 @@
 <span class="kw">impl</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Hyper</span> {
     <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span>;
 
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">HyperError</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">HyperError</span><span class="op">&gt;</span>;
 
     <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">CallResult</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">TransportResponse</span>, <span class="ident">HyperError</span><span class="op">&gt;</span>;
 
@@ -484,10 +489,11 @@
                             .<span class="ident">map_err</span>(<span class="ident">HyperError::Http</span>)<span class="question-mark">?</span>;
                         <span class="kw">let</span> <span class="ident">hrpc_error</span> <span class="op">=</span> <span class="ident">HrpcError::decode</span>(<span class="ident">raw_error</span>.<span class="ident">as_ref</span>())
                             .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">HrpcError::invalid_hrpc_error</span>(<span class="ident">raw_error</span>));
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::EndpointError</span> {
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>((<span class="ident">ClientError::EndpointError</span> {
                             <span class="ident">hrpc_error</span>,
                             <span class="ident">endpoint</span>,
-                        });
+                        })
+                        .<span class="ident">into</span>());
                     }
 
                     <span class="comment">// Handle non-protobuf successful responses</span>
@@ -499,7 +505,7 @@
                         .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span>.<span class="ident">as_bytes</span>().<span class="ident">split</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="string">b&#39;;&#39;</span>.<span class="ident">eq</span>(<span class="ident">c</span>)).<span class="ident">next</span>())
                         .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="ident">is_hrpc</span>)
                     {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::ContentNotSupported</span>);
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::ContentNotSupported</span>.<span class="ident">into</span>());
                     }
 
                     <span class="comment">// check if the spec version matches</span>
@@ -512,7 +518,7 @@
                         })
                     {
                         <span class="comment">// TODO: parse the header properly and extract the version instead of just doing a contains</span>
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::IncompatibleSpecVersion</span>);
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::IncompatibleSpecVersion</span>.<span class="ident">into</span>());
                     }
 
                     <span class="kw">let</span> (<span class="ident">parts</span>, <span class="ident">body</span>) <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">into_parts</span>();
@@ -564,9 +570,9 @@
                         .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">h</span><span class="op">|</span> <span class="ident">h</span>.<span class="ident">to_str</span>().<span class="ident">ok</span>())
                         .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">ws_version</span>()))
                     {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::Transport</span>(<span class="ident">HyperError::SocketInitError</span>(
-                            <span class="ident">SocketInitError::InvalidProtocol</span>,
-                        )));
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(
+                            <span class="ident">HyperError::SocketInitError</span>(<span class="ident">SocketInitError::InvalidProtocol</span>).<span class="ident">into</span>(),
+                        );
                     }
 
                     <span class="kw">let</span> (<span class="ident">ws_tx</span>, <span class="ident">ws_rx</span>) <span class="op">=</span> <span class="ident">WebSocket::new</span>(<span class="ident">ws_stream</span>).<span class="ident">split</span>();
@@ -620,9 +626,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">HyperError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">HyperError</span><span class="op">&gt;</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">HyperError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">HyperError</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">HyperError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">ClientError::Transport</span>(<span class="ident">err</span>)
+        <span class="ident">TransportError::Transport</span>(<span class="ident">err</span>)
     }
 }
 

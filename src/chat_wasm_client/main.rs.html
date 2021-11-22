@@ -155,7 +155,6 @@
 <span id="155">155</span>
 <span id="156">156</span>
 <span id="157">157</span>
-<span id="158">158</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::cell::RefCell</span>;
 
 <span class="kw">use</span> <span class="ident">web_sys::HtmlInputElement</span> <span class="kw">as</span> <span class="ident">InputElement</span>;
@@ -167,23 +166,22 @@
 };
 <span class="kw">use</span> <span class="ident">hrpc</span>::{
     <span class="ident">client</span>::{
-        <span class="ident">error</span>::{<span class="ident">ClientError</span>, <span class="ident">ClientResult</span> <span class="kw">as</span> <span class="ident">HrpcClientResult</span>},
-        <span class="ident">socket::Socket</span>,
+        <span class="ident">error::ClientResult</span> <span class="kw">as</span> <span class="ident">HrpcClientResult</span>,
+        <span class="ident">socket</span>::{<span class="ident">Socket</span>, <span class="ident">SocketError</span>},
         <span class="ident">transport::http</span>::{<span class="ident">Wasm</span>, <span class="ident">WasmError</span>},
     },
     <span class="ident">exports::futures_util::FutureExt</span>,
-    <span class="ident">proto::Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>,
     <span class="ident">Response</span>,
 };
 
-<span class="kw">type</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HrpcClientResult</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">WasmError</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="kw">type</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HrpcClientResult</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">WasmError</span><span class="op">&gt;</span>;
 
 <span class="kw">enum</span> <span class="ident">Msg</span> {
     <span class="ident">SendMessage</span>(<span class="ident">String</span>),
     <span class="ident">SendMessageResult</span>(<span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Empty</span><span class="op">&gt;</span><span class="op">&gt;</span>),
     <span class="ident">PollMessagesResult</span> {
         <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Empty</span>, <span class="ident">Message</span><span class="op">&gt;</span>,
-        <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Message</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span>,
+        <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Message</span>, <span class="ident">SocketError</span><span class="op">&gt;</span>,
     },
     <span class="ident">SocketCreateResult</span>(<span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Empty</span>, <span class="ident">Message</span><span class="op">&gt;</span><span class="op">&gt;</span>),
     <span class="ident">Nothing</span>,

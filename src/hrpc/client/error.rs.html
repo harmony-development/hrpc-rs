@@ -96,7 +96,7 @@
 
 <span class="doccomment">/// Errors that can occur within `Client` operation.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">TransportError</span>: <span class="ident">StdError</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Occurs if an endpoint returns an error.</span>
     <span class="ident">EndpointError</span> {
         <span class="doccomment">/// The hRPC error.</span>
@@ -144,13 +144,13 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">TransportError</span>: <span class="ident">StdError</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">DecodeBodyError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">DecodeBodyError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">DecodeBodyError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>)
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">TransportError</span>: <span class="ident">StdError</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">IoError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">IoError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">IoError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">ClientError::Io</span>(<span class="ident">err</span>)
     }

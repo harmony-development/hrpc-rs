@@ -225,21 +225,21 @@
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client_default_transport_hyper_http&quot;</span>)]</span>
     <span class="ident">def_transport_impl</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> {
-        <span class="kw">use</span> <span class="ident">hrpc</span>::{<span class="ident">client::transport::http::Hyper</span>, <span class="ident">exports::http::Uri</span>};
+        <span class="kw">use</span> <span class="ident">hrpc</span>::{<span class="ident">client::transport::http</span>::{<span class="ident">Hyper</span>, <span class="ident">HyperError</span>}, <span class="ident">exports::http::Uri</span>};
 
         <span class="kw">impl</span> #<span class="ident">service_ident</span><span class="op">&lt;</span><span class="ident">Hyper</span><span class="op">&gt;</span> {
             <span class="doccomment">/// Create a new client using HTTP transport.</span>
             <span class="doccomment">///</span>
             <span class="doccomment">/// Panics if the passed URI is an invalid URI.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">U</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="op">&lt;</span><span class="ident">Hyper</span> <span class="kw">as</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Error</span><span class="op">&gt;</span>
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">U</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">HyperError</span><span class="op">&gt;</span>
             <span class="kw">where</span>
                 <span class="ident">U</span>: <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">Uri</span><span class="op">&gt;</span>,
                 <span class="ident">U::Error</span>: <span class="ident">Debug</span>,
             {
                 <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span>
                     <span class="ident">Hyper::new</span>(<span class="ident">server</span>.<span class="ident">try_into</span>().<span class="ident">expect</span>(<span class="string">&quot;invalid URL&quot;</span>))
-                        .<span class="ident">map_err</span>(<span class="ident">ClientError::Transport</span>)
-                        .<span class="ident">map_err</span>(<span class="ident">ClientError::Transport</span>)<span class="question-mark">?</span>;
+                        .<span class="ident">map_err</span>(<span class="ident">TransportError::from</span>)
+                        .<span class="ident">map_err</span>(<span class="ident">ClientError::from</span>)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
                     <span class="ident">inner</span>: <span class="ident">Client::new</span>(<span class="ident">transport</span>),
                 })
@@ -249,21 +249,21 @@
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client_default_transport_wasm_http&quot;</span>)]</span>
     <span class="ident">def_transport_impl</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> {
-        <span class="kw">use</span> <span class="ident">hrpc</span>::{<span class="ident">client::transport::http::Wasm</span>, <span class="ident">exports::http::Uri</span>};
+        <span class="kw">use</span> <span class="ident">hrpc</span>::{<span class="ident">client::transport::http</span>::{<span class="ident">Wasm</span>, <span class="ident">WasmError</span>}, <span class="ident">exports::http::Uri</span>};
 
         <span class="kw">impl</span> #<span class="ident">service_ident</span><span class="op">&lt;</span><span class="ident">Hyper</span><span class="op">&gt;</span> {
             <span class="doccomment">/// Create a new client using HTTP transport.</span>
             <span class="doccomment">///</span>
             <span class="doccomment">/// Panics if the passed URI is an invalid URI.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">U</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="op">&lt;</span><span class="ident">Wasm</span> <span class="kw">as</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Error</span><span class="op">&gt;</span>
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">U</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">WasmError</span><span class="op">&gt;</span>
             <span class="kw">where</span>
                 <span class="ident">U</span>: <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">Uri</span><span class="op">&gt;</span>,
                 <span class="ident">U::Error</span>: <span class="ident">Debug</span>,
             {
                 <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span>
                     <span class="ident">Wasm::new</span>(<span class="ident">server</span>.<span class="ident">try_into</span>().<span class="ident">expect</span>(<span class="string">&quot;invalid URL&quot;</span>))
-                        .<span class="ident">map_err</span>(<span class="ident">ClientError::Transport</span>)
-                        .<span class="ident">map_err</span>(<span class="ident">ClientError::Transport</span>)<span class="question-mark">?</span>;
+                        .<span class="ident">map_err</span>(<span class="ident">TransportError::from</span>)
+                        .<span class="ident">map_err</span>(<span class="ident">ClientError::from</span>)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
                     <span class="ident">inner</span>: <span class="ident">Client::new</span>(<span class="ident">transport</span>),
                 })
@@ -283,10 +283,10 @@
                 <span class="ident">inner</span>: <span class="ident">Client</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>,
             }
 
-            <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> #<span class="ident">service_ident</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>
+            <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span> #<span class="ident">service_ident</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>
             <span class="kw">where</span>
-                <span class="ident">Inner</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-                <span class="ident">Inner::Error</span>: <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+                <span class="ident">Inner</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+                <span class="ident">InnerErr</span>: <span class="lifetime">&#39;static</span>,
             {
                 #<span class="ident">methods</span>
             }
@@ -332,7 +332,7 @@
     <span class="kw">let</span> (<span class="ident">request</span>, <span class="ident">response</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">request_response_name</span>(<span class="ident">proto_path</span>);
 
     <span class="macro">quote!</span> {
-        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span>#<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span>#<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span>#<span class="ident">request</span><span class="op">&gt;</span>,
         {
@@ -348,7 +348,7 @@
     <span class="kw">let</span> (<span class="ident">request</span>, <span class="ident">response</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">request_response_name</span>(<span class="ident">proto_path</span>);
 
     <span class="macro">quote!</span> {
-        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
         {
@@ -364,7 +364,7 @@
     <span class="kw">let</span> (<span class="ident">request</span>, <span class="ident">response</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">request_response_name</span>(<span class="ident">proto_path</span>);
 
     <span class="macro">quote!</span> {
-        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span>#<span class="ident">request</span><span class="op">&gt;</span>,
         {

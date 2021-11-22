@@ -206,6 +206,13 @@
 <span id="206">206</span>
 <span id="207">207</span>
 <span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
 </pre><pre class="rust"><code><span class="doccomment">/// Ping message.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">::prost::Message</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Ping</span> {
@@ -226,16 +233,20 @@
     <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MuClient</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> {
         <span class="ident">inner</span>: <span class="ident">Client</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>,
     }
-    <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> <span class="ident">MuClient</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>
+    <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span> <span class="ident">MuClient</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>
     <span class="kw">where</span>
-        <span class="ident">Inner</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-        <span class="ident">Inner::Error</span>: <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">Inner</span>: <span class="ident">Service</span><span class="op">&lt;</span>
+                <span class="ident">TransportRequest</span>,
+                <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span>,
+                <span class="ident">Error</span> <span class="op">=</span> <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">InnerErr</span><span class="op">&gt;</span>,
+            <span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">InnerErr</span>: <span class="lifetime">&#39;static</span>,
     {
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot; Mu RPC.&quot;</span>]</span>
         <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mu</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
             <span class="ident">req</span>: <span class="ident">Req</span>,
-        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span><span class="op">&gt;</span>,
         {
@@ -247,7 +258,7 @@
         <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mu_mute</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
             <span class="ident">req</span>: <span class="ident">Req</span>,
-        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span>, <span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span>, <span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
         {
@@ -262,7 +273,7 @@
         <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mu_mu</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
             <span class="ident">req</span>: <span class="ident">Req</span>,
-        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span>, <span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">Inner::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+        ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span>, <span class="ident"><span class="kw">super</span>::Pong</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span><span class="ident"><span class="kw">super</span>::Ping</span><span class="op">&gt;</span>,
         {
@@ -283,19 +294,22 @@
             <span class="self">Self</span> { <span class="ident">inner</span>: <span class="ident">client</span> }
         }
     }
-    <span class="kw">use</span> <span class="ident">hrpc</span>::{<span class="ident">client::transport::http::Hyper</span>, <span class="ident">exports::http::Uri</span>};
+    <span class="kw">use</span> <span class="ident">hrpc</span>::{
+        <span class="ident">client::transport::http</span>::{<span class="ident">Hyper</span>, <span class="ident">HyperError</span>},
+        <span class="ident">exports::http::Uri</span>,
+    };
     <span class="kw">impl</span> <span class="ident">MuClient</span><span class="op">&lt;</span><span class="ident">Hyper</span><span class="op">&gt;</span> {
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">r&quot; Create a new client using HTTP transport.&quot;</span>]</span>
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">r&quot;&quot;</span>]</span>
         <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">r&quot; Panics if the passed URI is an invalid URI.&quot;</span>]</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">U</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="op">&lt;</span><span class="ident">Hyper</span> <span class="kw">as</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Error</span><span class="op">&gt;</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">U</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">HyperError</span><span class="op">&gt;</span>
         <span class="kw">where</span>
             <span class="ident">U</span>: <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">Uri</span><span class="op">&gt;</span>,
             <span class="ident">U::Error</span>: <span class="ident">Debug</span>,
         {
             <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span> <span class="ident">Hyper::new</span>(<span class="ident">server</span>.<span class="ident">try_into</span>().<span class="ident">expect</span>(<span class="string">&quot;invalid URL&quot;</span>))
-                .<span class="ident">map_err</span>(<span class="ident">ClientError::Transport</span>)
-                .<span class="ident">map_err</span>(<span class="ident">ClientError::Transport</span>)<span class="question-mark">?</span>;
+                .<span class="ident">map_err</span>(<span class="ident">TransportError::from</span>)
+                .<span class="ident">map_err</span>(<span class="ident">ClientError::from</span>)<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
                 <span class="ident">inner</span>: <span class="ident">Client::new</span>(<span class="ident">transport</span>),
             })

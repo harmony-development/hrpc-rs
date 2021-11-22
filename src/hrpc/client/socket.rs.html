@@ -35,12 +35,17 @@
 <span id="35">35</span>
 <span id="36">36</span>
 <span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes::BytesMut</span>;
 <span class="kw">use</span> <span class="ident">prost::Message</span> <span class="kw">as</span> <span class="ident">PbMsg</span>;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">decode::DecodeBodyError</span>, <span class="ident">proto::Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">common::socket::DecodeResult</span>, <span class="ident">decode::DecodeBodyError</span>, <span class="ident">proto::Error</span> <span class="kw">as</span> <span class="ident">HrpcError</span>};
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::socket</span>::{<span class="ident">ReadSocket</span>, <span class="ident">Socket</span>, <span class="ident">WriteSocket</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::socket</span>::{<span class="ident">ReadSocket</span>, <span class="ident">Socket</span>, <span class="ident">SocketError</span>, <span class="ident">WriteSocket</span>};
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">encode_message</span><span class="op">&lt;</span><span class="ident">Msg</span>: <span class="ident">PbMsg</span><span class="op">&gt;</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">BytesMut</span>, <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="ident">Msg</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
     <span class="ident"><span class="kw">crate</span>::encode::encode_protobuf_message_to</span>(<span class="ident">buf</span>, <span class="ident">msg</span>);
@@ -48,28 +53,33 @@
     <span class="ident">buf</span>.<span class="ident">to_vec</span>()
 }
 
-<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">decode_message</span><span class="op">&lt;</span><span class="ident">Msg</span>: <span class="ident">PbMsg</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span>(<span class="ident">raw</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Msg</span>, <span class="ident">HrpcError</span><span class="op">&gt;</span> {
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">decode_message</span><span class="op">&lt;</span><span class="ident">Msg</span>: <span class="ident">PbMsg</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span>(
+    <span class="ident">raw</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">DecodeResult</span><span class="op">&lt;</span><span class="ident">Msg</span><span class="op">&gt;</span>, <span class="ident">DecodeBodyError</span><span class="op">&gt;</span> {
     <span class="kw">if</span> <span class="ident">raw</span>.<span class="ident">is_empty</span>() {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(
-            <span class="ident">DecodeBodyError::InvalidProtoMessage</span>(<span class="ident">prost::DecodeError::new</span>(<span class="string">&quot;empty protobuf message&quot;</span>))
-                .<span class="ident">into</span>(),
-        );
+        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DecodeBodyError::InvalidProtoMessage</span>(
+            <span class="ident">prost::DecodeError::new</span>(<span class="string">&quot;empty protobuf message&quot;</span>),
+        ));
     }
 
     <span class="kw">let</span> <span class="ident">opcode</span> <span class="op">=</span> <span class="ident">raw</span>[<span class="number">0</span>];
 
     <span class="kw">if</span> <span class="ident">opcode</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
         <span class="ident">Msg::decode</span>(<span class="kw-2">&amp;</span><span class="ident">raw</span>[<span class="number">1</span>..])
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">HrpcError::from</span>(<span class="ident">DecodeBodyError::InvalidProtoMessage</span>(<span class="ident">err</span>)))
+            .<span class="ident">map</span>(<span class="ident">DecodeResult::Msg</span>)
+            .<span class="ident">map_err</span>(<span class="ident">DecodeBodyError::InvalidProtoMessage</span>)
     } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">opcode</span> <span class="op">=</span><span class="op">=</span> <span class="number">1</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">HrpcError::decode</span>(<span class="kw-2">&amp;</span><span class="ident">raw</span>[<span class="number">1</span>..])
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">HrpcError::from</span>(<span class="ident">DecodeBodyError::InvalidProtoMessage</span>(<span class="ident">err</span>))))
+        <span class="ident">HrpcError::decode</span>(<span class="kw-2">&amp;</span><span class="ident">raw</span>[<span class="number">1</span>..])
+            .<span class="ident">map</span>(<span class="ident">DecodeResult::Error</span>)
+            .<span class="ident">map_err</span>(<span class="ident">DecodeBodyError::InvalidProtoMessage</span>)
     } <span class="kw">else</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">HrpcError::from</span>((
-            <span class="string">&quot;hrpcrs.http.invalid-socket-message-opcode&quot;</span>,
-            <span class="string">&quot;invalid socket binary message opcode&quot;</span>,
-        ))
-        .<span class="ident">with_details</span>(<span class="ident">raw</span>))
+        <span class="prelude-val">Err</span>(<span class="ident">DecodeBodyError::InvalidBody</span>(<span class="ident">Box::new</span>(
+            <span class="ident">HrpcError::from</span>((
+                <span class="string">&quot;hrpcrs.http.invalid-socket-message-opcode&quot;</span>,
+                <span class="string">&quot;invalid socket binary message opcode&quot;</span>,
+            ))
+            .<span class="ident">with_details</span>(<span class="ident">raw</span>),
+        )))
     }
 }
 </code></pre></div>
