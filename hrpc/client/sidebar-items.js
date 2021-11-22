@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["error","Error types."],["socket","hRPC socket used for streaming RPCs."],["transport","hRPC client transports."]],"struct":[["Client","Generic client implementation with common methods."]]});
+initSidebarItems({"mod":[["error","Error types."],["layer","Useful layers to use with the generic client."],["socket","hRPC socket used for streaming RPCs."],["transport","hRPC client transports."]],"struct":[["Client","Generic client implementation with common methods."]]});

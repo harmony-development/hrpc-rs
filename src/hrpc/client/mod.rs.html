@@ -166,6 +166,11 @@
 <span id="166">166</span>
 <span id="167">167</span>
 <span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Formatter</span>},
     <span class="ident">future::Future</span>,
@@ -188,6 +193,8 @@
 
 <span class="doccomment">/// Error types.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">error</span>;
+<span class="doccomment">/// Useful layers to use with the generic client.</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">layer</span>;
 <span class="doccomment">/// hRPC socket used for streaming RPCs.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">socket</span>;
 <span class="doccomment">/// hRPC client transports.</span>
@@ -247,8 +254,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">layer</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">l</span>: <span class="ident">L</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Client</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">Inner</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span>,
-        <span class="ident">S</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span><span class="op">&gt;</span>,
-        <span class="ident">S::Error</span>: <span class="ident">std::error::Error</span>,
+        <span class="ident">S</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span><span class="op">&gt;</span>,
     {
         <span class="ident">Client</span> {
             <span class="ident">transport</span>: <span class="ident">l</span>.<span class="ident">layer</span>(<span class="self">self</span>.<span class="ident">transport</span>),
@@ -256,10 +262,14 @@
     }
 
     <span class="doccomment">/// Executes a unary request and returns the decoded response.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute_request</span><span class="op">&lt;</span><span class="ident">Req</span>: <span class="ident">prost::Message</span>, <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span>(
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute_request</span><span class="op">&lt;</span><span class="ident">Req</span>, <span class="ident">Resp</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+    <span class="kw">where</span>
+        <span class="ident">Req</span>: <span class="ident">prost::Message</span>,
+        <span class="ident">Resp</span>: <span class="ident">prost::Message</span> <span class="op">+</span> <span class="ident">Default</span>,
+    {
         <span class="ident">Service::call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">transport</span>, <span class="ident">TransportRequest::Unary</span>(<span class="ident">req</span>.<span class="ident">map</span>()))
             .<span class="ident">map_ok</span>(<span class="op">|</span><span class="ident">resp</span><span class="op">|</span> <span class="ident">resp</span>.<span class="ident">extract_unary</span>().<span class="ident">map</span>::<span class="op">&lt;</span><span class="ident">Resp</span><span class="op">&gt;</span>())
             .<span class="ident">map_err</span>(<span class="ident">ClientError::from</span>)
