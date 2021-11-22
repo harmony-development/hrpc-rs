@@ -28,7 +28,7 @@ library = true
 default = []
 
 # Enable common server code
-server = ["_common", "matchit", "hrpc-proc-macro"]
+server = ["_common", "pin-project-lite", "matchit", "hrpc-proc-macro"]
 # Enable common client code
 client = ["_common", "pin-project-lite"]
 # Internal feature used to indicate common server / client is enabled
