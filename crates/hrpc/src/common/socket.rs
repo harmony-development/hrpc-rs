@@ -38,10 +38,11 @@ pub enum SocketMessage {
     Close,
 }
 
+const SOCKET_CLOSED_ERR_ID: &str = "hrpcrs.socket-closed";
+
 #[derive(Debug)]
 pub(crate) enum SocketError {
     Closed,
-    AlreadyClosed,
 }
 
 impl From<SocketError> for HrpcError {
@@ -49,11 +50,8 @@ impl From<SocketError> for HrpcError {
         let hrpc_err = HrpcError::default();
         match err {
             SocketError::Closed => hrpc_err
-                .with_identifier("hrpcrs.socket-closed")
+                .with_identifier(SOCKET_CLOSED_ERR_ID)
                 .with_message("socket was closed"),
-            SocketError::AlreadyClosed => hrpc_err
-                .with_identifier("hrpcrs.socket-already-closed")
-                .with_message("socket was already closed"),
         }
     }
 }

@@ -147,16 +147,30 @@ impl Error {
     }
 }
 
-impl From<&'static str> for Error {
-    fn from(msg: &'static str) -> Self {
+impl<'a> From<&'a str> for Error {
+    fn from(msg: &'a str) -> Self {
         Error::default()
             .with_identifier(HrpcErrorIdentifier::InternalServerError)
             .with_message(msg)
     }
 }
 
-impl From<(&'static str, &'static str)> for Error {
-    fn from((id, msg): (&'static str, &'static str)) -> Self {
+impl<'a, 'b> From<(&'a str, &'b str)> for Error {
+    fn from((id, msg): (&'a str, &'b str)) -> Self {
+        Error::default().with_identifier(id).with_message(msg)
+    }
+}
+
+impl From<String> for Error {
+    fn from(msg: String) -> Self {
+        Error::default()
+            .with_identifier(HrpcErrorIdentifier::InternalServerError)
+            .with_message(msg)
+    }
+}
+
+impl<'a> From<(&'a str, String)> for Error {
+    fn from((id, msg): (&'a str, String)) -> Self {
         Error::default().with_identifier(id).with_message(msg)
     }
 }

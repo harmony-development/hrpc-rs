@@ -60,7 +60,11 @@ impl TryFrom<SocketMessage> for WsMessage {
         match msg {
             SocketMessage::Binary(data) => Ok(WsMessage::Binary(data)),
             SocketMessage::Text(data) => Ok(WsMessage::Text(data)),
-            _ => Err(("hrpcrs.socket-error", "invalid socket message passed").into()),
+            msg => Err((
+                "hrpcrs.socket-error.ws-wasm",
+                format!("invalid socket message passed: {:?}", msg),
+            )
+                .into()),
         }
     }
 }
