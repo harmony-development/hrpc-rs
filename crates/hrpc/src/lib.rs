@@ -11,7 +11,7 @@ pub mod exports {
 
     #[cfg(feature = "_common_http")]
     pub use http;
-    #[cfg(feature = "server")]
+    #[cfg(feature = "_common")]
     pub use tower;
 }
 
