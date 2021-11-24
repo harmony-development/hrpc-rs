@@ -1,4 +1,3 @@
-use axum_server::HttpConfig;
 use bytes::Bytes;
 use futures_util::future::BoxFuture;
 use std::{
@@ -23,6 +22,8 @@ pub mod layer;
 pub mod utils;
 mod ws;
 
+#[doc(inline)]
+pub use axum_server::HttpConfig;
 /// A boxed HTTP body. This is used to unify response bodies.
 pub type BoxBody = http_body::combinators::BoxBody<Bytes, BoxError>;
 /// A HTTP request.
