@@ -1,3 +1,4 @@
+use axum_server::HttpConfig;
 use bytes::Bytes;
 use futures_util::future::BoxFuture;
 use std::{
@@ -44,6 +45,7 @@ pub struct Hyper<L> {
     addr: SocketAddr,
     layer: L,
     tls: Option<(PathBuf, PathBuf)>,
+    config: HttpConfig,
 }
 
 impl Hyper<Identity> {
@@ -55,17 +57,19 @@ impl Hyper<Identity> {
             })?,
             layer: Identity::new(),
             tls: None,
+            config: HttpConfig::new(),
         })
     }
 }
 
 impl<L> Hyper<L> {
-    /// Layer this `hyper` server with a [`Layer`].
+    /// Layer this [`hyper`] server with a [`Layer`].
     pub fn layer<Layer>(self, layer: Layer) -> Hyper<Stack<Layer, L>> {
         Hyper {
             addr: self.addr,
             layer: Stack::new(layer, self.layer),
             tls: self.tls,
+            config: self.config,
         }
     }
 
@@ -77,6 +81,12 @@ impl<L> Hyper<L> {
         key_path: impl Into<PathBuf>,
     ) -> Self {
         self.tls = Some((cert_path.into(), key_path.into()));
+        self
+    }
+
+    /// Set new configuration for the [`hyper`] HTTP server.
+    pub fn configure_hyper(mut self, config: HttpConfig) -> Self {
+        self.config = config;
         self
     }
 }
@@ -101,11 +111,16 @@ where
                     axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path)
                         .await?;
                 axum_server::bind_rustls(self.addr, rustls_conf)
+                    .http_config(self.config)
                     .serve(service)
                     .await
             })
         } else {
-            Box::pin(axum_server::bind(self.addr).serve(service))
+            Box::pin(
+                axum_server::bind(self.addr)
+                    .http_config(self.config)
+                    .serve(service),
+            )
         }
     }
 }
