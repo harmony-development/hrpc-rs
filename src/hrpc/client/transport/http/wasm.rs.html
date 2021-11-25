@@ -308,6 +308,49 @@
 <span id="308">308</span>
 <span id="309">309</span>
 <span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A HTTP transport that compiles to WASM and works on the Web.</span>
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
@@ -317,14 +360,14 @@
     <span class="ident">task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>},
 };
 
-<span class="kw">use</span> <span class="ident">bytes::Buf</span>;
-<span class="kw">use</span> <span class="ident">futures_util::StreamExt</span>;
+<span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Buf</span>, <span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
+<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">Stream</span>, <span class="ident">StreamExt</span>};
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>, <span class="ident">HeaderMap</span>, <span class="ident">HeaderValue</span>, <span class="ident">Uri</span>};
 <span class="kw">use</span> <span class="ident">js_sys::Uint8Array</span>;
 <span class="kw">use</span> <span class="ident">prost::Message</span>;
 <span class="kw">use</span> <span class="ident">reqwasm::http::Request</span> <span class="kw">as</span> <span class="ident">WasmRequest</span>;
 <span class="kw">use</span> <span class="ident">tower::Service</span>;
-<span class="kw">use</span> <span class="ident">wasm_bindgen::UnwrapThrowExt</span>;
+<span class="kw">use</span> <span class="ident">wasm_bindgen</span>::{<span class="ident">JsCast</span>, <span class="ident">UnwrapThrowExt</span>};
 
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">check_uri</span>, <span class="ident">map_scheme_to_ws</span>, <span class="ident">InvalidServerUrl</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -555,9 +598,30 @@
 
                     <span class="ident">resp</span>.<span class="ident">extensions_mut</span>().<span class="ident">insert</span>(<span class="ident">status</span>);
 
-                    <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">response</span>.<span class="ident">binary</span>().<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="ident">WasmError::HttpError</span>)<span class="question-mark">?</span>;
+                    <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">wasm_streams::ReadableStream::from_raw</span>(
+                        <span class="ident">response</span>
+                            .<span class="ident">body</span>()
+                            .<span class="ident">expect_throw</span>(
+                                <span class="string">&quot;response body was used before we used it -- this is a bug&quot;</span>,
+                            )
+                            .<span class="ident">dyn_into</span>()
+                            .<span class="ident">expect_throw</span>(<span class="string">&quot;failed to get body from response&quot;</span>),
+                    );
+
+                    <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">body</span>.<span class="ident">into_stream</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">buf_js</span><span class="op">|</span> {
+                        <span class="kw">let</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="ident">Uint8Array::new</span>(<span class="kw-2">&amp;</span><span class="ident">buf_js</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
+                            <span class="ident">Box::new</span>(<span class="ident">HrpcError::from</span>((
+                                <span class="string">&quot;hrpcrs.wasm.body-error&quot;</span>,
+                                <span class="string">&quot;error occured while streaming response body&quot;</span>,
+                            )))
+                        })<span class="question-mark">?</span>);
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">BytesMut::with_capacity</span>(<span class="ident">buffer</span>.<span class="ident">length</span>() <span class="kw">as</span> <span class="ident">usize</span>);
+                        <span class="ident">buffer</span>.<span class="ident">copy_to</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bytes</span>);
+                        <span class="prelude-val">Ok</span>(<span class="ident">bytes</span>.<span class="ident">freeze</span>())
+                    });
+
                     <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">Response::from</span>(<span class="ident">response::Parts</span> {
-                        <span class="ident">body</span>: <span class="ident">Body::full</span>(<span class="ident">data</span>),
+                        <span class="ident">body</span>: <span class="ident">Body::new</span>(<span class="ident">SendSyncBody</span> { <span class="ident">inner</span>: <span class="ident">body</span> }),
                         ..<span class="ident">response::Parts::from</span>(<span class="ident">resp</span>)
                     });
 
@@ -618,6 +682,28 @@
 }
 
 <span class="kw">impl</span> <span class="ident">StdError</span> <span class="kw">for</span> <span class="ident">WasmError</span> {}
+
+<span class="kw">struct</span> <span class="ident">SendSyncBody</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> {
+    <span class="ident">inner</span>: <span class="ident">S</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Stream</span> <span class="kw">for</span> <span class="ident">SendSyncBody</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Bytes</span>, <span class="ident">BoxError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Unpin</span>,
+{
+    <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> <span class="ident">S::Item</span>;
+
+    <span class="kw">fn</span> <span class="ident">poll_next</span>(
+        <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+        <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Item</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">poll_next_unpin</span>(<span class="ident">cx</span>)
+    }
+}
+
+<span class="comment">// SAFETY: this is safe on WASM since it is single-threaded</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">SendSyncBody</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> {}
+<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">SendSyncBody</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> {}
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../../../" data-current-crate="hrpc" data-search-index-js="../../../../../search-index.js" data-search-js="../../../../../search.js"></div>
     <script src="../../../../../main.js"></script><script src="../../../../../source-script.js"></script><script src="../../../../../source-files.js"></script>
