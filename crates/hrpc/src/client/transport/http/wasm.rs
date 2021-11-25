@@ -7,14 +7,14 @@ use std::{
     task::{Context, Poll},
 };
 
-use bytes::Buf;
-use futures_util::StreamExt;
+use bytes::{Buf, Bytes, BytesMut};
+use futures_util::{Stream, StreamExt};
 use http::{header, HeaderMap, HeaderValue, Uri};
 use js_sys::Uint8Array;
 use prost::Message;
 use reqwasm::http::Request as WasmRequest;
 use tower::Service;
-use wasm_bindgen::UnwrapThrowExt;
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 use super::{check_uri, map_scheme_to_ws, InvalidServerUrl};
 use crate::{
@@ -245,9 +245,30 @@ impl Service<TransportRequest> for Wasm {
 
                     resp.extensions_mut().insert(status);
 
-                    let data = response.binary().await.map_err(WasmError::HttpError)?;
+                    let body = wasm_streams::ReadableStream::from_raw(
+                        response
+                            .body()
+                            .expect_throw(
+                                "response body was used before we used it -- this is a bug",
+                            )
+                            .dyn_into()
+                            .expect_throw("failed to get body from response"),
+                    );
+
+                    let body = body.into_stream().map(|buf_js| {
+                        let buffer = Uint8Array::new(&buf_js.map_err(|_| {
+                            Box::new(HrpcError::from((
+                                "hrpcrs.wasm.body-error",
+                                "error occured while streaming response body",
+                            )))
+                        })?);
+                        let mut bytes = BytesMut::with_capacity(buffer.length() as usize);
+                        buffer.copy_to(&mut bytes);
+                        Ok(bytes.freeze())
+                    });
+
                     let resp = Response::from(response::Parts {
-                        body: Body::full(data),
+                        body: Body::new(SendSyncBody { inner: body }),
                         ..response::Parts::from(resp)
                     });
 
@@ -308,3 +329,25 @@ impl Display for WasmError {
 }
 
 impl StdError for WasmError {}
+
+struct SendSyncBody<S> {
+    inner: S,
+}
+
+impl<S> Stream for SendSyncBody<S>
+where
+    S: Stream<Item = Result<Bytes, BoxError>> + Unpin,
+{
+    type Item = S::Item;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        self.inner.poll_next_unpin(cx)
+    }
+}
+
+// SAFETY: this is safe on WASM since it is single-threaded
+unsafe impl<S> Send for SendSyncBody<S> {}
+unsafe impl<S> Sync for SendSyncBody<S> {}

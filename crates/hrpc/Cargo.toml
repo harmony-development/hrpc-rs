@@ -66,6 +66,7 @@ http_wasm_client = [
     "js-sys",
     "wasm-bindgen",
     "websocket_wasm",
+    "wasm-streams",
 ]
 # Internal feature used to indicate that a HTTP client is enabled
 _common_http_client = ["client", "_common_http"]
@@ -140,3 +141,4 @@ reqwasm = { version = "0.3", default-features = false, features = [
 ws_stream_wasm = { version = "0.7", default-features = false, optional = true }
 js-sys = { version = "0.3", default-features = false, optional = true }
 wasm-bindgen = { version = "0.2", default-features = false, optional = true }
+wasm-streams = { version = "0.2", default-features = false, optional = true }

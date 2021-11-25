@@ -594,6 +594,7 @@ dependencies = [
  "tower",
  "tracing",
  "wasm-bindgen",
+ "wasm-streams",
  "ws_stream_wasm",
 ]
 
@@ -1811,6 +1812,19 @@ name = "wasm-bindgen-shared"
 version = "0.2.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0237232789cf037d5480773fe568aac745bfe2afbc11a863e97901780a6b47cc"
+
+[[package]]
+name = "wasm-streams"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c9686ad57df75972718ccfe0b475515f64e2228955d97bd028debc6544851b8"
+dependencies = [
+ "futures",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
 
 [[package]]
 name = "web-sys"
