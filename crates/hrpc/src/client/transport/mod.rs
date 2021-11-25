@@ -1,4 +1,7 @@
-use std::convert::Infallible;
+use std::{
+    convert::Infallible,
+    fmt::{self, Debug, Formatter},
+};
 
 use futures_util::{future::LocalBoxFuture, Sink, Stream};
 
@@ -14,6 +17,9 @@ use super::error::ClientError;
 /// Client HTTP transport.
 #[cfg(feature = "_common_http_client")]
 pub mod http;
+/// The mock transport. Useful for testing.
+#[cfg(feature = "mock_client")]
+pub mod mock;
 
 /// A type alias that represents a result of a call.
 pub type CallResult<'a, T, Err> = LocalBoxFuture<'a, Result<T, TransportError<Err>>>;
@@ -72,6 +78,7 @@ impl<Err> From<ClientError<Err>> for TransportError<Err> {
 }
 
 /// A request that a transport can get.
+#[derive(Debug)]
 pub enum TransportRequest {
     /// A unary request.
     Unary(BoxRequest),
@@ -93,6 +100,19 @@ pub enum TransportResponse {
         /// Receiver part of the socket.
         rx: BoxedSocketRx,
     },
+}
+
+impl Debug for TransportResponse {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unary(arg0) => f.debug_tuple("Unary").field(arg0).finish(),
+            Self::Socket { .. } => f
+                .debug_struct("Socket")
+                .field("tx", &"<hidden>")
+                .field("rx", &"<hidden>")
+                .finish(),
+        }
+    }
 }
 
 impl TransportResponse {

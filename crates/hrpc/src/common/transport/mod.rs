@@ -9,3 +9,7 @@ pub mod tokio_tungstenite;
 /// Common code to work with ws_stream_wasm WebSockets.
 #[cfg(feature = "websocket_wasm")]
 pub mod ws_wasm;
+
+/// Common code to work with the mock transport.
+#[cfg(feature = "_common_mock")]
+pub mod mock;

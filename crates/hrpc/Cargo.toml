@@ -40,6 +40,10 @@ _common = [
     "tower",
 ]
 
+mock_client = ["client", "_common_mock"]
+mock_server = ["server", "_common_mock"]
+_common_mock = ["futures-channel", "client"]
+
 # Enables the HTTP server
 http_server = [
     "server",
@@ -142,3 +146,6 @@ ws_stream_wasm = { version = "0.7", default-features = false, optional = true }
 js-sys = { version = "0.3", default-features = false, optional = true }
 wasm-bindgen = { version = "0.2", default-features = false, optional = true }
 wasm-streams = { version = "0.2", default-features = false, optional = true }
+
+# used by mock client
+futures-channel = { version = "0.3", default-features = false, optional = true }
