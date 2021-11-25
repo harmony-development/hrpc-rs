@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["MockError","Errors this client can return."]],"struct":[["Mock","A client that uses a channel to send requests to a (possibly) mock server."],["MockCallFuture","Future used by [`Mock`]."]]});

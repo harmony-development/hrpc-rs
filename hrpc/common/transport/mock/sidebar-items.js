@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["new_mock_channels","Create a new pair of mock channels."]],"struct":[["MockReceiver","A mock receiver."],["MockSender","A mock sender."]]});
