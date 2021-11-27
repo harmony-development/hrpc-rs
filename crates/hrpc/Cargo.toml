@@ -1,6 +1,6 @@
 [package]
 name = "hrpc"
-version = "0.30.3"
+version = "0.31.0"
 authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -95,7 +95,7 @@ websocket_wasm = ["ws_stream_wasm"]
 
 [build-dependencies]
 # Needed to compile the hRPC proto
-hrpc-build = { version = "0.30.0", path = "../hrpc-build", default-features = false }
+hrpc-build = { version = "0.31.0", path = "../hrpc-build", default-features = false }
 prost-build = "0.9"
 
 [dependencies]
@@ -106,7 +106,7 @@ futures-util = { version = "0.3", default-features = false, features = ["std"] }
 pin-project-lite = { version = "0.2", default-features = false, optional = true }
 
 # Re-exported by server
-hrpc-proc-macro = { version = "0.30.0", path = "../hrpc-proc-macro", optional = true }
+hrpc-proc-macro = { version = "0.31.0", path = "../hrpc-proc-macro", optional = true }
 # Used by server for it's incredible Service trait and other utilities
 tower = { version = "0.4", default-features = false, features = [
     "util",
