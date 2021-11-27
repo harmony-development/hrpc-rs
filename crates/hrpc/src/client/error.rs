@@ -68,6 +68,7 @@ impl<TransportError: StdError + 'static> StdError for ClientError<TransportError
         match self {
             ClientError::MessageDecode(err) => Some(err),
             ClientError::Transport(err) => Some(err),
+            ClientError::EndpointError { hrpc_error, .. } => Some(hrpc_error),
             _ => None,
         }
     }
