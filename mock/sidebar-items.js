@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["hello","`hello` package protobuf definitions and service."],["server","Server implementation."]],"type":[["BoxError","A boxed error."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["GreeterServer","The greeter service."]],"trait":[["Greeter","Generated trait containing hRPC methods that should be implemented for use with GreeterServer."]]});

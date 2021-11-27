@@ -10,5 +10,6 @@ sourcesIndex["hrpc"] = {"name":"","dirs":[{"name":"client","dirs":[{"name":"tran
 sourcesIndex["hrpc_build"] = {"name":"","files":["client.rs","lib.rs","prost.rs","server.rs"]};
 sourcesIndex["hrpc_proc_macro"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["interop"] = {"name":"","files":["main.rs"]};
+sourcesIndex["mock"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["server"] = {"name":"","files":["server.rs"]};
 createSourceSidebar();
