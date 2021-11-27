@@ -24,8 +24,6 @@ pub enum ClientError<TransportError> {
     MessageDecode(DecodeBodyError),
     /// Occurs if the data server responded with is not supported for decoding.
     ContentNotSupported,
-    /// Occurs if an IO error is returned.
-    Io(IoError),
     /// Occures if the underlying transport yields an error.
     Transport(TransportError),
     /// Occurs if the spec implemented on server doesn't match ours.
@@ -51,7 +49,6 @@ impl<TransportError: StdError> Display for ClientError<TransportError> {
                 "failed to decode response data as protobuf response: {}",
                 err
             ),
-            ClientError::Io(err) => write!(f, "io error: {}", err),
             ClientError::Transport(err) => write!(f, "transport error: {}", err),
             ClientError::IncompatibleSpecVersion => {
                 write!(f, "server hrpc version is incompatible with ours")
@@ -66,17 +63,10 @@ impl<TransportError> From<DecodeBodyError> for ClientError<TransportError> {
     }
 }
 
-impl<TransportError> From<IoError> for ClientError<TransportError> {
-    fn from(err: IoError) -> Self {
-        ClientError::Io(err)
-    }
-}
-
 impl<TransportError: StdError + 'static> StdError for ClientError<TransportError> {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             ClientError::MessageDecode(err) => Some(err),
-            ClientError::Io(err) => Some(err),
             ClientError::Transport(err) => Some(err),
             _ => None,
         }

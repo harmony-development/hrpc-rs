@@ -25,7 +25,7 @@ pub mod layer;
 /// hRPC socket used for streaming RPCs.
 pub mod socket;
 /// hRPC client transports.
-/// 
+///
 /// A client transport is any [`tower::Service`] that has a [`TransportRequest`]
 /// request type, [`TransportResponse`] response type and [`TransportError<Err>`]
 /// (where `Err` is the error type the transport uses) error type. This allows
