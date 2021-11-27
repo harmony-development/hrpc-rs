@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["http","Server implementation for a HTTP transport."]],"trait":[["Transport","Trait for enabling generic transport implementations over a [`MakeRoutes`]."]]});
+initSidebarItems({"mod":[["http","Server implementation for a HTTP transport."],["mock","The mock transport. Useful for testing."]],"trait":[["Transport","Trait for enabling generic transport implementations over a [`MakeRoutes`]."]]});

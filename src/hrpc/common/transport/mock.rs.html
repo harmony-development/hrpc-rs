@@ -21,7 +21,7 @@
 <span id="21">21</span>
 <span id="22">22</span>
 <span id="23">23</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">futures_channel</span>::{
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">tokio::sync</span>::{
     <span class="ident">mpsc</span>::{<span class="self">self</span>, <span class="ident">UnboundedReceiver</span> <span class="kw">as</span> <span class="ident">MpscReceiver</span>, <span class="ident">UnboundedSender</span> <span class="kw">as</span> <span class="ident">MpscSender</span>},
     <span class="ident">oneshot::Sender</span> <span class="kw">as</span> <span class="ident">OneshotSender</span>,
 };
@@ -41,7 +41,7 @@
 
 <span class="doccomment">/// Create a new pair of mock channels.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_mock_channels</span>() <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">MockSender</span>, <span class="ident">MockReceiver</span>) {
-    <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">mpsc::unbounded</span>();
+    <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">mpsc::unbounded_channel</span>();
     (<span class="ident">MockSender</span> { <span class="ident">inner</span>: <span class="ident">tx</span> }, <span class="ident">MockReceiver</span> { <span class="ident">inner</span>: <span class="ident">rx</span> })
 }
 </code></pre></div>

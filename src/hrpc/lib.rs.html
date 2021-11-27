@@ -85,6 +85,16 @@
 <span id="85">85</span>
 <span id="86">86</span>
 <span id="87">87</span>
+<span id="88">88</span>
+<span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common code used in hRPC code generation.</span>
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>)]</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::blocks_in_if_conditions</span>)]</span>
@@ -124,13 +134,23 @@
 <span class="doccomment">/// The `Response` type used by hRPC.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">response</span>;
 
+<span class="kw">use</span> <span class="ident">std::error::Error</span>;
+
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">request::Request</span>;
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">response::Response</span>;
 
 <span class="doccomment">/// Alias for a type-erased error type.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">BoxError</span> <span class="op">=</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>;
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">BoxError</span> <span class="op">=</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>;
+
+<span class="doccomment">/// Convenience function for converting some error to a boxed error.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_error</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>(<span class="ident">err</span>: <span class="prelude-val">Err</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxError</span>
+<span class="kw">where</span>
+    <span class="prelude-val">Err</span>: <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+{
+    <span class="ident">Box::new</span>(<span class="ident">err</span>)
+}
 
 <span class="doccomment">/// The hRPC protobuf mimetype.</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">HRPC_CONTENT_MIMETYPE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;application/hrpc&quot;</span>;
