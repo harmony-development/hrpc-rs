@@ -1,4 +1,4 @@
-use futures_channel::{
+use tokio::sync::{
     mpsc::{self, UnboundedReceiver as MpscReceiver, UnboundedSender as MpscSender},
     oneshot::Sender as OneshotSender,
 };
@@ -18,6 +18,6 @@ pub struct MockReceiver {
 
 /// Create a new pair of mock channels.
 pub fn new_mock_channels() -> (MockSender, MockReceiver) {
-    let (tx, rx) = mpsc::unbounded();
+    let (tx, rx) = mpsc::unbounded_channel();
     (MockSender { inner: tx }, MockReceiver { inner: rx })
 }

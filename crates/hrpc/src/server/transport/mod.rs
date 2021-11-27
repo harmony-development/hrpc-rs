@@ -16,3 +16,7 @@ pub trait Transport: Sized {
 /// Server implementation for a HTTP transport.
 #[cfg(feature = "http_server")]
 pub mod http;
+
+/// The mock transport. Useful for testing.
+#[cfg(feature = "mock_server")]
+pub mod mock;

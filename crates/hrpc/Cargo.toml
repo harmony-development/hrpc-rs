@@ -42,7 +42,15 @@ _common = [
 
 mock_client = ["client", "_common_mock"]
 mock_server = ["server", "_common_mock"]
-_common_mock = ["futures-channel", "client"]
+_common_mock = [
+    "tokio",
+    "tokio/rt",
+    "tokio/sync",
+    "futures-channel",
+    "futures-channel/sink",
+    "futures-channel/std",
+    "client",
+]
 
 # Enables the HTTP server
 http_server = [

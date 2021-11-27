@@ -4,8 +4,8 @@ use std::{
     task::Poll,
 };
 
-use futures_channel::oneshot::{self, Receiver as OneshotReceiver};
 use futures_util::{Future, FutureExt};
+use tokio::sync::oneshot::{self, Receiver as OneshotReceiver};
 use tower::Service;
 
 use crate::common::transport::mock::MockSender;
@@ -42,8 +42,8 @@ impl Service<TransportRequest> for Mock {
         let send_res = self
             .tx
             .inner
-            .unbounded_send((req, resp_tx))
-            .map_err(|err| MockError::Send(err.into_inner().0));
+            .send((req, resp_tx))
+            .map_err(|err| MockError::Send(err.0 .0));
 
         match send_res {
             Ok(_) => MockCallFuture {

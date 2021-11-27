@@ -37,13 +37,23 @@ pub mod request;
 /// The `Response` type used by hRPC.
 pub mod response;
 
+use std::error::Error;
+
 #[doc(inline)]
 pub use request::Request;
 #[doc(inline)]
 pub use response::Response;
 
 /// Alias for a type-erased error type.
-pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
+pub type BoxError = Box<dyn Error + Send + Sync>;
+
+/// Convenience function for converting some error to a boxed error.
+pub fn box_error<Err>(err: Err) -> BoxError
+where
+    Err: Error + Send + Sync + 'static,
+{
+    Box::new(err)
+}
 
 /// The hRPC protobuf mimetype.
 pub const HRPC_CONTENT_MIMETYPE: &str = "application/hrpc";
