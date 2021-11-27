@@ -171,6 +171,11 @@
 <span id="171">171</span>
 <span id="172">172</span>
 <span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Formatter</span>},
     <span class="ident">future::Future</span>,
@@ -198,6 +203,11 @@
 <span class="doccomment">/// hRPC socket used for streaming RPCs.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">socket</span>;
 <span class="doccomment">/// hRPC client transports.</span>
+<span class="doccomment">/// </span>
+<span class="doccomment">/// A client transport is any [`tower::Service`] that has a [`TransportRequest`]</span>
+<span class="doccomment">/// request type, [`TransportResponse`] response type and [`TransportError&lt;Err&gt;`]</span>
+<span class="doccomment">/// (where `Err` is the error type the transport uses) error type. This allows</span>
+<span class="doccomment">/// [`tower::Layer`]s to be used to compose transports.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">transport</span>;
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
