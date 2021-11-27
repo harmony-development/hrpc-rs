@@ -73,15 +73,6 @@
 <span id="73">73</span>
 <span id="74">74</span>
 <span id="75">75</span>
-<span id="76">76</span>
-<span id="77">77</span>
-<span id="78">78</span>
-<span id="79">79</span>
-<span id="80">80</span>
-<span id="81">81</span>
-<span id="82">82</span>
-<span id="83">83</span>
-<span id="84">84</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
     <span class="ident">error::Error</span> <span class="kw">as</span> <span class="ident">StdError</span>,
@@ -108,8 +99,6 @@
     <span class="ident">MessageDecode</span>(<span class="ident">DecodeBodyError</span>),
     <span class="doccomment">/// Occurs if the data server responded with is not supported for decoding.</span>
     <span class="ident">ContentNotSupported</span>,
-    <span class="doccomment">/// Occurs if an IO error is returned.</span>
-    <span class="ident">Io</span>(<span class="ident">IoError</span>),
     <span class="doccomment">/// Occures if the underlying transport yields an error.</span>
     <span class="ident">Transport</span>(<span class="ident">TransportError</span>),
     <span class="doccomment">/// Occurs if the spec implemented on server doesn&#39;t match ours.</span>
@@ -135,7 +124,6 @@
                 <span class="string">&quot;failed to decode response data as protobuf response: {}&quot;</span>,
                 <span class="ident">err</span>
             ),
-            <span class="ident">ClientError::Io</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;io error: {}&quot;</span>, <span class="ident">err</span>),
             <span class="ident">ClientError::Transport</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;transport error: {}&quot;</span>, <span class="ident">err</span>),
             <span class="ident">ClientError::IncompatibleSpecVersion</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;server hrpc version is incompatible with ours&quot;</span>)
@@ -150,18 +138,12 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">IoError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">IoError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">ClientError::Io</span>(<span class="ident">err</span>)
-    }
-}
-
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">TransportError</span>: <span class="ident">StdError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">StdError</span> <span class="kw">for</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">source</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">StdError</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>)<span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
-            <span class="ident">ClientError::Io</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
             <span class="ident">ClientError::Transport</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
+            <span class="ident">ClientError::EndpointError</span> { <span class="ident">hrpc_error</span>, .. } <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">hrpc_error</span>),
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
         }
     }

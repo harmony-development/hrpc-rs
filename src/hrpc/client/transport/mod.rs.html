@@ -155,8 +155,6 @@
 <span id="155">155</span>
 <span id="156">156</span>
 <span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">convert::Infallible</span>,
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Formatter</span>},
@@ -206,7 +204,6 @@
                     <span class="ident">endpoint</span>,
                 },
                 <span class="ident">ClientError::IncompatibleSpecVersion</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::IncompatibleSpecVersion</span>,
-                <span class="ident">ClientError::Io</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::Io</span>(<span class="ident">err</span>),
                 <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>),
                 <span class="ident">ClientError::Transport</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable!</span>(<span class="string">&quot;infallible&quot;</span>),
             },
@@ -228,7 +225,6 @@
                     <span class="ident">endpoint</span>,
                 },
                 <span class="ident">ClientError::IncompatibleSpecVersion</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::IncompatibleSpecVersion</span>,
-                <span class="ident">ClientError::Io</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::Io</span>(<span class="ident">err</span>),
                 <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>),
                 <span class="ident">ClientError::Transport</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable!</span>(<span class="string">&quot;infallible&quot;</span>),
             }),
