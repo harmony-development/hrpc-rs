@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package hello;
+
+// Request used in `WelcomeUser` endpoint.
+message WelcomeUserRequest {
+    // The user name of the user you want to welcome.
+    string user_name = 1;
+}
+
+// Response used in `WelcomeUser` endpoint.
+message WelcomeUserResponse {
+    // The welcome message.
+    string welcome_message = 1;
+}
+
+// The greeter service.
+service Greeter {
+    // Endpoint to welcome a user.
+    rpc WelcomeUser(WelcomeUserRequest) returns (WelcomeUserResponse);
+}

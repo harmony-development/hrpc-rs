@@ -1,5 +1,11 @@
 [workspace]
-members = ["crates/*", "examples/interop", "examples/hello_world", "examples/chat/*"]
+members = [
+    "crates/*",
+    "examples/interop",
+    "examples/hello_world",
+    "examples/mock",
+    "examples/chat/*",
+]
 resolver = "2"
 
 [workspace.metadata.nix]
