@@ -3,9 +3,9 @@
 # hrpc-rs
 
 This repo contains an implementation of [hRPC](https://github.com/harmony-development/hrpc) in Rust:
-- `crates/hrpc` contains server and client code,
-- `crates/hrpc-build` is a codegen which can be used on protobuf files,
-- `examples/interop` is used to test the implementation and codegen against the Go sample server / client.
+- `crates/hrpc` contains generic server / client code and transports,
+- `crates/hrpc-build` is contains codegen code that generates client or server code,
+- `examples/interop` is used to test the implementation against itself and other servers.
 - `examples` contains commented examples.
     - To run an example's server: `cargo run --package example_name --bin server`
     - To run an example's client: `cargo run --package example_name --bin client`
