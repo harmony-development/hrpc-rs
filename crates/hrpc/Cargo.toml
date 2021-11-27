@@ -40,8 +40,11 @@ _common = [
     "tower",
 ]
 
+# Enables the mock client
 mock_client = ["client", "_common_mock"]
+# Enables the mock server
 mock_server = ["server", "_common_mock"]
+# Internal feature used in mock transport features
 _common_mock = [
     "tokio",
     "tokio/rt",
