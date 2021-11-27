@@ -10,7 +10,7 @@ use tower::Service;
 
 use crate::common::transport::mock::MockSender;
 
-use super::{TransportRequest, TransportResponse};
+use super::{TransportError, TransportRequest, TransportResponse};
 
 /// A client that uses a channel to send requests to a (possibly)
 /// mock server.
@@ -29,7 +29,7 @@ impl Mock {
 impl Service<TransportRequest> for Mock {
     type Response = TransportResponse;
 
-    type Error = MockError;
+    type Error = TransportError<MockError>;
 
     type Future = MockCallFuture;
 
@@ -67,14 +67,17 @@ pub struct MockCallFuture {
 }
 
 impl Future for MockCallFuture {
-    type Output = Result<TransportResponse, MockError>;
+    type Output = Result<TransportResponse, TransportError<MockError>>;
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         match &mut self.get_mut().inner {
-            MockCallFutureInner::Err(err) => {
-                Poll::Ready(Err(err.take().expect("future polled after completion")))
-            }
-            MockCallFutureInner::Recv(rx) => rx.poll_unpin(cx).map_err(|_| MockError::Receive),
+            MockCallFutureInner::Err(err) => Poll::Ready(Err(TransportError::Transport(
+                err.take().expect("future polled after completion"),
+            ))),
+            MockCallFutureInner::Recv(rx) => rx
+                .poll_unpin(cx)
+                .map_err(|_| MockError::Receive)
+                .map_err(TransportError::Transport),
         }
     }
 }
