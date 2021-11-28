@@ -160,7 +160,7 @@ impl WebSocketUpgrade {
                 return Err(WebSocketUpgradeError::WebsocketKeyHeaderMissing);
             };
         let on_upgrade = req.extensions_mut().remove::<OnUpgrade>().unwrap();
-        let sec_websocket_protocol = req.headers_mut().remove(header::SEC_WEBSOCKET_PROTOCOL);
+        let sec_websocket_protocol = req.headers().get(header::SEC_WEBSOCKET_PROTOCOL).cloned();
 
         Ok(Self {
             config: Default::default(),
