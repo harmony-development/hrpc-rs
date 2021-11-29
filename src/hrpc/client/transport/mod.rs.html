@@ -152,15 +152,12 @@
 <span id="152">152</span>
 <span id="153">153</span>
 <span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
-<span id="157">157</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">convert::Infallible</span>,
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Formatter</span>},
 };
 
-<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::LocalBoxFuture</span>, <span class="ident">Sink</span>, <span class="ident">Stream</span>};
+<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">Sink</span>, <span class="ident">Stream</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">common::socket</span>::{<span class="ident">BoxedSocketRx</span>, <span class="ident">BoxedSocketTx</span>, <span class="ident">SocketMessage</span>},
@@ -177,9 +174,6 @@
 <span class="doccomment">/// The mock transport. Useful for testing.</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;mock_client&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">mock</span>;
-
-<span class="doccomment">/// A type alias that represents a result of a call.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">CallResult</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>, <span class="prelude-val">Err</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">LocalBoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">TransportError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// Error type that transports need to return.</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TransportError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span> {

@@ -351,6 +351,24 @@
 <span id="351">351</span>
 <span id="352">352</span>
 <span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A HTTP transport that compiles to WASM and works on the Web.</span>
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
@@ -361,7 +379,7 @@
 };
 
 <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Buf</span>, <span class="ident">Bytes</span>, <span class="ident">BytesMut</span>};
-<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">Stream</span>, <span class="ident">StreamExt</span>};
+<span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::LocalBoxFuture</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>, <span class="ident">Stream</span>, <span class="ident">StreamExt</span>};
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>, <span class="ident">HeaderMap</span>, <span class="ident">HeaderValue</span>, <span class="ident">Uri</span>};
 <span class="kw">use</span> <span class="ident">js_sys::Uint8Array</span>;
 <span class="kw">use</span> <span class="ident">prost::Message</span>;
@@ -373,9 +391,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">body::Body</span>,
     <span class="ident">client</span>::{
-        <span class="ident">transport</span>::{
-            <span class="ident">box_socket_stream_sink</span>, <span class="ident">CallResult</span>, <span class="ident">TransportError</span>, <span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>,
-        },
+        <span class="ident">transport</span>::{<span class="ident">box_socket_stream_sink</span>, <span class="ident">TransportError</span>, <span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>},
         <span class="ident">ClientError</span>,
     },
     <span class="ident">common::transport</span>::{
@@ -445,7 +461,7 @@
 
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">WasmError</span><span class="op">&gt;</span>;
 
-    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">CallResult</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">TransportResponse</span>, <span class="ident">WasmError</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">CallFuture</span>;
 
     <span class="kw">fn</span> <span class="ident">poll_ready</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(()).<span class="ident">into</span>()
@@ -479,7 +495,7 @@
                     .<span class="ident">remove</span>::<span class="op">&lt;</span><span class="ident">SocketProtocols</span><span class="op">&gt;</span>()
                     .<span class="ident">map_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">vec!</span>[<span class="ident">Cow::Owned</span>(<span class="ident">ws_version</span>())], <span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">protocols</span>);
 
-                <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
+                <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
                     <span class="kw">let</span> <span class="ident">protocols</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">sock_protocols</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">as_ref</span>()).<span class="ident">collect</span>());
                     <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">ws_stream</span>) <span class="op">=</span> <span class="ident">ws_stream_wasm::WsMeta::connect</span>(<span class="ident">url</span>, <span class="ident">protocols</span>)
                         .<span class="kw">await</span>
@@ -490,7 +506,9 @@
                     <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">box_socket_stream_sink</span>(<span class="ident">ws_tx</span>, <span class="ident">ws_rx</span>);
 
                     <span class="prelude-val">Ok</span>(<span class="ident">TransportResponse::new_socket</span>(<span class="ident">tx</span>, <span class="ident">rx</span>))
-                })
+                });
+
+                <span class="ident">CallFuture</span> { <span class="ident">inner</span> }
             }
             <span class="ident">TransportRequest::Unary</span>(<span class="ident">req</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">request::Parts</span> {
@@ -516,7 +534,7 @@
 
                 <span class="kw">let</span> <span class="ident">check_spec_version</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">check_spec_version</span>;
 
-                <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
+                <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">body</span>.<span class="ident">aggregate</span>().<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="ident">WasmError::BodyError</span>)<span class="question-mark">?</span>;
 
                     <span class="ident">request</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">body</span>({
@@ -626,7 +644,9 @@
                     });
 
                     <span class="prelude-val">Ok</span>(<span class="ident">TransportResponse::new_unary</span>(<span class="ident">resp</span>))
-                })
+                });
+
+                <span class="ident">CallFuture</span> { <span class="ident">inner</span> }
             }
         }
     }
@@ -704,6 +724,22 @@
 <span class="comment">// SAFETY: this is safe on WASM since it is single-threaded</span>
 <span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">SendSyncBody</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> {}
 <span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">SendSyncBody</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> {}
+
+<span class="doccomment">/// Call future for [`Wasm`].</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CallFuture</span> {
+    <span class="ident">inner</span>: <span class="ident">LocalBoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TransportResponse</span>, <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">WasmError</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Future</span> <span class="kw">for</span> <span class="ident">CallFuture</span> {
+    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TransportResponse</span>, <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">WasmError</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+
+    <span class="kw">fn</span> <span class="ident">poll</span>(<span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Output</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">poll_unpin</span>(<span class="ident">cx</span>)
+    }
+}
+
+<span class="comment">// SAFETY: this is safe on WASM since it is single-threaded</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">CallFuture</span> {}
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../../../" data-current-crate="hrpc" data-search-index-js="../../../../../search-index.js" data-search-js="../../../../../search.js"></div>
     <script src="../../../../../main.js"></script><script src="../../../../../source-script.js"></script><script src="../../../../../source-files.js"></script>
