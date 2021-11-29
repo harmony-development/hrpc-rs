@@ -3,7 +3,7 @@ use std::{
     fmt::{self, Debug, Formatter},
 };
 
-use futures_util::{future::LocalBoxFuture, Sink, Stream};
+use futures_util::{Sink, Stream};
 
 use crate::{
     common::socket::{BoxedSocketRx, BoxedSocketTx, SocketMessage},
@@ -20,9 +20,6 @@ pub mod http;
 /// The mock transport. Useful for testing.
 #[cfg(feature = "mock_client")]
 pub mod mock;
-
-/// A type alias that represents a result of a call.
-pub type CallResult<'a, T, Err> = LocalBoxFuture<'a, Result<T, TransportError<Err>>>;
 
 /// Error type that transports need to return.
 pub enum TransportError<Err> {

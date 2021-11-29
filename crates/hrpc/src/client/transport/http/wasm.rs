@@ -8,7 +8,7 @@ use std::{
 };
 
 use bytes::{Buf, Bytes, BytesMut};
-use futures_util::{Stream, StreamExt};
+use futures_util::{future::LocalBoxFuture, Future, FutureExt, Stream, StreamExt};
 use http::{header, HeaderMap, HeaderValue, Uri};
 use js_sys::Uint8Array;
 use prost::Message;
@@ -20,9 +20,7 @@ use super::{check_uri, map_scheme_to_ws, InvalidServerUrl};
 use crate::{
     body::Body,
     client::{
-        transport::{
-            box_socket_stream_sink, CallResult, TransportError, TransportRequest, TransportResponse,
-        },
+        transport::{box_socket_stream_sink, TransportError, TransportRequest, TransportResponse},
         ClientError,
     },
     common::transport::{
@@ -92,7 +90,7 @@ impl Service<TransportRequest> for Wasm {
 
     type Error = TransportError<WasmError>;
 
-    type Future = CallResult<'static, TransportResponse, WasmError>;
+    type Future = CallFuture;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Ok(()).into()
@@ -126,7 +124,7 @@ impl Service<TransportRequest> for Wasm {
                     .remove::<SocketProtocols>()
                     .map_or_else(|| vec![Cow::Owned(ws_version())], |s| s.protocols);
 
-                Box::pin(async move {
+                let inner = Box::pin(async move {
                     let protocols = Some(sock_protocols.iter().map(|s| s.as_ref()).collect());
                     let (_, ws_stream) = ws_stream_wasm::WsMeta::connect(url, protocols)
                         .await
@@ -137,7 +135,9 @@ impl Service<TransportRequest> for Wasm {
                     let (tx, rx) = box_socket_stream_sink(ws_tx, ws_rx);
 
                     Ok(TransportResponse::new_socket(tx, rx))
-                })
+                });
+
+                CallFuture { inner }
             }
             TransportRequest::Unary(req) => {
                 let request::Parts {
@@ -163,7 +163,7 @@ impl Service<TransportRequest> for Wasm {
 
                 let check_spec_version = self.check_spec_version;
 
-                Box::pin(async move {
+                let inner = Box::pin(async move {
                     let mut data = body.aggregate().await.map_err(WasmError::BodyError)?;
 
                     request = request.body({
@@ -273,7 +273,9 @@ impl Service<TransportRequest> for Wasm {
                     });
 
                     Ok(TransportResponse::new_unary(resp))
-                })
+                });
+
+                CallFuture { inner }
             }
         }
     }
@@ -351,3 +353,19 @@ where
 // SAFETY: this is safe on WASM since it is single-threaded
 unsafe impl<S> Send for SendSyncBody<S> {}
 unsafe impl<S> Sync for SendSyncBody<S> {}
+
+/// Call future for [`Wasm`].
+pub struct CallFuture {
+    inner: LocalBoxFuture<'static, Result<TransportResponse, TransportError<WasmError>>>,
+}
+
+impl Future for CallFuture {
+    type Output = Result<TransportResponse, TransportError<WasmError>>;
+
+    fn poll(mut self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.inner.poll_unpin(cx)
+    }
+}
+
+// SAFETY: this is safe on WASM since it is single-threaded
+unsafe impl Send for CallFuture {}
