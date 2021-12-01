@@ -11,15 +11,13 @@ use tower::{
     Layer, Service,
 };
 
-use self::utils::HrpcServiceToHttp;
-
 use super::Transport;
 use crate::{server::MakeRoutes, BoxError};
 
+/// Underlying implementation of this transport.
+pub mod r#impl;
 /// Useful layers for HTTP.
 pub mod layer;
-/// Utilities for working with this transport.
-pub mod utils;
 mod ws;
 
 #[doc(inline)]
@@ -94,7 +92,7 @@ impl<L> Hyper<L> {
 
 impl<L, S> Transport for Hyper<L>
 where
-    L: Layer<HrpcServiceToHttp, Service = S> + Clone + Send + 'static,
+    L: Layer<r#impl::HrpcServiceToHttp, Service = S> + Clone + Send + 'static,
     S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
     S::Future: Send,
 {
@@ -104,7 +102,8 @@ where
     where
         M: MakeRoutes,
     {
-        let service = utils::MakeRoutesToHttp::new(mk_routes.into_make_service()).layer(self.layer);
+        let service =
+            r#impl::MakeRoutesToHttp::new(mk_routes.into_make_service()).layer(self.layer);
 
         if let Some((cert_path, key_path)) = self.tls {
             Box::pin(async move {
