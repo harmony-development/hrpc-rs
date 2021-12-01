@@ -50,13 +50,25 @@ type OnSuccessFnPtr = fn(&BoxRequest, &Span);
 type OnErrorFnPtr = fn(&BoxRequest, &Span, &HrpcError);
 
 impl TraceLayer<SpanFnPtr, OnRequestFnPtr, OnSuccessFnPtr, OnErrorFnPtr> {
-    /// Create a trace layer with a default configuration.
+    /// Create a trace layer with a default configuration that logs on the info
+    /// level of `tracing`. Errors are logged with error level.
     pub fn default() -> Self {
         Self {
             span_fn: |req| tracing::info_span!("request", endpoint = %req.endpoint()),
             on_request: |_, _| tracing::info!("processing request"),
             on_success: |_, _| tracing::info!("request successful"),
-            on_error: |_, _, err| tracing::info!("request failed: {}", err),
+            on_error: |_, _, err| tracing::error!("request failed: {}", err),
+        }
+    }
+
+    /// Create a trace layer with a default configuration that logs on the debug
+    /// level of `tracing`. Errors are logged with error level.
+    pub fn default_debug() -> Self {
+        Self {
+            span_fn: |req| tracing::debug_span!("request", endpoint = %req.endpoint()),
+            on_request: |_, _| tracing::debug!("processing request"),
+            on_success: |_, _| tracing::debug!("request successful"),
+            on_error: |_, _, err| tracing::error!("request failed: {}", err),
         }
     }
 }
