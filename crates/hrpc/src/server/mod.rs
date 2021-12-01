@@ -11,6 +11,8 @@ use self::router::RoutesFinalized;
 
 /// Error types used by hRPC.
 pub mod error;
+/// Layers for hRPC services.
+pub mod layer;
 /// The router used by hRPC.
 pub mod router;
 /// Handler type and handlers used by hRPC.
