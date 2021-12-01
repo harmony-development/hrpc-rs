@@ -7,9 +7,11 @@ use futures_util::{Future, FutureExt};
 use pin_project_lite::pin_project;
 use tower::{Layer, Service};
 
-use crate::{request::BoxRequest, response::BoxResponse};
-
-use super::transport::{TransportRequest, TransportResponse};
+use crate::{
+    client::transport::{TransportRequest, TransportResponse},
+    request::BoxRequest,
+    response::BoxResponse,
+};
 
 /// Function to modify a request.
 pub type ModifyReq = fn(&mut BoxRequest);

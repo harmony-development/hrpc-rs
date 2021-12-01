@@ -4,7 +4,7 @@ use chat_common::{
 };
 
 use hrpc::{
-    client::{layer::ModifyLayer, transport::http::Hyper, Client},
+    client::{layer::modify::ModifyLayer, transport::http::Hyper, Client},
     exports::http::StatusCode,
 };
 use rustyline::{error::ReadlineError, Editor as Rustyline};
