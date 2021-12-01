@@ -11,7 +11,7 @@ use super::{
 
 use matchit::Node as Matcher;
 use tower::{Layer, Service};
-use tracing::{info_span, instrument::Instrumented, Instrument};
+use tracing::Span;
 
 /// Builder type for inserting [`HrpcService`]s before building a [`RoutesFinalized`].
 pub struct Routes {
@@ -154,7 +154,7 @@ impl Service<BoxRequest> for RoutesInternal {
 
     type Error = Infallible;
 
-    type Future = Instrumented<CallFuture<'static>>;
+    type Future = CallFuture<'static>;
 
     fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         for route_ptr in &mut self.all_routes {
@@ -172,9 +172,7 @@ impl Service<BoxRequest> for RoutesInternal {
     fn call(&mut self, req: BoxRequest) -> Self::Future {
         let path = req.endpoint();
 
-        let span = info_span!("request", endpoint = %path);
-
-        let fut = match self.matcher.at_mut(path) {
+        match self.matcher.at_mut(path) {
             Ok(matched) => Service::call(
                 // SAFETY: our ptr is always initialized
                 unsafe { matched.value.as_mut().deref_mut() },
@@ -186,7 +184,7 @@ impl Service<BoxRequest> for RoutesInternal {
                 } else {
                     Cow::Owned(format!("{}/", path))
                 };
-                span.record("redirected_to", &redirect_to.as_ref());
+                Span::current().record("redirected_to", &redirect_to.as_ref());
                 match self.matcher.at_mut(redirect_to.as_ref()) {
                     Ok(matched) => {
                         Service::call(
@@ -199,9 +197,7 @@ impl Service<BoxRequest> for RoutesInternal {
                 }
             }
             _ => Service::call(&mut self.any, req),
-        };
-
-        fut.instrument(span)
+        }
     }
 }
 
