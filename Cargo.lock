@@ -571,7 +571,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc"
-version = "0.31.3"
+version = "0.32.0"
 dependencies = [
  "axum-server",
  "base64",
@@ -602,7 +602,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-build"
-version = "0.31.0"
+version = "0.32.0"
 dependencies = [
  "proc-macro2",
  "prost-build",
@@ -612,7 +612,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-proc-macro"
-version = "0.31.0"
+version = "0.32.0"
 
 [[package]]
 name = "http"
