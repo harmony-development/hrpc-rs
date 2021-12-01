@@ -224,10 +224,6 @@
 <span id="224">224</span>
 <span id="225">225</span>
 <span id="226">226</span>
-<span id="227">227</span>
-<span id="228">228</span>
-<span id="229">229</span>
-<span id="230">230</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>, <span class="ident">convert::Infallible</span>, <span class="ident">mem::ManuallyDrop</span>, <span class="ident">ops::DerefMut</span>, <span class="ident">ptr::NonNull</span>, <span class="ident">task::Poll</span>,
 };
@@ -241,7 +237,7 @@
 
 <span class="kw">use</span> <span class="ident">matchit::Node</span> <span class="kw">as</span> <span class="ident">Matcher</span>;
 <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">Layer</span>, <span class="ident">Service</span>};
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info_span</span>, <span class="ident">instrument::Instrumented</span>, <span class="ident">Instrument</span>};
+<span class="kw">use</span> <span class="ident">tracing::Span</span>;
 
 <span class="doccomment">/// Builder type for inserting [`HrpcService`]s before building a [`RoutesFinalized`].</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Routes</span> {
@@ -384,7 +380,7 @@
 
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span>;
 
-    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">Instrumented</span><span class="op">&lt;</span><span class="ident">CallFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">CallFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">poll_ready</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">for</span> <span class="ident">route_ptr</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">all_routes</span> {
@@ -402,9 +398,7 @@
     <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">BoxRequest</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Future</span> {
         <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">req</span>.<span class="ident">endpoint</span>();
 
-        <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span!</span>(<span class="string">&quot;request&quot;</span>, <span class="ident">endpoint</span> <span class="op">=</span> <span class="op">%</span><span class="ident">path</span>);
-
-        <span class="kw">let</span> <span class="ident">fut</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">matcher</span>.<span class="ident">at_mut</span>(<span class="ident">path</span>) {
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">matcher</span>.<span class="ident">at_mut</span>(<span class="ident">path</span>) {
             <span class="prelude-val">Ok</span>(<span class="ident">matched</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Service::call</span>(
                 <span class="comment">// SAFETY: our ptr is always initialized</span>
                 <span class="kw">unsafe</span> { <span class="ident">matched</span>.<span class="ident">value</span>.<span class="ident">as_mut</span>().<span class="ident">deref_mut</span>() },
@@ -416,7 +410,7 @@
                 } <span class="kw">else</span> {
                     <span class="ident">Cow::Owned</span>(<span class="macro">format!</span>(<span class="string">&quot;{}/&quot;</span>, <span class="ident">path</span>))
                 };
-                <span class="ident">span</span>.<span class="ident">record</span>(<span class="string">&quot;redirected_to&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">redirect_to</span>.<span class="ident">as_ref</span>());
+                <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;redirected_to&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">redirect_to</span>.<span class="ident">as_ref</span>());
                 <span class="kw">match</span> <span class="self">self</span>.<span class="ident">matcher</span>.<span class="ident">at_mut</span>(<span class="ident">redirect_to</span>.<span class="ident">as_ref</span>()) {
                     <span class="prelude-val">Ok</span>(<span class="ident">matched</span>) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="ident">Service::call</span>(
@@ -429,9 +423,7 @@
                 }
             }
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Service::call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">any</span>, <span class="ident">req</span>),
-        };
-
-        <span class="ident">fut</span>.<span class="ident">instrument</span>(<span class="ident">span</span>)
+        }
     }
 }
 

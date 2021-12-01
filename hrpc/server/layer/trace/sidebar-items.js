@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Trace","Service that can be used to trace request and responses."],["TraceFuture","Future used by [`Trace`]."],["TraceLayer","Layer for layering hRPC services with [`Trace`]."]]});

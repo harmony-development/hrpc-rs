@@ -231,6 +231,8 @@
 <span id="231">231</span>
 <span id="232">232</span>
 <span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::convert::Infallible</span>;
 
 <span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">Layer</span>, <span class="ident">Service</span> <span class="kw">as</span> <span class="ident">TowerService</span>};
@@ -244,6 +246,8 @@
 
 <span class="doccomment">/// Error types used by hRPC.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">error</span>;
+<span class="doccomment">/// Layers for hRPC services.</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">layer</span>;
 <span class="doccomment">/// The router used by hRPC.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">router</span>;
 <span class="doccomment">/// Handler type and handlers used by hRPC.</span>
