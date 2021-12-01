@@ -9,7 +9,7 @@ use hrpc::{
     exports::http::StatusCode,
     server::{
         prelude::*,
-        transport::http::{layer::ErrorIdentifierToStatusLayer, Hyper},
+        transport::http::{layer::errid_to_status::ErrorIdentifierToStatusLayer, Hyper},
     },
 };
 use tokio::sync::broadcast;
