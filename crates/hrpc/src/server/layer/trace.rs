@@ -12,6 +12,7 @@ use tracing::Span;
 use crate::{proto::Error as HrpcError, request::BoxRequest, response::BoxResponse};
 
 /// Layer for layering hRPC services with [`Trace`].
+#[derive(Debug, Clone)]
 pub struct TraceLayer<SpanFn, OnRequestFn, OnSuccessFn, OnErrorFn> {
     span_fn: SpanFn,
     on_request: OnRequestFn,
@@ -82,6 +83,7 @@ where
 }
 
 /// Service that can be used to trace request and responses.
+#[derive(Debug, Clone)]
 pub struct Trace<S, SpanFn, OnRequestFn, OnSuccessFn, OnErrorFn> {
     inner: S,
     span_fn: SpanFn,
