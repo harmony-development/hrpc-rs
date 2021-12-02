@@ -116,11 +116,13 @@ where
                     .await
             })
         } else {
-            Box::pin(
-                axum_server::bind(self.addr)
-                    .http_config(self.config)
-                    .serve(service),
-            )
+            Box::pin(async move {
+                hyper::server::Server::bind(&self.addr)
+                    .serve(service)
+                    .await
+                    .unwrap();
+                Ok(())
+            })
         }
     }
 }
