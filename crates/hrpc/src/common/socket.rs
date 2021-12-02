@@ -8,7 +8,12 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures_util::{lock::BiLock, Future, Sink, SinkExt, Stream, StreamExt};
+use futures_util::{
+    future::FusedFuture,
+    lock::BiLock,
+    stream::{Fuse, SelectNextSome},
+    Future, FutureExt, Sink, SinkExt, Stream, StreamExt,
+};
 
 use bytes::BytesMut;
 use prost::Message as PbMsg;
@@ -178,7 +183,7 @@ where
 /// Read half of a socket.
 #[must_use = "read sockets do nothing unless you use `.receive_message()`"]
 pub struct ReadSocket<Resp> {
-    rx: BoxedSocketRx,
+    rx: Fuse<BoxedSocketRx>,
     tx: BiLock<BoxedSocketTx>,
     decode_message: DecodeMessageFn<Resp>,
     socket_id: usize,
@@ -192,7 +197,7 @@ impl<Resp: PbMsg + Default> ReadSocket<Resp> {
         socket_id: usize,
     ) -> Self {
         Self {
-            rx,
+            rx: rx.fuse(),
             tx,
             decode_message,
             socket_id,
@@ -207,7 +212,7 @@ impl<Resp: PbMsg + Default> ReadSocket<Resp> {
     pub async fn receive_message(&mut self) -> Result<Resp, SocketError> {
         loop {
             let msg_fut = ReceiveMessageFuture {
-                rx: &mut self.rx,
+                rx: self.rx.select_next_some(),
                 decode_message: self.decode_message,
             };
             match msg_fut.await? {
@@ -231,7 +236,7 @@ enum RecvMsg<Resp> {
 }
 
 struct ReceiveMessageFuture<'a, Resp> {
-    rx: &'a mut BoxedSocketRx,
+    rx: SelectNextSome<'a, Fuse<BoxedSocketRx>>,
     decode_message: DecodeMessageFn<Resp>,
 }
 
@@ -239,29 +244,31 @@ impl<'a, Resp> Future for ReceiveMessageFuture<'a, Resp> {
     type Output = Result<RecvMsg<Resp>, SocketError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let item = futures_util::ready!(self.rx.poll_next_unpin(cx));
-        match item {
-            Some(res) => match res {
-                Ok(msg) => match msg {
-                    SocketMessage::Binary(data) => Poll::Ready(match (self.decode_message)(data) {
-                        Ok(res) => match res {
-                            DecodeResult::Msg(resp) => Ok(RecvMsg::Msg(resp)),
-                            DecodeResult::Error(err) => Err(SocketError::Protocol(err)),
-                        },
-                        Err(err) => Err(SocketError::MessageDecode(err)),
-                    }),
-                    SocketMessage::Ping(data) => Poll::Ready(Ok(RecvMsg::Ping(data))),
-                    SocketMessage::Close => {
-                        Poll::Ready(Err(SocketError::Transport(Box::new(HrpcError::from((
-                            "hrpcrs.socket-error",
-                            "socket is closed by the other end",
-                        ))))))
-                    }
-                    _ => Poll::Pending,
-                },
-                Err(err) => Poll::Ready(Err(SocketError::Transport(err))),
+        fn socket_closed_err() -> Poll<SocketError> {
+            Poll::Ready(SocketError::Transport(Box::new(HrpcError::from((
+                "hrpcrs.socket-error",
+                "socket is closed by the other end",
+            )))))
+        }
+
+        if self.rx.is_terminated() {
+            return socket_closed_err().map(Err);
+        }
+        let res = futures_util::ready!(self.rx.poll_unpin(cx));
+        match res {
+            Ok(msg) => match msg {
+                SocketMessage::Binary(data) => Poll::Ready(match (self.decode_message)(data) {
+                    Ok(res) => match res {
+                        DecodeResult::Msg(resp) => Ok(RecvMsg::Msg(resp)),
+                        DecodeResult::Error(err) => Err(SocketError::Protocol(err)),
+                    },
+                    Err(err) => Err(SocketError::MessageDecode(err)),
+                }),
+                SocketMessage::Ping(data) => Poll::Ready(Ok(RecvMsg::Ping(data))),
+                SocketMessage::Close => socket_closed_err().map(Err),
+                _ => Poll::Pending,
             },
-            None => Poll::Pending,
+            Err(err) => Poll::Ready(Err(SocketError::Transport(err))),
         }
     }
 }
