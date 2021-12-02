@@ -40,7 +40,7 @@
 }
 
 <span class="doccomment">/// Create a new pair of mock channels.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_mock_channels</span>() <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">MockSender</span>, <span class="ident">MockReceiver</span>) {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_mock_channels</span>() -&gt; (<span class="ident">MockSender</span>, <span class="ident">MockReceiver</span>) {
     <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">mpsc::unbounded_channel</span>();
     (<span class="ident">MockSender</span> { <span class="ident">inner</span>: <span class="ident">tx</span> }, <span class="ident">MockReceiver</span> { <span class="ident">inner</span>: <span class="ident">rx</span> })
 }

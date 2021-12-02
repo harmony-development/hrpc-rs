@@ -1,3 +1,0 @@
-(function() {var implementors = {};
-implementors["server"] = [{"text":"impl <a class=\"trait\" href=\"hello_world/hello/greeter_server/trait.Greeter.html\" title=\"trait hello_world::hello::greeter_server::Greeter\">Greeter</a> for <a class=\"struct\" href=\"server/struct.GreeterService.html\" title=\"struct server::GreeterService\">GreeterService</a>","synthetic":false,"types":["server::GreeterService"]}];
-if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

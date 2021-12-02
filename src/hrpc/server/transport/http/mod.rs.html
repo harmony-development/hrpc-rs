@@ -156,7 +156,7 @@
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HttpResponse</span> <span class="op">=</span> <span class="ident">http::Response</span><span class="op">&lt;</span><span class="ident">BoxBody</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// Convert a body with the correct attributes to a [`BoxBody`].</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_body</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span>(<span class="ident">body</span>: <span class="ident">B</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxBody</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_body</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span>(<span class="ident">body</span>: <span class="ident">B</span>) -&gt; <span class="ident">BoxBody</span>
 <span class="kw">where</span>
     <span class="ident">B</span>: <span class="ident">http_body::Body</span><span class="op">&lt;</span><span class="ident">Data</span> <span class="op">=</span> <span class="ident">Bytes</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     <span class="ident">B::Error</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">BoxError</span><span class="op">&gt;</span>,
@@ -175,7 +175,7 @@
 
 <span class="kw">impl</span> <span class="ident">Hyper</span><span class="op">&lt;</span><span class="ident">Identity</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Create a new `hyper` transport.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">Addr</span>: <span class="ident">ToSocketAddrs</span><span class="op">&gt;</span>(<span class="ident">addr</span>: <span class="ident">Addr</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">io::Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">Addr</span>: <span class="ident">ToSocketAddrs</span><span class="op">&gt;</span>(<span class="ident">addr</span>: <span class="ident">Addr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">io::Error</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">addr</span>: <span class="ident">addr</span>.<span class="ident">to_socket_addrs</span>()<span class="question-mark">?</span>.<span class="ident">next</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
                 <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::Other</span>, <span class="string">&quot;no socket addresses passed&quot;</span>)
@@ -189,7 +189,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">L</span><span class="op">&gt;</span> <span class="ident">Hyper</span><span class="op">&lt;</span><span class="ident">L</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Layer this [`hyper`] server with a [`Layer`].</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">layer</span><span class="op">&lt;</span><span class="ident">Layer</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">layer</span>: <span class="ident">Layer</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Hyper</span><span class="op">&lt;</span><span class="ident">Stack</span><span class="op">&lt;</span><span class="ident">Layer</span>, <span class="ident">L</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">layer</span><span class="op">&lt;</span><span class="ident">Layer</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">layer</span>: <span class="ident">Layer</span>) -&gt; <span class="ident">Hyper</span><span class="op">&lt;</span><span class="ident">Stack</span><span class="op">&lt;</span><span class="ident">Layer</span>, <span class="ident">L</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="ident">Hyper</span> {
             <span class="ident">addr</span>: <span class="self">self</span>.<span class="ident">addr</span>,
             <span class="ident">layer</span>: <span class="ident">Stack::new</span>(<span class="ident">layer</span>, <span class="self">self</span>.<span class="ident">layer</span>),
@@ -204,13 +204,13 @@
         <span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">cert_path</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
         <span class="ident">key_path</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    ) -&gt; <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">tls</span> <span class="op">=</span> <span class="prelude-val">Some</span>((<span class="ident">cert_path</span>.<span class="ident">into</span>(), <span class="ident">key_path</span>.<span class="ident">into</span>()));
         <span class="self">self</span>
     }
 
     <span class="doccomment">/// Set new configuration for the [`hyper`] HTTP server.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">configure_hyper</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">config</span>: <span class="ident">HttpConfig</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">configure_hyper</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">config</span>: <span class="ident">HttpConfig</span>) -&gt; <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">config</span> <span class="op">=</span> <span class="ident">config</span>;
         <span class="self">self</span>
     }
@@ -224,7 +224,7 @@
 {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">std::io::Error</span>;
 
-    <span class="kw">fn</span> <span class="ident">serve</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">mk_routes</span>: <span class="ident">M</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span>
+    <span class="kw">fn</span> <span class="ident">serve</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">mk_routes</span>: <span class="ident">M</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">M</span>: <span class="ident">MakeRoutes</span>,
     {

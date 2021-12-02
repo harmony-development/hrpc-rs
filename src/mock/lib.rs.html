@@ -51,7 +51,7 @@
         <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">welcome_user</span>(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">WelcomeUserRequest</span><span class="op">&gt;</span>,
-        ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">WelcomeUserResponse</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        ) -&gt; <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">WelcomeUserResponse</span><span class="op">&gt;</span><span class="op">&gt;</span> {
             <span class="comment">// Extract the message from the request</span>
             <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">into_message</span>().<span class="kw">await</span><span class="question-mark">?</span>;
 

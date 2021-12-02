@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["chat","`chat` package protobuf definitions and service."]],"type":[["BoxError","A boxed error."]]});

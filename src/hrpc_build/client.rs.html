@@ -211,7 +211,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// This takes some `Service` and will generate a `TokenStream` that contains</span>
 <span class="doccomment">/// a public module with the generated client.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Service</span><span class="op">&gt;</span>(<span class="ident">service</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Service</span><span class="op">&gt;</span>(<span class="ident">service</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">service_ident</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}Client&quot;</span>, <span class="ident">service</span>.<span class="ident">name</span>());
     <span class="kw">let</span> <span class="ident">client_mod</span> <span class="op">=</span> <span class="macro">quote::format_ident!</span>(<span class="string">&quot;{}_client&quot;</span>, <span class="ident">naive_snake_case</span>(<span class="ident">service</span>.<span class="ident">name</span>()));
     <span class="kw">let</span> <span class="ident">methods</span> <span class="op">=</span> <span class="ident">generate_methods</span>(<span class="ident">service</span>, <span class="ident">proto_path</span>);
@@ -221,14 +221,14 @@
     <span class="kw">let</span> <span class="ident">create_methods</span> <span class="op">=</span> <span class="macro">quote!</span> {
         <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> #<span class="ident">service_ident</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> {
             <span class="doccomment">/// Create a new client using the provided transport.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_transport</span>(<span class="ident">transport</span>: <span class="ident">Inner</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_transport</span>(<span class="ident">transport</span>: <span class="ident">Inner</span>) -&gt; <span class="self">Self</span> {
                 <span class="self">Self</span> {
                     <span class="ident">inner</span>: <span class="ident">Client::new</span>(<span class="ident">transport</span>)
                 }
             }
 
             <span class="doccomment">/// Create a new client using the provided generic client.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_inner</span>(<span class="ident">client</span>: <span class="ident">Client</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_inner</span>(<span class="ident">client</span>: <span class="ident">Client</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
                 <span class="self">Self</span> {
                     <span class="ident">inner</span>: <span class="ident">client</span>,
                 }
@@ -247,7 +247,7 @@
             <span class="doccomment">/// Create a new client using HTTP transport.</span>
             <span class="doccomment">///</span>
             <span class="doccomment">/// Panics if the passed URI is an invalid URI.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">U</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">HyperError</span><span class="op">&gt;</span>
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">U</span>) -&gt; <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">HyperError</span><span class="op">&gt;</span>
             <span class="kw">where</span>
                 <span class="ident">U</span>: <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">Uri</span><span class="op">&gt;</span>,
                 <span class="ident">U::Error</span>: <span class="ident">Debug</span>,
@@ -271,7 +271,7 @@
             <span class="doccomment">/// Create a new client using HTTP transport.</span>
             <span class="doccomment">///</span>
             <span class="doccomment">/// Panics if the passed URI is an invalid URI.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">U</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">WasmError</span><span class="op">&gt;</span>
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>(<span class="ident">server</span>: <span class="ident">U</span>) -&gt; <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">WasmError</span><span class="op">&gt;</span>
             <span class="kw">where</span>
                 <span class="ident">U</span>: <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">Uri</span><span class="op">&gt;</span>,
                 <span class="ident">U::Error</span>: <span class="ident">Debug</span>,
@@ -313,7 +313,7 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">generate_methods</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Service</span><span class="op">&gt;</span>(<span class="ident">service</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">generate_methods</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Service</span><span class="op">&gt;</span>(<span class="ident">service</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">TokenStream::new</span>();
 
     <span class="kw">for</span> <span class="ident">method</span> <span class="kw">in</span> <span class="ident">service</span>.<span class="ident">methods</span>() {
@@ -330,10 +330,10 @@
         );
 
         <span class="kw">let</span> <span class="ident">make_method</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">method</span>.<span class="ident">client_streaming</span>(), <span class="ident">method</span>.<span class="ident">server_streaming</span>()) {
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">generate_unary</span>,
-            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">generate_streaming</span>,
-            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">generate_server_streaming</span>,
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">generate_client_streaming</span>,
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="ident">generate_unary</span>,
+            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; <span class="ident">generate_streaming</span>,
+            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="ident">generate_server_streaming</span>,
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="ident">generate_client_streaming</span>,
         };
 
         <span class="ident">stream</span>.<span class="ident">extend</span>(<span class="ident">generate_doc_comments</span>(<span class="ident">method</span>.<span class="ident">comment</span>()));
@@ -343,12 +343,12 @@
     <span class="ident">stream</span>
 }
 
-<span class="kw">fn</span> <span class="ident">generate_unary</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Method</span><span class="op">&gt;</span>(<span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">path</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">generate_unary</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Method</span><span class="op">&gt;</span>(<span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">path</span>: <span class="ident">String</span>) -&gt; <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">ident</span> <span class="op">=</span> <span class="macro">format_ident!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">method</span>.<span class="ident">name</span>());
     <span class="kw">let</span> (<span class="ident">request</span>, <span class="ident">response</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">request_response_name</span>(<span class="ident">proto_path</span>);
 
     <span class="macro">quote!</span> {
-        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span>#<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) -&gt; <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span>#<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span>#<span class="ident">request</span><span class="op">&gt;</span>,
         {
@@ -359,12 +359,12 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">generate_streaming</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Method</span><span class="op">&gt;</span>(<span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">path</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">generate_streaming</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Method</span><span class="op">&gt;</span>(<span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">path</span>: <span class="ident">String</span>) -&gt; <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">ident</span> <span class="op">=</span> <span class="macro">format_ident!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">method</span>.<span class="ident">name</span>());
     <span class="kw">let</span> (<span class="ident">request</span>, <span class="ident">response</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">request_response_name</span>(<span class="ident">proto_path</span>);
 
     <span class="macro">quote!</span> {
-        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) -&gt; <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
         {
@@ -375,12 +375,12 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">generate_client_streaming</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Method</span><span class="op">&gt;</span>(<span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">path</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">generate_client_streaming</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Method</span><span class="op">&gt;</span>(<span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">path</span>: <span class="ident">String</span>) -&gt; <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">ident</span> <span class="op">=</span> <span class="macro">format_ident!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">method</span>.<span class="ident">name</span>());
     <span class="kw">let</span> (<span class="ident">request</span>, <span class="ident">response</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">request_response_name</span>(<span class="ident">proto_path</span>);
 
     <span class="macro">quote!</span> {
-        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) -&gt; <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
         {
@@ -391,12 +391,12 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">generate_server_streaming</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Method</span><span class="op">&gt;</span>(<span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">path</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">generate_server_streaming</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Method</span><span class="op">&gt;</span>(<span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">proto_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">path</span>: <span class="ident">String</span>) -&gt; <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">ident</span> <span class="op">=</span> <span class="macro">format_ident!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">method</span>.<span class="ident">name</span>());
     <span class="kw">let</span> (<span class="ident">request</span>, <span class="ident">response</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">request_response_name</span>(<span class="ident">proto_path</span>);
 
     <span class="macro">quote!</span> {
-        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">ident</span><span class="op">&lt;</span><span class="ident">Req</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Req</span>) -&gt; <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">ClientResult</span><span class="op">&lt;</span><span class="ident">Socket</span><span class="op">&lt;</span>#<span class="ident">request</span>, #<span class="ident">response</span><span class="op">&gt;</span>, <span class="ident">InnerErr</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
         <span class="kw">where</span>
             <span class="ident">Req</span>: <span class="ident">IntoRequest</span><span class="op">&lt;</span>#<span class="ident">request</span><span class="op">&gt;</span>,
         {

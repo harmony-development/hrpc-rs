@@ -199,7 +199,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">Props</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
         <span class="comment">// There is no notion of &quot;equality&quot; for client provided by hRPC</span>
         <span class="comment">// and since we won&#39;t change the server URL we can just they are</span>
         <span class="comment">// always equal</span>
@@ -210,14 +210,14 @@
 <span class="kw">impl</span> <span class="ident">Properties</span> <span class="kw">for</span> <span class="ident">Props</span> {
     <span class="kw">type</span> <span class="ident">Builder</span> <span class="op">=</span> ();
 
-    <span class="kw">fn</span> <span class="ident">builder</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Builder</span> {}
+    <span class="kw">fn</span> <span class="ident">builder</span>() -&gt; <span class="ident"><span class="self">Self</span>::Builder</span> {}
 }
 
 <span class="kw">impl</span> <span class="ident">Component</span> <span class="kw">for</span> <span class="ident">Model</span> {
     <span class="kw">type</span> <span class="ident">Message</span> <span class="op">=</span> <span class="ident">Msg</span>;
     <span class="kw">type</span> <span class="ident">Properties</span> <span class="op">=</span> <span class="ident">Props</span>;
 
-    <span class="kw">fn</span> <span class="ident">create</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span><span class="op">&lt;</span><span class="ident">Model</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">create</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span><span class="op">&lt;</span><span class="ident">Model</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">messages</span>: <span class="ident">Vec::new</span>(),
             <span class="ident">last_error</span>: <span class="ident">String::new</span>(),
@@ -225,9 +225,9 @@
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span><span class="op">&lt;</span><span class="ident">Model</span><span class="op">&gt;</span>, <span class="ident">msg</span>: <span class="ident"><span class="self">Self</span>::Message</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">fn</span> <span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span><span class="op">&lt;</span><span class="ident">Model</span><span class="op">&gt;</span>, <span class="ident">msg</span>: <span class="ident"><span class="self">Self</span>::Message</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">match</span> <span class="ident">msg</span> {
-            <span class="ident">Msg::SendMessage</span>(<span class="ident">content</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Msg::SendMessage</span>(<span class="ident">content</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">fut</span> <span class="op">=</span> <span class="ident">ctx</span>
                     .<span class="ident">props</span>()
                     .<span class="ident">client</span>
@@ -237,15 +237,15 @@
                 <span class="ident">ctx</span>.<span class="ident">link</span>().<span class="ident">send_future</span>(<span class="ident">fut</span>);
                 <span class="bool-val">false</span>
             }
-            <span class="ident">Msg::SendMessageResult</span>(<span class="ident">res</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">res</span> {
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Msg::SendMessageResult</span>(<span class="ident">res</span>) =&gt; <span class="kw">match</span> <span class="ident">res</span> {
+                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
+                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
                     <span class="self">self</span>.<span class="ident">last_error</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">to_string</span>();
                     <span class="bool-val">true</span>
                 }
             },
-            <span class="ident">Msg::SocketCreateResult</span>(<span class="ident">res</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">res</span> {
-                <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">socket</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Msg::SocketCreateResult</span>(<span class="ident">res</span>) =&gt; <span class="kw">match</span> <span class="ident">res</span> {
+                <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">socket</span>) =&gt; {
                     <span class="kw">let</span> <span class="ident">fut</span> <span class="op">=</span> <span class="kw">async</span> <span class="kw">move</span> {
                         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">socket</span>.<span class="ident">receive_message</span>().<span class="kw">await</span>;
                         <span class="ident">Msg::PollMessagesResult</span> { <span class="ident">socket</span>, <span class="ident">res</span> }
@@ -253,15 +253,15 @@
                     <span class="ident">ctx</span>.<span class="ident">link</span>().<span class="ident">send_future</span>(<span class="ident">fut</span>);
                     <span class="bool-val">false</span>
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
                     <span class="self">self</span>.<span class="ident">last_error</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">to_string</span>();
                     <span class="bool-val">true</span>
                 }
             },
-            <span class="ident">Msg::PollMessagesResult</span> { <span class="kw-2">mut</span> <span class="ident">socket</span>, <span class="ident">res</span> } <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Msg::PollMessagesResult</span> { <span class="kw-2">mut</span> <span class="ident">socket</span>, <span class="ident">res</span> } =&gt; {
                 <span class="kw">match</span> <span class="ident">res</span> {
-                    <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">messages</span>.<span class="ident">push</span>(<span class="ident">msg</span>.<span class="ident">content</span>),
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">last_error</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">to_string</span>(),
+                    <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) =&gt; <span class="self">self</span>.<span class="ident">messages</span>.<span class="ident">push</span>(<span class="ident">msg</span>.<span class="ident">content</span>),
+                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="self">self</span>.<span class="ident">last_error</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">to_string</span>(),
                 }
 
                 <span class="kw">let</span> <span class="ident">fut</span> <span class="op">=</span> <span class="kw">async</span> <span class="kw">move</span> {
@@ -271,13 +271,13 @@
                 <span class="ident">ctx</span>.<span class="ident">link</span>().<span class="ident">send_future</span>(<span class="ident">fut</span>);
                 <span class="bool-val">true</span>
             }
-            <span class="ident">Msg::Nothing</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
+            <span class="ident">Msg::Nothing</span> =&gt; <span class="bool-val">false</span>,
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span><span class="op">&lt;</span><span class="ident">Model</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Html</span> {
+    <span class="kw">fn</span> <span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span><span class="op">&lt;</span><span class="ident">Model</span><span class="op">&gt;</span>) -&gt; <span class="ident">Html</span> {
         <span class="kw">let</span> <span class="ident">on_input_enter</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">link</span>().<span class="ident">callback</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">e</span>: <span class="ident">KeyboardEvent</span><span class="op">|</span> {
-            (<span class="ident">e</span>.<span class="ident">key</span>() <span class="op">=</span><span class="op">=</span> <span class="string">&quot;Enter&quot;</span>)
+            (<span class="ident">e</span>.<span class="ident">key</span>() <span class="op">==</span> <span class="string">&quot;Enter&quot;</span>)
                 .<span class="ident">then</span>(<span class="op">|</span><span class="op">|</span> {
                     <span class="kw">let</span> <span class="ident">input</span>: <span class="ident">InputElement</span> <span class="op">=</span> <span class="ident">e</span>.<span class="ident">target_unchecked_into</span>();
                     <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">value</span>();
@@ -297,7 +297,7 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">main</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">BoxError</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">main</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">BoxError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span> <span class="ident">Wasm::new</span>(<span class="string">&quot;http://0.0.0.0:2289&quot;</span>.<span class="ident">parse</span>().<span class="ident">unwrap</span>())<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">ChatClient::new_transport</span>(<span class="ident">transport</span>);

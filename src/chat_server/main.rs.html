@@ -125,7 +125,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">ChatService</span> {
-    <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">broadcast::channel</span>(<span class="number">100</span>);
         <span class="self">Self</span> {
             <span class="ident">message_broadcast</span>: <span class="ident">tx</span>,
@@ -134,13 +134,13 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Chat</span> <span class="kw">for</span> <span class="ident">ChatService</span> {
-    <span class="kw">fn</span> <span class="ident">send_message_middleware</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HrpcLayer</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">send_message_middleware</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HrpcLayer</span><span class="op">&gt;</span> {
         <span class="comment">// Limit send_message calls to 5 per 2 seconds</span>
         <span class="prelude-val">Some</span>(<span class="ident">RateLimitLayer::new</span>(<span class="number">5</span>, <span class="ident">Duration::from_secs</span>(<span class="number">2</span>)).<span class="ident">into_hrpc_layer</span>())
     }
 
     <span class="attribute">#[<span class="ident">handler</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Empty</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&gt;</span>) -&gt; <span class="ident">ServerResult</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Empty</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="comment">// Extract the message from the request</span>
         <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">into_message</span>().<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -159,7 +159,7 @@
         <span class="prelude-val">Ok</span>((<span class="ident">Empty</span> {}).<span class="ident">into_response</span>())
     }
 
-    <span class="kw">fn</span> <span class="ident">stream_messages_middleware</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HrpcLayer</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">stream_messages_middleware</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HrpcLayer</span><span class="op">&gt;</span> {
         <span class="comment">// Limit stream_messages calls to 1 per 5 seconds</span>
         <span class="prelude-val">Some</span>(<span class="ident">RateLimitLayer::new</span>(<span class="number">1</span>, <span class="ident">Duration::from_secs</span>(<span class="number">5</span>)).<span class="ident">into_hrpc_layer</span>())
     }
@@ -169,7 +169,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">_request</span>: <span class="ident">Request</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
         <span class="kw-2">mut</span> <span class="ident">socket</span>: <span class="ident">Socket</span><span class="op">&lt;</span><span class="ident">Message</span>, <span class="ident">Empty</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ServerResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">ServerResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="comment">// Subscribe to the message broadcaster</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">message_receiver</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">message_broadcast</span>.<span class="ident">subscribe</span>();
 
@@ -183,7 +183,7 @@
 }
 
 <span class="attribute">#[<span class="ident">tokio::main</span>]</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">BoxError</span><span class="op">&gt;</span> {
+<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">BoxError</span><span class="op">&gt;</span> {
     <span class="comment">// Set up logging</span>
     <span class="ident">tracing_subscriber::fmt</span>().<span class="ident">init</span>();
 

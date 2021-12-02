@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["chat_client","Generated client implementations."],["chat_server","Generated server implementations."]],"struct":[["Empty","An empty message."],["Message","A chat message."]]});

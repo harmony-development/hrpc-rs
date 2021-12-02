@@ -209,7 +209,7 @@
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">HRPC_VERSION_HEADER</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;hrpc-version&quot;</span>;
 
 <span class="doccomment">/// Create a header value for the hRPC content type.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">content_header_value</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HeaderValue</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">content_header_value</span>() -&gt; <span class="ident">HeaderValue</span> {
     <span class="kw">unsafe</span> {
         <span class="ident">HeaderValue::from_maybe_shared_unchecked</span>(<span class="ident">Bytes::from_static</span>(
             <span class="ident">HRPC_CONTENT_MIMETYPE</span>.<span class="ident">as_bytes</span>(),
@@ -218,43 +218,43 @@
 }
 
 <span class="doccomment">/// Create the spec compliant WS protocol with hRPC version, as a header value.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ws_version_header_value</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HeaderValue</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ws_version_header_value</span>() -&gt; <span class="ident">HeaderValue</span> {
     <span class="kw">unsafe</span> { <span class="ident">HeaderValue::from_maybe_shared_unchecked</span>(<span class="ident">ws_version</span>().<span class="ident">into_bytes</span>()) }
 }
 
 <span class="doccomment">/// Create the spec compliant WS protocol with hRPC version.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ws_version</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ws_version</span>() -&gt; <span class="ident">String</span> {
     <span class="macro">format!</span>(<span class="string">&quot;hrpc{}&quot;</span>, <span class="ident">HRPC_SPEC_VERSION</span>)
 }
 
 <span class="doccomment">/// Create a header value with hRPC version, for the [`HRPC_VERSION_HEADER`] header.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">version_header_value</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HeaderValue</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">version_header_value</span>() -&gt; <span class="ident">HeaderValue</span> {
     <span class="kw">unsafe</span> {
         <span class="ident">HeaderValue::from_maybe_shared_unchecked</span>(<span class="ident">Bytes::from_static</span>(<span class="ident">HRPC_SPEC_VERSION</span>.<span class="ident">as_bytes</span>()))
     }
 }
 
 <span class="doccomment">/// Create a header name for the hRPC version header (see [`HRPC_VERSION_HEADER`]).</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">version_header_name</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HeaderName</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">version_header_name</span>() -&gt; <span class="ident">HeaderName</span> {
     <span class="ident">HeaderName::from_static</span>(<span class="ident">HRPC_VERSION_HEADER</span>)
 }
 
 <span class="doccomment">/// Helper methods for working with `HeaderMap`.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">HeaderMapExt</span> {
     <span class="doccomment">/// Check if a header is equal to a bytes array. Ignores casing.</span>
-    <span class="kw">fn</span> <span class="ident">header_eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">HeaderName</span>, <span class="ident">value</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
+    <span class="kw">fn</span> <span class="ident">header_eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">HeaderName</span>, <span class="ident">value</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">bool</span>;
     <span class="doccomment">/// Check if a header contains a string. Ignores casing for the header value.</span>
-    <span class="kw">fn</span> <span class="ident">header_contains_str</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">HeaderName</span>, <span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
+    <span class="kw">fn</span> <span class="ident">header_contains_str</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">HeaderName</span>, <span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span>;
 }
 
 <span class="kw">impl</span> <span class="ident">HeaderMapExt</span> <span class="kw">for</span> <span class="ident">HeaderMap</span> {
-    <span class="kw">fn</span> <span class="ident">header_eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">HeaderName</span>, <span class="ident">value</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">fn</span> <span class="ident">header_eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">HeaderName</span>, <span class="ident">value</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">key</span>).<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">header</span><span class="op">|</span> {
             <span class="ident">header</span>.<span class="ident">as_bytes</span>().<span class="ident">eq_ignore_ascii_case</span>(<span class="ident">value</span>)
         })
     }
 
-    <span class="kw">fn</span> <span class="ident">header_contains_str</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">HeaderName</span>, <span class="ident">pat</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">fn</span> <span class="ident">header_contains_str</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">HeaderName</span>, <span class="ident">pat</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">key</span>).<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">header</span><span class="op">|</span> {
             <span class="ident">header</span>
                 .<span class="ident">to_str</span>()
@@ -269,43 +269,43 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Get an immutable reference to the HTTP method.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_method</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Method</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_method</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Method</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">http::Method</span><span class="op">&gt;</span>()
     }
 
     <span class="doccomment">/// Get an immutable reference to the HTTP version.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_version</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Version</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_version</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Version</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">http::Version</span><span class="op">&gt;</span>()
     }
 
     <span class="doccomment">/// Get an immutable reference to the HTTP URI.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_uri</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Uri</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_uri</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Uri</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">http::Uri</span><span class="op">&gt;</span>()
     }
 }
 
 <span class="kw">mod</span> <span class="ident">impl_exts</span> {
     <span class="macro">macro_rules!</span> <span class="ident">impl_exts</span> {
-        (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ty</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ty</span>) =&gt; {
             <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span> {
                 <span class="doccomment">/// Get an immutable reference to the header map.</span>
                 <span class="attribute">#[<span class="ident">inline</span>]</span>
-                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">header_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span> {
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">header_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span> {
                     <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>()
                 }
 
                 <span class="doccomment">/// Get a mutable reference to the header map.</span>
                 <span class="attribute">#[<span class="ident">inline</span>]</span>
-                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">header_map_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HeaderMap</span><span class="op">&gt;</span> {
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">header_map_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HeaderMap</span><span class="op">&gt;</span> {
                     <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">get_mut</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>()
                 }
 
                 <span class="doccomment">/// Get a mutable reference to the header map, inserting a new one</span>
                 <span class="doccomment">/// if it doesn&#39;t already exist.</span>
                 <span class="attribute">#[<span class="ident">inline</span>]</span>
-                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_or_insert_header_map</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HeaderMap</span> {
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_or_insert_header_map</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HeaderMap</span> {
                     <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">contains</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>() {
                         <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">insert</span>(<span class="ident">HeaderMap::new</span>());
                     }
@@ -314,20 +314,20 @@
 
                 <span class="doccomment">/// Get an immutable reference to the HTTP extensions.</span>
                 <span class="attribute">#[<span class="ident">inline</span>]</span>
-                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_extensions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span> {
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_extensions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span> {
                     <span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span>()
                 }
 
                 <span class="doccomment">/// Get a mutable reference to the HTTP extensions.</span>
                 <span class="attribute">#[<span class="ident">inline</span>]</span>
-                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_extensions_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">http::Extensions</span><span class="op">&gt;</span> {
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">http_extensions_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">http::Extensions</span><span class="op">&gt;</span> {
                     <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">get_mut</span>::<span class="op">&lt;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span>()
                 }
 
                 <span class="doccomment">/// Get a mutable reference to the HTTP extensions, inserting a new one</span>
                 <span class="doccomment">/// if it doesn&#39;t already exist.</span>
                 <span class="attribute">#[<span class="ident">inline</span>]</span>
-                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_or_insert_http_extensions</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">http::Extensions</span> {
+                <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_or_insert_http_extensions</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">http::Extensions</span> {
                     <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">extensions</span>().<span class="ident">contains</span>::<span class="op">&lt;</span><span class="ident">http::Extensions</span><span class="op">&gt;</span>() {
                         <span class="self">self</span>.<span class="ident">extensions_mut</span>().<span class="ident">insert</span>(<span class="ident">http::Extensions::new</span>());
                     }
@@ -348,26 +348,26 @@
     <span class="kw">fn</span> <span class="ident">poll_data</span>(
         <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
         <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Data</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Data</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">poll_next_unpin</span>(<span class="ident">cx</span>)
     }
 
     <span class="kw">fn</span> <span class="ident">poll_trailers</span>(
         <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
         <span class="ident">_cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="ident">std::task::Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>))
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">HrpcErrorIdentifier</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">StatusCode</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">id</span>: <span class="ident">HrpcErrorIdentifier</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">id</span>: <span class="ident">HrpcErrorIdentifier</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">id</span> {
-            <span class="ident">HrpcErrorIdentifier::InternalServerError</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::INTERNAL_SERVER_ERROR</span>,
-            <span class="ident">HrpcErrorIdentifier::NotFound</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::NOT_FOUND</span>,
-            <span class="ident">HrpcErrorIdentifier::NotImplemented</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::NOT_IMPLEMENTED</span>,
-            <span class="ident">HrpcErrorIdentifier::ResourceExhausted</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::TOO_MANY_REQUESTS</span>,
-            <span class="ident">HrpcErrorIdentifier::Unavailable</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">StatusCode::SERVICE_UNAVAILABLE</span>,
+            <span class="ident">HrpcErrorIdentifier::InternalServerError</span> =&gt; <span class="ident">StatusCode::INTERNAL_SERVER_ERROR</span>,
+            <span class="ident">HrpcErrorIdentifier::NotFound</span> =&gt; <span class="ident">StatusCode::NOT_FOUND</span>,
+            <span class="ident">HrpcErrorIdentifier::NotImplemented</span> =&gt; <span class="ident">StatusCode::NOT_IMPLEMENTED</span>,
+            <span class="ident">HrpcErrorIdentifier::ResourceExhausted</span> =&gt; <span class="ident">StatusCode::TOO_MANY_REQUESTS</span>,
+            <span class="ident">HrpcErrorIdentifier::Unavailable</span> =&gt; <span class="ident">StatusCode::SERVICE_UNAVAILABLE</span>,
         }
     }
 }
@@ -379,17 +379,17 @@
     <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">body::Body</span>, <span class="ident">BoxError</span>};
 
     <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">hyper::Body</span> {
-        <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">body</span>: <span class="ident">Body</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">body</span>: <span class="ident">Body</span>) -&gt; <span class="self">Self</span> {
             <span class="ident">hyper::Body::wrap_stream</span>(<span class="ident">body</span>)
         }
     }
 
     <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">hyper::Body</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Body</span> {
-        <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">hbody</span>: <span class="ident">hyper::Body</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">hbody</span>: <span class="ident">hyper::Body</span>) -&gt; <span class="self">Self</span> {
             <span class="ident">Body::new</span>(
                 <span class="ident">hbody</span>
                     .<span class="ident">into_stream</span>()
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxError</span> { <span class="ident">Box::new</span>(<span class="ident">err</span>) }),
+                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> -&gt; <span class="ident">BoxError</span> { <span class="ident">Box::new</span>(<span class="ident">err</span>) }),
             )
         }
     }

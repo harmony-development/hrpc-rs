@@ -300,10 +300,10 @@
 <span class="doccomment">/// Not to be confused with [`tower::Service`].</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">MakeRoutes</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
     <span class="doccomment">/// Creates a [`Routes`], which will be used to build a [`RoutesFinalized`] instance.</span>
-    <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span>;
+    <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Routes</span>;
 
     <span class="doccomment">/// Combines this server with another server.</span>
-    <span class="kw">fn</span> <span class="ident">combine_with</span><span class="op">&lt;</span><span class="ident">Other</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="ident">Other</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ServiceStack</span><span class="op">&lt;</span><span class="ident">Other</span>, <span class="self">Self</span><span class="op">&gt;</span>
+    <span class="kw">fn</span> <span class="ident">combine_with</span><span class="op">&lt;</span><span class="ident">Other</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="ident">Other</span>) -&gt; <span class="ident">ServiceStack</span><span class="op">&lt;</span><span class="ident">Other</span>, <span class="self">Self</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">Other</span>: <span class="ident">MakeRoutes</span>,
         <span class="self">Self</span>: <span class="ident">Sized</span>,
@@ -316,7 +316,7 @@
 
     <span class="doccomment">/// Turns this server into a type that implements `MakeService`, so that</span>
     <span class="doccomment">/// it can be used with [`hyper`].</span>
-    <span class="kw">fn</span> <span class="ident">into_make_service</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IntoMakeService</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>
+    <span class="kw">fn</span> <span class="ident">into_make_service</span>(<span class="self">self</span>) -&gt; <span class="ident">IntoMakeService</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="self">Self</span>: <span class="ident">Sized</span>,
     {
@@ -327,7 +327,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// If your layer does not implement [`Clone`], you can wrap it using</span>
     <span class="doccomment">/// [`HrpcLayer::new`].</span>
-    <span class="kw">fn</span> <span class="ident">layer</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">layer</span>: <span class="ident">L</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LayeredService</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span>, <span class="self">Self</span><span class="op">&gt;</span>
+    <span class="kw">fn</span> <span class="ident">layer</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">layer</span>: <span class="ident">L</span>) -&gt; <span class="ident">LayeredService</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">L</span>, <span class="self">Self</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">HrpcService</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
         <span class="ident">S</span>: <span class="ident">tower::Service</span><span class="op">&lt;</span><span class="ident">BoxRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">BoxResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
@@ -357,7 +357,7 @@
     <span class="ident">S::Future</span>: <span class="ident">Send</span>,
     <span class="ident">M</span>: <span class="ident">MakeRoutes</span> <span class="op">+</span> <span class="ident">Clone</span>,
 {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
             <span class="ident">layer</span>: <span class="self">self</span>.<span class="ident">layer</span>.<span class="ident">clone</span>(),
@@ -372,7 +372,7 @@
     <span class="ident">S::Future</span>: <span class="ident">Send</span>,
     <span class="ident">M</span>: <span class="ident">MakeRoutes</span>,
 {
-    <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span> {
+    <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Routes</span> {
         <span class="kw">let</span> <span class="ident">rb</span> <span class="op">=</span> <span class="ident">MakeRoutes::make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>);
         <span class="ident">rb</span>.<span class="ident">layer_all</span>(<span class="self">self</span>.<span class="ident">layer</span>.<span class="ident">clone</span>())
     }
@@ -393,7 +393,7 @@
     <span class="ident">Outer</span>: <span class="ident">MakeRoutes</span> <span class="op">+</span> <span class="ident">Clone</span>,
     <span class="ident">Inner</span>: <span class="ident">MakeRoutes</span> <span class="op">+</span> <span class="ident">Clone</span>,
 {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">outer</span>: <span class="self">self</span>.<span class="ident">outer</span>.<span class="ident">clone</span>(),
             <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
@@ -406,7 +406,7 @@
     <span class="ident">Outer</span>: <span class="ident">MakeRoutes</span>,
     <span class="ident">Inner</span>: <span class="ident">MakeRoutes</span>,
 {
-    <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span> {
+    <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Routes</span> {
         <span class="kw">let</span> <span class="ident">outer_rb</span> <span class="op">=</span> <span class="ident">MakeRoutes::make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">outer</span>);
         <span class="kw">let</span> <span class="ident">inner_rb</span> <span class="op">=</span> <span class="ident">MakeRoutes::make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>);
         <span class="ident">outer_rb</span>.<span class="ident">combine_with</span>(<span class="ident">inner_rb</span>)
@@ -420,7 +420,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">MakeRoutes</span> <span class="op">+</span> <span class="ident">Clone</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">IntoMakeService</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">mk_router</span>: <span class="self">self</span>.<span class="ident">mk_router</span>.<span class="ident">clone</span>(),
         }
@@ -437,11 +437,11 @@
     <span class="kw">fn</span> <span class="ident">poll_ready</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">_cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(()).<span class="ident">into</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_req</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Future</span> {
+    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_req</span>: <span class="ident">T</span>) -&gt; <span class="ident"><span class="self">Self</span>::Future</span> {
         <span class="ident">future::ready</span>(<span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">mk_router</span>.<span class="ident">make_routes</span>().<span class="ident">build</span>()))
     }
 }
@@ -455,7 +455,7 @@
     <span class="kw">struct</span> <span class="ident">TestServer</span>;
 
     <span class="kw">impl</span> <span class="ident">MakeRoutes</span> <span class="kw">for</span> <span class="ident">TestServer</span> {
-        <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Routes</span> {
+        <span class="kw">fn</span> <span class="ident">make_routes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Routes</span> {
             <span class="ident">Routes::new</span>()
         }
     }

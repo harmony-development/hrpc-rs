@@ -145,7 +145,7 @@
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">BoxError</span> <span class="op">=</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// Convenience function for converting some error to a boxed error.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_error</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>(<span class="ident">err</span>: <span class="prelude-val">Err</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxError</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_error</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>(<span class="ident">err</span>: <span class="prelude-val">Err</span>) -&gt; <span class="ident">BoxError</span>
 <span class="kw">where</span>
     <span class="prelude-val">Err</span>: <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
@@ -188,7 +188,7 @@
 <span class="doccomment">/// [`OUT_DIR`]: https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts</span>
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules!</span> <span class="ident">include_proto</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">package</span>: <span class="ident">tt</span>) <span class="op">=</span><span class="op">&gt;</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">package</span>: <span class="ident">tt</span>) =&gt; {
         <span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="macro">concat!</span>(<span class="string">&quot;/&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">package</span>, <span class="string">&quot;.rs&quot;</span>)));
     };
 }

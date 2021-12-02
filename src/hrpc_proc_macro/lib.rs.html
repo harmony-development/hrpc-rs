@@ -25,7 +25,7 @@
 <span class="doccomment">/// You should import either `hrpc::server::prelude` or `hrpc::make_handler` to be able to</span>
 <span class="doccomment">/// use this macro properly.</span>
 <span class="attribute">#[<span class="ident">proc_macro_attribute</span>]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">handler</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>, <span class="ident">input</span>: <span class="ident">TokenStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">handler</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>, <span class="ident">input</span>: <span class="ident">TokenStream</span>) -&gt; <span class="ident">TokenStream</span> {
     <span class="ident">TokenStream::from_iter</span>([
         <span class="ident">TokenTree::Ident</span>(<span class="ident">Ident::new</span>(<span class="string">&quot;make_handler&quot;</span>, <span class="ident">Span::mixed_site</span>())),
         <span class="ident">TokenTree::Punct</span>(<span class="ident">Punct::new</span>(<span class="string">&#39;!&#39;</span>, <span class="ident">proc_macro::Spacing::Joint</span>)),

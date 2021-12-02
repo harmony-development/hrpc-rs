@@ -185,42 +185,42 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">TransportError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ClientError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">TransportError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">TransportError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">err</span> {
-            <span class="ident">TransportError::Transport</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::Transport</span>(<span class="ident">err</span>),
-            <span class="ident">TransportError::GenericClient</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">err</span> {
-                <span class="ident">ClientError::ContentNotSupported</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::ContentNotSupported</span>,
+            <span class="ident">TransportError::Transport</span>(<span class="ident">err</span>) =&gt; <span class="ident">ClientError::Transport</span>(<span class="ident">err</span>),
+            <span class="ident">TransportError::GenericClient</span>(<span class="ident">err</span>) =&gt; <span class="kw">match</span> <span class="ident">err</span> {
+                <span class="ident">ClientError::ContentNotSupported</span> =&gt; <span class="ident">ClientError::ContentNotSupported</span>,
                 <span class="ident">ClientError::EndpointError</span> {
                     <span class="ident">hrpc_error</span>,
                     <span class="ident">endpoint</span>,
-                } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::EndpointError</span> {
+                } =&gt; <span class="ident">ClientError::EndpointError</span> {
                     <span class="ident">hrpc_error</span>,
                     <span class="ident">endpoint</span>,
                 },
-                <span class="ident">ClientError::IncompatibleSpecVersion</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::IncompatibleSpecVersion</span>,
-                <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>),
-                <span class="ident">ClientError::Transport</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable!</span>(<span class="string">&quot;infallible&quot;</span>),
+                <span class="ident">ClientError::IncompatibleSpecVersion</span> =&gt; <span class="ident">ClientError::IncompatibleSpecVersion</span>,
+                <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>) =&gt; <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>),
+                <span class="ident">ClientError::Transport</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;infallible&quot;</span>),
             },
         }
     }
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ClientError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">TransportError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">ClientError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">ClientError</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">err</span> {
-            <span class="ident">ClientError::Transport</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TransportError::Transport</span>(<span class="ident">err</span>),
-            <span class="ident">other</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TransportError::GenericClient</span>(<span class="kw">match</span> <span class="ident">other</span> {
-                <span class="ident">ClientError::ContentNotSupported</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::ContentNotSupported</span>,
+            <span class="ident">ClientError::Transport</span>(<span class="ident">err</span>) =&gt; <span class="ident">TransportError::Transport</span>(<span class="ident">err</span>),
+            <span class="ident">other</span> =&gt; <span class="ident">TransportError::GenericClient</span>(<span class="kw">match</span> <span class="ident">other</span> {
+                <span class="ident">ClientError::ContentNotSupported</span> =&gt; <span class="ident">ClientError::ContentNotSupported</span>,
                 <span class="ident">ClientError::EndpointError</span> {
                     <span class="ident">hrpc_error</span>,
                     <span class="ident">endpoint</span>,
-                } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::EndpointError</span> {
+                } =&gt; <span class="ident">ClientError::EndpointError</span> {
                     <span class="ident">hrpc_error</span>,
                     <span class="ident">endpoint</span>,
                 },
-                <span class="ident">ClientError::IncompatibleSpecVersion</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::IncompatibleSpecVersion</span>,
-                <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>),
-                <span class="ident">ClientError::Transport</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable!</span>(<span class="string">&quot;infallible&quot;</span>),
+                <span class="ident">ClientError::IncompatibleSpecVersion</span> =&gt; <span class="ident">ClientError::IncompatibleSpecVersion</span>,
+                <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>) =&gt; <span class="ident">ClientError::MessageDecode</span>(<span class="ident">err</span>),
+                <span class="ident">ClientError::Transport</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;infallible&quot;</span>),
             }),
         }
     }
@@ -252,10 +252,10 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">TransportResponse</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Unary</span>(<span class="ident">arg0</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Unary&quot;</span>).<span class="ident">field</span>(<span class="ident">arg0</span>).<span class="ident">finish</span>(),
-            <span class="ident"><span class="self">Self</span>::Socket</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f</span>
+            <span class="ident"><span class="self">Self</span>::Unary</span>(<span class="ident">arg0</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Unary&quot;</span>).<span class="ident">field</span>(<span class="ident">arg0</span>).<span class="ident">finish</span>(),
+            <span class="ident"><span class="self">Self</span>::Socket</span> { .. } =&gt; <span class="ident">f</span>
                 .<span class="ident">debug_struct</span>(<span class="string">&quot;Socket&quot;</span>)
                 .<span class="ident">field</span>(<span class="string">&quot;tx&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;&lt;hidden&gt;&quot;</span>)
                 .<span class="ident">field</span>(<span class="string">&quot;rx&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;&lt;hidden&gt;&quot;</span>)
@@ -266,12 +266,12 @@
 
 <span class="kw">impl</span> <span class="ident">TransportResponse</span> {
     <span class="doccomment">/// Create a new unary transport response.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_unary</span>(<span class="ident">resp</span>: <span class="ident">BoxResponse</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_unary</span>(<span class="ident">resp</span>: <span class="ident">BoxResponse</span>) -&gt; <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::Unary</span>(<span class="ident">resp</span>)
     }
 
     <span class="doccomment">/// Create a new socket transport response.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_socket</span>(<span class="ident">tx</span>: <span class="ident">BoxedSocketTx</span>, <span class="ident">rx</span>: <span class="ident">BoxedSocketRx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_socket</span>(<span class="ident">tx</span>: <span class="ident">BoxedSocketTx</span>, <span class="ident">rx</span>: <span class="ident">BoxedSocketRx</span>) -&gt; <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::Socket</span> { <span class="ident">tx</span>, <span class="ident">rx</span> }
     }
 
@@ -279,10 +279,10 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Panics</span>
     <span class="doccomment">/// - Panics if the transport response isn&#39;t a unary response.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">extract_unary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxResponse</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">extract_unary</span>(<span class="self">self</span>) -&gt; <span class="ident">BoxResponse</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Unary</span>(<span class="ident">req</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">req</span>,
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;expected unary response&quot;</span>),
+            <span class="ident"><span class="self">Self</span>::Unary</span>(<span class="ident">req</span>) =&gt; <span class="ident">req</span>,
+            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;expected unary response&quot;</span>),
         }
     }
 
@@ -290,16 +290,16 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Panics</span>
     <span class="doccomment">/// - Panics if the transport response isn&#39;t a socket response.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">extract_socket</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">BoxedSocketTx</span>, <span class="ident">BoxedSocketRx</span>) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">extract_socket</span>(<span class="self">self</span>) -&gt; (<span class="ident">BoxedSocketTx</span>, <span class="ident">BoxedSocketRx</span>) {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Socket</span> { <span class="ident">tx</span>, <span class="ident">rx</span> } <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">tx</span>, <span class="ident">rx</span>),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;expected socket response&quot;</span>),
+            <span class="ident"><span class="self">Self</span>::Socket</span> { <span class="ident">tx</span>, <span class="ident">rx</span> } =&gt; (<span class="ident">tx</span>, <span class="ident">rx</span>),
+            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;expected socket response&quot;</span>),
         }
     }
 }
 
 <span class="doccomment">/// Function that helps you meet bounds for boxed socket streams and sinks.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_socket_stream_sink</span><span class="op">&lt;</span><span class="ident">Tx</span>, <span class="ident">Rx</span><span class="op">&gt;</span>(<span class="ident">tx</span>: <span class="ident">Tx</span>, <span class="ident">rx</span>: <span class="ident">Rx</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">BoxedSocketTx</span>, <span class="ident">BoxedSocketRx</span>)
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">box_socket_stream_sink</span><span class="op">&lt;</span><span class="ident">Tx</span>, <span class="ident">Rx</span><span class="op">&gt;</span>(<span class="ident">tx</span>: <span class="ident">Tx</span>, <span class="ident">rx</span>: <span class="ident">Rx</span>) -&gt; (<span class="ident">BoxedSocketTx</span>, <span class="ident">BoxedSocketRx</span>)
 <span class="kw">where</span>
     <span class="ident">Tx</span>: <span class="ident">Sink</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">BoxError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     <span class="ident">Rx</span>: <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketMessage</span>, <span class="ident">BoxError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,

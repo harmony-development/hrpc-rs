@@ -234,13 +234,13 @@
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">HrpcErrorIdentifier</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">String</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">id</span>: <span class="ident">HrpcErrorIdentifier</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">id</span>: <span class="ident">HrpcErrorIdentifier</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">id</span>.<span class="ident">as_id</span>().<span class="ident">to_string</span>()
     }
 }
 
 <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">HrpcErrorIdentifier</span> {
-    <span class="kw">fn</span> <span class="ident">as_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">str</span> {
+    <span class="kw">fn</span> <span class="ident">as_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> {
         <span class="self">self</span>.<span class="ident">as_id</span>()
     }
 }
@@ -253,7 +253,7 @@
 <span class="kw">impl</span> <span class="ident">FromStr</span> <span class="kw">for</span> <span class="ident">HrpcErrorIdentifier</span> {
     <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> <span class="ident">NotHrpcErrorIdentifier</span>;
 
-    <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Err</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Err</span><span class="op">&gt;</span> {
         <span class="macro">compare_if_ret::compare_if_ret!</span> {
             <span class="ident">s</span>,
             <span class="ident"><span class="self">Self</span>::NotImplemented</span>,
@@ -267,7 +267,7 @@
 
 <span class="kw">mod</span> <span class="ident">compare_if_ret</span> {
     <span class="macro">macro_rules!</span> <span class="ident">compare_if_ret</span> {
-        (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">var</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">variant</span>:<span class="ident">expr</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">variant2</span>:<span class="ident">expr</span>, )<span class="op">+</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">var</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">variant</span>:<span class="ident">expr</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">variant2</span>:<span class="ident">expr</span>, )<span class="op">+</span>) =&gt; {
             <span class="kw">if</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">variant</span>.<span class="ident">compare</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">var</span>) {
                 <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">variant</span>);
             } $(
@@ -285,70 +285,70 @@
 
 <span class="kw">impl</span> <span class="ident">HrpcErrorIdentifier</span> {
     <span class="doccomment">/// Return the string version of this hRPC identifier.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">as_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">as_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::InternalServerError</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;hrpc.internal-server-error&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::ResourceExhausted</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;hrpc.resource-exhausted&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::NotImplemented</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;hrpc.not-implemented&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::Unavailable</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;hrpc.unavailable&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::NotFound</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;hrpc.not-found&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::InternalServerError</span> =&gt; <span class="string">&quot;hrpc.internal-server-error&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::ResourceExhausted</span> =&gt; <span class="string">&quot;hrpc.resource-exhausted&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::NotImplemented</span> =&gt; <span class="string">&quot;hrpc.not-implemented&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::Unavailable</span> =&gt; <span class="string">&quot;hrpc.unavailable&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::NotFound</span> =&gt; <span class="string">&quot;hrpc.not-found&quot;</span>,
         }
     }
 
     <span class="doccomment">/// Compare this hRPC identifier with some string identifier to see if they match.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compare</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">identifier</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="ident">identifier</span>.<span class="ident">as_ref</span>() <span class="op">=</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">as_id</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compare</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">identifier</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
+        <span class="ident">identifier</span>.<span class="ident">as_ref</span>() <span class="op">==</span> <span class="self">self</span>.<span class="ident">as_id</span>()
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Error</span> {
     <span class="doccomment">/// Create a new hRPC error representing a not implemented endpoint ([`HrpcErrorIdentifier::NotImplemented`]).</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_not_implemented</span>(<span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_not_implemented</span>(<span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::default</span>()
             .<span class="ident">with_identifier</span>(<span class="ident">HrpcErrorIdentifier::NotImplemented</span>)
             .<span class="ident">with_message</span>(<span class="ident">message</span>)
     }
 
     <span class="doccomment">/// Create a new hRPC error representing resource exhaustion by a client ([`HrpcErrorIdentifier::ResourceExhausted`]).</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_resource_exhausted</span>(<span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_resource_exhausted</span>(<span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::default</span>()
             .<span class="ident">with_identifier</span>(<span class="ident">HrpcErrorIdentifier::ResourceExhausted</span>)
             .<span class="ident">with_message</span>(<span class="ident">message</span>)
     }
 
     <span class="doccomment">/// Create a new hRPC error representing an internal server error ([`HrpcErrorIdentifier::InternalServerError`]).</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_internal_server_error</span>(<span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_internal_server_error</span>(<span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::default</span>()
             .<span class="ident">with_identifier</span>(<span class="ident">HrpcErrorIdentifier::InternalServerError</span>)
             .<span class="ident">with_message</span>(<span class="ident">message</span>)
     }
 
     <span class="doccomment">/// Create a new hRPC error representing a not found error ([`HrpcErrorIdentifier::NotFound`]).</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_not_found</span>(<span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_not_found</span>(<span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::default</span>()
             .<span class="ident">with_identifier</span>(<span class="ident">HrpcErrorIdentifier::NotFound</span>)
             .<span class="ident">with_message</span>(<span class="ident">message</span>)
     }
 
     <span class="doccomment">/// Set the &quot;more details&quot; of this hRPC error.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_details</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">details</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Bytes</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_details</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">details</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Bytes</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">details</span> <span class="op">=</span> <span class="ident">details</span>.<span class="ident">into</span>();
         <span class="self">self</span>
     }
 
     <span class="doccomment">/// Set the &quot;identifier&quot; of this hRPC error.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_identifier</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">identifier</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_identifier</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">identifier</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">identifier</span> <span class="op">=</span> <span class="ident">identifier</span>.<span class="ident">into</span>();
         <span class="self">self</span>
     }
 
     <span class="doccomment">/// Set the &quot;human message&quot; of this hRPC error.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_message</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_message</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">human_message</span> <span class="op">=</span> <span class="ident">message</span>.<span class="ident">into</span>();
         <span class="self">self</span>
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">invalid_hrpc_error</span>(<span class="ident">details</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Bytes</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">invalid_hrpc_error</span>(<span class="ident">details</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Bytes</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">human_message</span>:
                 <span class="string">&quot;the server error was an invalid hRPC error, check more_details field for the error&quot;</span>
@@ -360,7 +360,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Error</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">Error::default</span>()
             .<span class="ident">with_identifier</span>(<span class="ident">HrpcErrorIdentifier::InternalServerError</span>)
             .<span class="ident">with_message</span>(<span class="ident">msg</span>)
@@ -368,13 +368,13 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">str</span>)<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Error</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>((<span class="ident">id</span>, <span class="ident">msg</span>): (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">str</span>)) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>((<span class="ident">id</span>, <span class="ident">msg</span>): (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">str</span>)) -&gt; <span class="self">Self</span> {
         <span class="ident">Error::default</span>().<span class="ident">with_identifier</span>(<span class="ident">id</span>).<span class="ident">with_message</span>(<span class="ident">msg</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Error</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">msg</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">msg</span>: <span class="ident">String</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">Error::default</span>()
             .<span class="ident">with_identifier</span>(<span class="ident">HrpcErrorIdentifier::InternalServerError</span>)
             .<span class="ident">with_message</span>(<span class="ident">msg</span>)
@@ -382,19 +382,19 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="ident">String</span>)<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Error</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>((<span class="ident">id</span>, <span class="ident">msg</span>): (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="ident">String</span>)) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>((<span class="ident">id</span>, <span class="ident">msg</span>): (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="ident">String</span>)) -&gt; <span class="self">Self</span> {
         <span class="ident">Error::default</span>().<span class="ident">with_identifier</span>(<span class="ident">id</span>).<span class="ident">with_message</span>(<span class="ident">msg</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">BoxError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Error</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">BoxError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">BoxError</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">Error::default</span>().<span class="ident">with_message</span>(<span class="ident">err</span>.<span class="ident">to_string</span>())
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>, <span class="ident">BoxError</span>)<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Error</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>((<span class="ident">id</span>, <span class="ident">err</span>): (<span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>, <span class="ident">BoxError</span>)) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>((<span class="ident">id</span>, <span class="ident">err</span>): (<span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>, <span class="ident">BoxError</span>)) -&gt; <span class="self">Self</span> {
         <span class="ident">Error::default</span>()
             .<span class="ident">with_identifier</span>(<span class="ident">id</span>)
             .<span class="ident">with_message</span>(<span class="ident">err</span>.<span class="ident">to_string</span>())
@@ -402,7 +402,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">Error</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">Response::new</span>(<span class="kw-2">&amp;</span><span class="ident">err</span>);
         <span class="ident">resp</span>.<span class="ident">extensions_mut</span>().<span class="ident">insert</span>(<span class="ident">err</span>);
         <span class="ident">resp</span>
@@ -410,13 +410,13 @@
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">BoxResponse</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">Error</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">Response</span>::<span class="op">&lt;</span><span class="ident">Error</span><span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">err</span>).<span class="ident">map</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>()
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Display</span> <span class="kw">for</span> <span class="ident">Error</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
         <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;error &#39;{}&#39;: {}&quot;</span>, <span class="self">self</span>.<span class="ident">identifier</span>, <span class="self">self</span>.<span class="ident">human_message</span>)
     }
 }

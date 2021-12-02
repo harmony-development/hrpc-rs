@@ -108,7 +108,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="ident">WebSocket</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Create a new web socket by wrapping a [`tokio_tungstenite::WebSocketStream`].</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">inner</span>: <span class="ident">WebSocketStream</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">inner</span>: <span class="ident">WebSocketStream</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> { <span class="ident">inner</span> }
     }
 }
@@ -122,7 +122,7 @@
     <span class="kw">fn</span> <span class="ident">poll_next</span>(
         <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
         <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Item</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Item</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">poll_next_unpin</span>(<span class="ident">cx</span>)
             .<span class="ident">map_ok</span>(<span class="ident">SocketMessage::from</span>)
@@ -139,14 +139,14 @@
     <span class="kw">fn</span> <span class="ident">poll_ready</span>(
         <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
         <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">poll_ready_unpin</span>(<span class="ident">cx</span>).<span class="ident">map_err</span>(<span class="ident">BoxError::from</span>)
     }
 
     <span class="kw">fn</span> <span class="ident">start_send</span>(
         <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
         <span class="ident">item</span>: <span class="ident">SocketMessage</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">start_send_unpin</span>(<span class="ident">item</span>.<span class="ident">into</span>())
             .<span class="ident">map_err</span>(<span class="ident">BoxError::from</span>)
@@ -155,38 +155,38 @@
     <span class="kw">fn</span> <span class="ident">poll_flush</span>(
         <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
         <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">poll_flush_unpin</span>(<span class="ident">cx</span>).<span class="ident">map_err</span>(<span class="ident">BoxError::from</span>)
     }
 
     <span class="kw">fn</span> <span class="ident">poll_close</span>(
         <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
         <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">poll_close_unpin</span>(<span class="ident">cx</span>).<span class="ident">map_err</span>(<span class="ident">BoxError::from</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">WsMessage</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">SocketMessage</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">msg</span>: <span class="ident">WsMessage</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">msg</span>: <span class="ident">WsMessage</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">msg</span> {
-            <span class="ident">WsMessage::Binary</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Binary</span>(<span class="ident">data</span>),
-            <span class="ident">WsMessage::Close</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Close</span>,
-            <span class="ident">WsMessage::Text</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Text</span>(<span class="ident">data</span>),
-            <span class="ident">WsMessage::Pong</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Pong</span>(<span class="ident">data</span>),
-            <span class="ident">WsMessage::Ping</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Ping</span>(<span class="ident">data</span>),
+            <span class="ident">WsMessage::Binary</span>(<span class="ident">data</span>) =&gt; <span class="ident"><span class="self">Self</span>::Binary</span>(<span class="ident">data</span>),
+            <span class="ident">WsMessage::Close</span>(<span class="kw">_</span>) =&gt; <span class="ident"><span class="self">Self</span>::Close</span>,
+            <span class="ident">WsMessage::Text</span>(<span class="ident">data</span>) =&gt; <span class="ident"><span class="self">Self</span>::Text</span>(<span class="ident">data</span>),
+            <span class="ident">WsMessage::Pong</span>(<span class="ident">data</span>) =&gt; <span class="ident"><span class="self">Self</span>::Pong</span>(<span class="ident">data</span>),
+            <span class="ident">WsMessage::Ping</span>(<span class="ident">data</span>) =&gt; <span class="ident"><span class="self">Self</span>::Ping</span>(<span class="ident">data</span>),
         }
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">SocketMessage</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">WsMessage</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">msg</span>: <span class="ident">SocketMessage</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WsMessage</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">msg</span>: <span class="ident">SocketMessage</span>) -&gt; <span class="ident">WsMessage</span> {
         <span class="kw">match</span> <span class="ident">msg</span> {
-            <span class="ident">SocketMessage::Binary</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Binary</span>(<span class="ident">data</span>),
-            <span class="ident">SocketMessage::Close</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Close</span>(<span class="prelude-val">None</span>),
-            <span class="ident">SocketMessage::Text</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Text</span>(<span class="ident">data</span>),
-            <span class="ident">SocketMessage::Pong</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Pong</span>(<span class="ident">data</span>),
-            <span class="ident">SocketMessage::Ping</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Ping</span>(<span class="ident">data</span>),
+            <span class="ident">SocketMessage::Binary</span>(<span class="ident">data</span>) =&gt; <span class="ident"><span class="self">Self</span>::Binary</span>(<span class="ident">data</span>),
+            <span class="ident">SocketMessage::Close</span> =&gt; <span class="ident"><span class="self">Self</span>::Close</span>(<span class="prelude-val">None</span>),
+            <span class="ident">SocketMessage::Text</span>(<span class="ident">data</span>) =&gt; <span class="ident"><span class="self">Self</span>::Text</span>(<span class="ident">data</span>),
+            <span class="ident">SocketMessage::Pong</span>(<span class="ident">data</span>) =&gt; <span class="ident"><span class="self">Self</span>::Pong</span>(<span class="ident">data</span>),
+            <span class="ident">SocketMessage::Ping</span>(<span class="ident">data</span>) =&gt; <span class="ident"><span class="self">Self</span>::Ping</span>(<span class="ident">data</span>),
         }
     }
 }
