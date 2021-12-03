@@ -16,21 +16,31 @@ pub struct ModifyLayer<ModifyReq, ModifyResp> {
     resp_fn: ModifyResp,
 }
 
-impl<ModifyReq, ModifyResp> ModifyLayer<ModifyReq, ModifyResp> {
+impl<ModifyReq, ModifyResp> ModifyLayer<ModifyReq, ModifyResp>
+where
+    ModifyReq: Fn(&mut BoxRequest),
+    ModifyResp: Fn(&mut BoxResponse),
+{
     /// Create a new layer.
     pub fn new(req_fn: ModifyReq, resp_fn: ModifyResp) -> Self {
         Self { req_fn, resp_fn }
     }
 }
 
-impl<ModifyReq> ModifyLayer<ModifyReq, fn(&mut BoxResponse)> {
+impl<ModifyReq> ModifyLayer<ModifyReq, fn(&mut BoxResponse)>
+where
+    ModifyReq: Fn(&mut BoxRequest),
+{
     /// Create a new layer that only modifies requests.
     pub fn new_request(f: ModifyReq) -> Self {
         Self::new(f, |_| ())
     }
 }
 
-impl<ModifyResp> ModifyLayer<fn(&mut BoxRequest), ModifyResp> {
+impl<ModifyResp> ModifyLayer<fn(&mut BoxRequest), ModifyResp>
+where
+    ModifyResp: Fn(&mut BoxResponse),
+{
     /// Create a new layer that only modifies responses.
     pub fn new_response(f: ModifyResp) -> Self {
         Self::new(|_| (), f)
