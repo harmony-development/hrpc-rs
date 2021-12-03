@@ -28,9 +28,9 @@ library = true
 default = []
 
 # Enable common server code
-server = ["_common", "pin-project-lite", "matchit", "hrpc-proc-macro"]
+server = ["_common", "matchit", "hrpc-proc-macro"]
 # Enable common client code
-client = ["_common", "pin-project-lite"]
+client = ["_common"]
 # Internal feature used to indicate common server / client is enabled
 _common = [
     "futures-util/unstable",
@@ -38,6 +38,7 @@ _common = [
     "futures-util/sink",
     "futures-util/async-await-macro",
     "tower",
+    "pin-project-lite",
 ]
 
 # Enables the mock client
