@@ -12,38 +12,39 @@ use crate::{proto::Error as HrpcError, request::BoxRequest, response::BoxRespons
 
 /// Layer for layering services with [`ErrorIdentifierToStatus`].
 #[derive(Clone)]
-pub struct ErrorIdentifierToStatusLayer {
+pub struct ErrorIdentifierToStatusLayer<ToStatus> {
     to_status: ToStatus,
 }
 
-impl ErrorIdentifierToStatusLayer {
+impl<ToStatus> ErrorIdentifierToStatusLayer<ToStatus>
+where
+    ToStatus: Fn(&str) -> Option<StatusCode>,
+{
     /// Create a new layer using the provided [`ToStatus`] function.
     pub fn new(to_status: ToStatus) -> Self {
         Self { to_status }
     }
 }
 
-impl<S> Layer<S> for ErrorIdentifierToStatusLayer {
-    type Service = ErrorIdentifierToStatus<S>;
+impl<ToStatus, S> Layer<S> for ErrorIdentifierToStatusLayer<ToStatus>
+where
+    ToStatus: Clone,
+{
+    type Service = ErrorIdentifierToStatus<ToStatus, S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        ErrorIdentifierToStatus::new(self.to_status, inner)
+        ErrorIdentifierToStatus::new(self.to_status.clone(), inner)
     }
 }
 
-/// Type alias for a function that converts an error identifier to a [`StatusCode`].
-///
-/// Used in [`ErrorIdentifierToStatus`].
-pub type ToStatus = fn(&str) -> Option<StatusCode>;
-
 /// Service to set response status from possible errors.
 #[derive(Clone)]
-pub struct ErrorIdentifierToStatus<S> {
+pub struct ErrorIdentifierToStatus<ToStatus, S> {
     inner: S,
     to_status: ToStatus,
 }
 
-impl<S> ErrorIdentifierToStatus<S> {
+impl<ToStatus, S> ErrorIdentifierToStatus<ToStatus, S> {
     /// Create a new service by wrapping another service, and converting to
     /// status using the provided function.
     pub fn new(to_status: ToStatus, inner: S) -> Self {
@@ -51,15 +52,16 @@ impl<S> ErrorIdentifierToStatus<S> {
     }
 }
 
-impl<S> Service<BoxRequest> for ErrorIdentifierToStatus<S>
+impl<ToStatus, S> Service<BoxRequest> for ErrorIdentifierToStatus<ToStatus, S>
 where
     S: Service<BoxRequest, Response = BoxResponse>,
+    ToStatus: Fn(&str) -> Option<StatusCode> + Clone,
 {
     type Response = BoxResponse;
 
     type Error = S::Error;
 
-    type Future = ErrorIdentifierToStatusFuture<S::Future>;
+    type Future = ErrorIdentifierToStatusFuture<ToStatus, S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Service::poll_ready(&mut self.inner, cx)
@@ -68,23 +70,24 @@ where
     fn call(&mut self, req: BoxRequest) -> Self::Future {
         ErrorIdentifierToStatusFuture {
             resp_fut: Service::call(&mut self.inner, req),
-            to_status: self.to_status,
+            to_status: self.to_status.clone(),
         }
     }
 }
 
 pin_project! {
     /// Future for [`ErrorIdentifierToStatus`].
-    pub struct ErrorIdentifierToStatusFuture<Fut> {
+    pub struct ErrorIdentifierToStatusFuture<ToStatus, Fut> {
         #[pin]
         resp_fut: Fut,
         to_status: ToStatus,
     }
 }
 
-impl<Fut, Err> Future for ErrorIdentifierToStatusFuture<Fut>
+impl<ToStatus, Fut, Err> Future for ErrorIdentifierToStatusFuture<ToStatus, Fut>
 where
     Fut: Future<Output = Result<BoxResponse, Err>>,
+    ToStatus: Fn(&str) -> Option<StatusCode>,
 {
     type Output = Result<BoxResponse, Err>;
 
