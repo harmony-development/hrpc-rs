@@ -12,6 +12,7 @@
 <span id="12">12</span>
 <span id="13">13</span>
 <span id="14">14</span>
+<span id="15">15</span>
 </pre><pre class="rust"><code><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">buf</span>;
 
 <span class="doccomment">/// Extension type used by [`crate::Request`] and [`crate::Response`].</span>
@@ -19,6 +20,7 @@
 <span class="doccomment">/// Common future types used by `hrpc-rs`.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">future</span>;
 <span class="doccomment">/// Common layers that can be used in both clients and servers.</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;_common&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">layer</span>;
 <span class="doccomment">/// Common code to work with sockets.</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;_common&quot;</span>)]</span>
