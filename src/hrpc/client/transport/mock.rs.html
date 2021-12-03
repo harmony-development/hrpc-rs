@@ -113,9 +113,9 @@
 <span class="kw">use</span> <span class="ident">tokio::sync::oneshot</span>::{<span class="self">self</span>, <span class="ident">Receiver</span> <span class="kw">as</span> <span class="ident">OneshotReceiver</span>};
 <span class="kw">use</span> <span class="ident">tower::Service</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::transport::mock::MockSender</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">common::transport::mock::MockSender</span>, <span class="ident">request::BoxRequest</span>, <span class="ident">response::BoxResponse</span>};
 
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">TransportError</span>, <span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::TransportError</span>;
 
 <span class="doccomment">/// A client that uses a channel to send requests to a (possibly)</span>
 <span class="doccomment">/// mock server.</span>
@@ -131,8 +131,8 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Mock</span> {
-    <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span>;
+<span class="kw">impl</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">BoxRequest</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Mock</span> {
+    <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">BoxResponse</span>;
 
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">MockError</span><span class="op">&gt;</span>;
 
@@ -142,7 +142,7 @@
         <span class="prelude-val">Ok</span>(()).<span class="ident">into</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">TransportRequest</span>) -&gt; <span class="ident"><span class="self">Self</span>::Future</span> {
+    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">BoxRequest</span>) -&gt; <span class="ident"><span class="self">Self</span>::Future</span> {
         <span class="kw">let</span> (<span class="ident">resp_tx</span>, <span class="ident">resp_rx</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
         <span class="kw">let</span> <span class="ident">send_res</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">tx</span>
@@ -162,7 +162,7 @@
 }
 
 <span class="kw">enum</span> <span class="ident">MockCallFutureInner</span> {
-    <span class="ident">Recv</span>(<span class="ident">OneshotReceiver</span><span class="op">&lt;</span><span class="ident">TransportResponse</span><span class="op">&gt;</span>),
+    <span class="ident">Recv</span>(<span class="ident">OneshotReceiver</span><span class="op">&lt;</span><span class="ident">BoxResponse</span><span class="op">&gt;</span>),
     <span class="prelude-val">Err</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MockError</span><span class="op">&gt;</span>),
 }
 
@@ -172,7 +172,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Future</span> <span class="kw">for</span> <span class="ident">MockCallFuture</span> {
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TransportResponse</span>, <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">MockError</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BoxResponse</span>, <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">MockError</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">poll</span>(<span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Output</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">get_mut</span>().<span class="ident">inner</span> {
@@ -195,7 +195,7 @@
     <span class="ident">Receive</span>,
     <span class="doccomment">/// Occurs if sending a request fails. Only happens if receiver end of the</span>
     <span class="doccomment">/// channel is dropped.</span>
-    <span class="ident">Send</span>(<span class="ident">TransportRequest</span>),
+    <span class="ident">Send</span>(<span class="ident">BoxRequest</span>),
 }
 
 <span class="kw">impl</span> <span class="ident">Display</span> <span class="kw">for</span> <span class="ident">MockError</span> {

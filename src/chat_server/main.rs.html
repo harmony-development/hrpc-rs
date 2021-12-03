@@ -102,6 +102,14 @@
 <span id="102">102</span>
 <span id="103">103</span>
 <span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::time::Duration</span>;
 
 <span class="kw">use</span> <span class="ident">chat_common</span>::{
@@ -110,6 +118,7 @@
 };
 <span class="kw">use</span> <span class="ident">hrpc</span>::{
     <span class="ident">bail</span>,
+    <span class="ident">common::layer::trace::TraceLayer</span>,
     <span class="ident">exports::http::StatusCode</span>,
     <span class="ident">server</span>::{
         <span class="ident">prelude</span>::<span class="kw-2">*</span>,
@@ -119,6 +128,7 @@
 <span class="kw">use</span> <span class="ident">tokio::sync::broadcast</span>;
 <span class="kw">use</span> <span class="ident">tower::limit::RateLimitLayer</span>;
 <span class="kw">use</span> <span class="ident">tower_http::cors::CorsLayer</span>;
+<span class="kw">use</span> <span class="ident">tracing_subscriber::EnvFilter</span>;
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ChatService</span> {
     <span class="ident">message_broadcast</span>: <span class="ident">broadcast::Sender</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&gt;</span>,
@@ -185,13 +195,19 @@
 <span class="attribute">#[<span class="ident">tokio::main</span>]</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">BoxError</span><span class="op">&gt;</span> {
     <span class="comment">// Set up logging</span>
-    <span class="ident">tracing_subscriber::fmt</span>().<span class="ident">init</span>();
+    <span class="ident">tracing_subscriber::fmt</span>()
+        .<span class="ident">with_env_filter</span>(<span class="ident">EnvFilter::from_default_env</span>())
+        .<span class="ident">init</span>();
 
     <span class="comment">// Create our chat service</span>
-    <span class="kw">let</span> <span class="ident">service</span> <span class="op">=</span>
-        <span class="ident">ChatServer::new</span>(<span class="ident">ChatService::new</span>()).<span class="ident">layer</span>(<span class="ident">ErrorIdentifierToStatusLayer::new</span>(<span class="op">|</span><span class="ident">id</span><span class="op">|</span> {
-            <span class="ident">id</span>.<span class="ident">eq</span>(<span class="string">&quot;empty-message&quot;</span>).<span class="ident">then</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">StatusCode::BAD_REQUEST</span>)
-        }));
+    <span class="kw">let</span> <span class="ident">service</span> <span class="op">=</span> <span class="ident">ChatServer::new</span>(<span class="ident">ChatService::new</span>());
+    <span class="comment">// Layer our service with error identifier to HTTP status layer, which helps us convert our error identifers</span>
+    <span class="comment">// to HTTP statuses.</span>
+    <span class="kw">let</span> <span class="ident">service</span> <span class="op">=</span> <span class="ident">service</span>.<span class="ident">layer</span>(<span class="ident">ErrorIdentifierToStatusLayer::new</span>(<span class="op">|</span><span class="ident">id</span><span class="op">|</span> {
+        <span class="ident">id</span>.<span class="ident">eq</span>(<span class="string">&quot;empty-message&quot;</span>).<span class="ident">then</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">StatusCode::BAD_REQUEST</span>)
+    }));
+    <span class="comment">// Layer our service with a tracing layer.</span>
+    <span class="kw">let</span> <span class="ident">service</span> <span class="op">=</span> <span class="ident">service</span>.<span class="ident">layer</span>(<span class="ident">TraceLayer::default_debug</span>());
 
     <span class="comment">// Create our transport that we will use to serve our service</span>
     <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span> <span class="ident">Hyper::new</span>(<span class="string">&quot;127.0.0.1:2289&quot;</span>)<span class="question-mark">?</span>;

@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["modify","Layer to modify request and responses."]]});
+initSidebarItems({});

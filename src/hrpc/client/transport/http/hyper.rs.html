@@ -427,6 +427,12 @@
 <span id="427">427</span>
 <span id="428">428</span>
 <span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A HTTP client transport implementation using [`hyper`].</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -455,7 +461,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">client</span>::{
         <span class="ident">error</span>::{<span class="ident">ClientError</span>, <span class="ident">HrpcError</span>},
-        <span class="ident">transport</span>::{<span class="ident">box_socket_stream_sink</span>, <span class="ident">TransportError</span>, <span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>},
+        <span class="ident">transport</span>::{<span class="ident">is_socket_request</span>, <span class="ident">SocketChannels</span>, <span class="ident">TransportError</span>},
     },
     <span class="ident">common::transport</span>::{
         <span class="ident">http</span>::{
@@ -464,7 +470,9 @@
         },
         <span class="ident">tokio_tungstenite::WebSocket</span>,
     },
-    <span class="ident">request</span>, <span class="ident">Response</span>, <span class="ident">HRPC_SPEC_VERSION</span>,
+    <span class="ident">request</span>::{<span class="self">self</span>, <span class="ident">BoxRequest</span>},
+    <span class="ident">response::BoxResponse</span>,
+    <span class="ident">Response</span>, <span class="ident">HRPC_SPEC_VERSION</span>,
 };
 
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">check_uri</span>, <span class="ident">map_scheme_to_ws</span>, <span class="ident">InvalidServerUrl</span>};
@@ -542,8 +550,8 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">TransportRequest</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Hyper</span> {
-    <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">TransportResponse</span>;
+<span class="kw">impl</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">BoxRequest</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Hyper</span> {
+    <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">BoxResponse</span>;
 
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">HyperError</span><span class="op">&gt;</span>;
 
@@ -553,90 +561,82 @@
         <span class="prelude-val">Ok</span>(()).<span class="ident">into</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">TransportRequest</span>) -&gt; <span class="ident"><span class="self">Self</span>::Future</span> {
-        <span class="kw">match</span> <span class="ident">req</span> {
-            <span class="ident">TransportRequest::Unary</span>(<span class="ident">req</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">maybe_req_url</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">make_endpoint</span>(<span class="prelude-val">None</span>, <span class="ident">req</span>.<span class="ident">endpoint</span>());
+    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">req</span>: <span class="ident">BoxRequest</span>) -&gt; <span class="ident"><span class="self">Self</span>::Future</span> {
+        <span class="kw">if</span> <span class="ident">is_socket_request</span>(<span class="kw-2">&amp;</span><span class="ident">req</span>) {
+            <span class="kw">let</span> <span class="ident">ws_scheme</span> <span class="op">=</span> <span class="ident">map_scheme_to_ws</span>(<span class="self">self</span>.<span class="ident">server</span>.<span class="ident">scheme_str</span>().<span class="ident">expect</span>(<span class="string">&quot;must have scheme&quot;</span>))
+                .<span class="ident">expect</span>(<span class="string">&quot;scheme can&#39;t be anything other than https or http&quot;</span>);
+            <span class="kw">let</span> <span class="ident">maybe_endpoint</span> <span class="op">=</span>
+                <span class="self">self</span>.<span class="ident">make_endpoint</span>(<span class="prelude-val">Some</span>(<span class="ident">ws_scheme</span>.<span class="ident">parse</span>().<span class="ident">unwrap</span>()), <span class="ident">req</span>.<span class="ident">endpoint</span>());
 
-                <span class="kw">let</span> <span class="ident">req_url</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">maybe_req_url</span> {
-                    <span class="prelude-val">Ok</span>(<span class="ident">uri</span>) =&gt; <span class="ident">uri</span>,
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                        <span class="kw">return</span> <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner::Err</span>(<span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="ident">into</span>())))
-                    }
-                };
+            <span class="kw">let</span> <span class="ident">endpoint</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">maybe_endpoint</span> {
+                <span class="prelude-val">Ok</span>(<span class="ident">uri</span>) =&gt; <span class="ident">uri</span>,
+                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="kw">return</span> <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner::Err</span>(<span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="ident">into</span>()))),
+            };
 
-                <span class="kw">let</span> <span class="ident">request::Parts</span> {
-                    <span class="ident">body</span>,
-                    <span class="kw-2">mut</span> <span class="ident">extensions</span>,
-                    <span class="ident">endpoint</span>,
-                } <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into</span>();
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">SocketRequest::get</span>(<span class="ident">endpoint</span>).<span class="ident">body</span>(()).<span class="ident">unwrap</span>();
 
-                <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">http::Request::builder</span>().<span class="ident">uri</span>(<span class="ident">req_url</span>).<span class="ident">method</span>(<span class="ident">Method::POST</span>);
+            <span class="comment">// Insert default protocol (can be overwritten by users)</span>
+            <span class="ident">request</span>
+                .<span class="ident">headers_mut</span>()
+                .<span class="ident">insert</span>(<span class="ident">header::SEC_WEBSOCKET_PROTOCOL</span>, <span class="ident">ws_version_header_value</span>());
 
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">header_map</span> <span class="op">=</span> <span class="ident">extensions</span>.<span class="ident">remove</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>().<span class="ident">unwrap_or_default</span>();
-                    <span class="comment">// insert content type</span>
-                    <span class="ident">header_map</span>.<span class="ident">insert</span>(<span class="ident">header::CONTENT_TYPE</span>, <span class="ident">content_header_value</span>());
-                    <span class="comment">// insert spec version</span>
-                    <span class="ident">header_map</span>.<span class="ident">insert</span>(<span class="ident">version_header_name</span>(), <span class="ident">version_header_value</span>());
-
-                    <span class="kw-2">*</span><span class="ident">request</span>.<span class="ident">headers_mut</span>().<span class="ident">unwrap</span>() <span class="op">=</span> <span class="ident">header_map</span>;
-
-                    <span class="kw">let</span> <span class="ident">maybe_resp</span> <span class="op">=</span> <span class="ident">request</span>
-                        .<span class="ident">body</span>(<span class="ident">body</span>.<span class="ident">into</span>())
-                        .<span class="ident">map_err</span>(<span class="ident">HyperError::FailedRequestBuilder</span>);
-
-                    <span class="kw">match</span> <span class="ident">maybe_resp</span> {
-                        <span class="prelude-val">Ok</span>(<span class="ident">resp</span>) =&gt; <span class="ident">resp</span>,
-                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                            <span class="kw">return</span> <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner::Err</span>(<span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="ident">into</span>())))
-                        }
-                    }
-                };
-
-                <span class="kw">let</span> <span class="ident">resp_fut</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">client</span>.<span class="ident">request</span>(<span class="ident">request</span>);
-
-                <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner::Unary</span> {
-                    <span class="ident">request_fut</span>: <span class="ident">resp_fut</span>,
-                    <span class="ident">error_fut</span>: <span class="prelude-val">None</span>,
-                    <span class="ident">endpoint</span>: <span class="prelude-val">Some</span>(<span class="ident">endpoint</span>),
-                })
-            }
-            <span class="ident">TransportRequest::Socket</span>(<span class="kw-2">mut</span> <span class="ident">req</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">ws_scheme</span> <span class="op">=</span>
-                    <span class="ident">map_scheme_to_ws</span>(<span class="self">self</span>.<span class="ident">server</span>.<span class="ident">scheme_str</span>().<span class="ident">expect</span>(<span class="string">&quot;must have scheme&quot;</span>))
-                        .<span class="ident">expect</span>(<span class="string">&quot;scheme can&#39;t be anything other than https or http&quot;</span>);
-                <span class="kw">let</span> <span class="ident">maybe_endpoint</span> <span class="op">=</span>
-                    <span class="self">self</span>.<span class="ident">make_endpoint</span>(<span class="prelude-val">Some</span>(<span class="ident">ws_scheme</span>.<span class="ident">parse</span>().<span class="ident">unwrap</span>()), <span class="ident">req</span>.<span class="ident">endpoint</span>());
-
-                <span class="kw">let</span> <span class="ident">endpoint</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">maybe_endpoint</span> {
-                    <span class="prelude-val">Ok</span>(<span class="ident">uri</span>) =&gt; <span class="ident">uri</span>,
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                        <span class="kw">return</span> <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner::Err</span>(<span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="ident">into</span>())))
-                    }
-                };
-
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">SocketRequest::get</span>(<span class="ident">endpoint</span>).<span class="ident">body</span>(()).<span class="ident">unwrap</span>();
-
-                <span class="comment">// Insert default protocol (can be overwritten by users)</span>
-                <span class="ident">request</span>
-                    .<span class="ident">headers_mut</span>()
-                    .<span class="ident">insert</span>(<span class="ident">header::SEC_WEBSOCKET_PROTOCOL</span>, <span class="ident">ws_version_header_value</span>());
-
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">header_map</span>) <span class="op">=</span> <span class="ident">req</span>.<span class="ident">extensions_mut</span>().<span class="ident">remove</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>() {
-                    <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">header_map</span> {
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">key</span>) <span class="op">=</span> <span class="ident">key</span> {
-                            <span class="ident">request</span>.<span class="ident">headers_mut</span>().<span class="ident">insert</span>(<span class="ident">key</span>, <span class="ident">value</span>);
-                        }
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">header_map</span>) <span class="op">=</span> <span class="ident">req</span>.<span class="ident">extensions_mut</span>().<span class="ident">remove</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>() {
+                <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">header_map</span> {
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">key</span>) <span class="op">=</span> <span class="ident">key</span> {
+                        <span class="ident">request</span>.<span class="ident">headers_mut</span>().<span class="ident">insert</span>(<span class="ident">key</span>, <span class="ident">value</span>);
                     }
                 }
-
-                <span class="kw">let</span> <span class="ident">connect_fut</span> <span class="op">=</span> <span class="ident">tokio_tungstenite::connect_async</span>(<span class="ident">request</span>);
-
-                <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner::Socket</span> {
-                    <span class="ident">connect_fut</span>: <span class="ident">Box::pin</span>(<span class="ident">connect_fut</span>),
-                })
             }
+
+            <span class="kw">let</span> <span class="ident">connect_fut</span> <span class="op">=</span> <span class="ident">tokio_tungstenite::connect_async</span>(<span class="ident">request</span>);
+
+            <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner::Socket</span> {
+                <span class="ident">connect_fut</span>: <span class="ident">Box::pin</span>(<span class="ident">connect_fut</span>),
+            })
+        } <span class="kw">else</span> {
+            <span class="kw">let</span> <span class="ident">maybe_req_url</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">make_endpoint</span>(<span class="prelude-val">None</span>, <span class="ident">req</span>.<span class="ident">endpoint</span>());
+
+            <span class="kw">let</span> <span class="ident">req_url</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">maybe_req_url</span> {
+                <span class="prelude-val">Ok</span>(<span class="ident">uri</span>) =&gt; <span class="ident">uri</span>,
+                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="kw">return</span> <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner::Err</span>(<span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="ident">into</span>()))),
+            };
+
+            <span class="kw">let</span> <span class="ident">request::Parts</span> {
+                <span class="ident">body</span>,
+                <span class="kw-2">mut</span> <span class="ident">extensions</span>,
+                <span class="ident">endpoint</span>,
+            } <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into</span>();
+
+            <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">http::Request::builder</span>().<span class="ident">uri</span>(<span class="ident">req_url</span>).<span class="ident">method</span>(<span class="ident">Method::POST</span>);
+
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">header_map</span> <span class="op">=</span> <span class="ident">extensions</span>.<span class="ident">remove</span>::<span class="op">&lt;</span><span class="ident">HeaderMap</span><span class="op">&gt;</span>().<span class="ident">unwrap_or_default</span>();
+                <span class="comment">// insert content type</span>
+                <span class="ident">header_map</span>.<span class="ident">insert</span>(<span class="ident">header::CONTENT_TYPE</span>, <span class="ident">content_header_value</span>());
+                <span class="comment">// insert spec version</span>
+                <span class="ident">header_map</span>.<span class="ident">insert</span>(<span class="ident">version_header_name</span>(), <span class="ident">version_header_value</span>());
+
+                <span class="kw-2">*</span><span class="ident">request</span>.<span class="ident">headers_mut</span>().<span class="ident">unwrap</span>() <span class="op">=</span> <span class="ident">header_map</span>;
+
+                <span class="kw">let</span> <span class="ident">maybe_resp</span> <span class="op">=</span> <span class="ident">request</span>
+                    .<span class="ident">body</span>(<span class="ident">body</span>.<span class="ident">into</span>())
+                    .<span class="ident">map_err</span>(<span class="ident">HyperError::FailedRequestBuilder</span>);
+
+                <span class="kw">match</span> <span class="ident">maybe_resp</span> {
+                    <span class="prelude-val">Ok</span>(<span class="ident">resp</span>) =&gt; <span class="ident">resp</span>,
+                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
+                        <span class="kw">return</span> <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner::Err</span>(<span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="ident">into</span>())))
+                    }
+                }
+            };
+
+            <span class="kw">let</span> <span class="ident">resp_fut</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">client</span>.<span class="ident">request</span>(<span class="ident">request</span>);
+
+            <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner::Unary</span> {
+                <span class="ident">request_fut</span>: <span class="ident">resp_fut</span>,
+                <span class="ident">error_fut</span>: <span class="prelude-val">None</span>,
+                <span class="ident">endpoint</span>: <span class="prelude-val">Some</span>(<span class="ident">endpoint</span>),
+            })
         }
     }
 }
@@ -667,7 +667,7 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HyperCallFuture</span>(<span class="ident">HyperCallFutureInner</span>);
 
 <span class="kw">impl</span> <span class="ident">Future</span> <span class="kw">for</span> <span class="ident">HyperCallFuture</span> {
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TransportResponse</span>, <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">HyperError</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BoxResponse</span>, <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">HyperError</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">poll</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Output</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">get_mut</span>().<span class="number">0</span> {
@@ -690,9 +690,21 @@
                         }
 
                         <span class="kw">let</span> (<span class="ident">ws_tx</span>, <span class="ident">ws_rx</span>) <span class="op">=</span> <span class="ident">WebSocket::new</span>(<span class="ident">ws_stream</span>).<span class="ident">split</span>();
-                        <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">box_socket_stream_sink</span>(<span class="ident">ws_tx</span>, <span class="ident">ws_rx</span>);
+                        <span class="kw">let</span> <span class="ident">chans</span> <span class="op">=</span> <span class="ident">SocketChannels::new</span>(<span class="ident">ws_tx</span>, <span class="ident">ws_rx</span>);
 
-                        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">TransportResponse::new_socket</span>(<span class="ident">tx</span>, <span class="ident">rx</span>)))
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">BoxResponse::empty</span>();
+
+                        <span class="kw">let</span> <span class="ident">exts_mut</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">extensions_mut</span>();
+
+                        <span class="kw">let</span> (<span class="ident">parts</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">response</span>.<span class="ident">into_parts</span>();
+                        <span class="ident">exts_mut</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">status</span>);
+                        <span class="ident">exts_mut</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">extensions</span>);
+                        <span class="ident">exts_mut</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">headers</span>);
+                        <span class="ident">exts_mut</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">version</span>);
+
+                        <span class="ident">exts_mut</span>.<span class="ident">insert</span>(<span class="ident">chans</span>);
+
+                        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">resp</span>))
                     }
                     <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">HyperError::SocketInitError</span>(
                         <span class="ident">SocketInitError::Tungstenite</span>(<span class="ident">err</span>),
@@ -772,7 +784,7 @@
                         <span class="ident">exts_mut</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">headers</span>);
                         <span class="ident">exts_mut</span>.<span class="ident">insert</span>(<span class="ident">parts</span>.<span class="ident">version</span>);
 
-                        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">TransportResponse::new_unary</span>(<span class="ident">response</span>)))
+                        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">response</span>))
                     }
                     <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">HyperError::Http</span>(<span class="ident">err</span>).<span class="ident">into</span>())),
                 }

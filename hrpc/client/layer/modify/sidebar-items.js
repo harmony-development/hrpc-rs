@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Modify","Service that lets you modify / inspect requests and responses."],["ModifyFuture","Future for [`Modify`]."],["ModifyLayer","Layer for creating [`Modify`] instances. Please see it’s documentation for more information and limitations."]],"type":[["ModifyReq","Function to modify a request."],["ModifyResp","Function to modify a response."]]});

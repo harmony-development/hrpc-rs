@@ -26,17 +26,17 @@
     <span class="ident">oneshot::Sender</span> <span class="kw">as</span> <span class="ident">OneshotSender</span>,
 };
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client::transport</span>::{<span class="ident">TransportRequest</span>, <span class="ident">TransportResponse</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">request::BoxRequest</span>, <span class="ident">response::BoxResponse</span>};
 
 <span class="doccomment">/// A mock sender.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MockSender</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">MpscSender</span><span class="op">&lt;</span>(<span class="ident">TransportRequest</span>, <span class="ident">OneshotSender</span><span class="op">&lt;</span><span class="ident">TransportResponse</span><span class="op">&gt;</span>)<span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">MpscSender</span><span class="op">&lt;</span>(<span class="ident">BoxRequest</span>, <span class="ident">OneshotSender</span><span class="op">&lt;</span><span class="ident">BoxResponse</span><span class="op">&gt;</span>)<span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// A mock receiver.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MockReceiver</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">MpscReceiver</span><span class="op">&lt;</span>(<span class="ident">TransportRequest</span>, <span class="ident">OneshotSender</span><span class="op">&lt;</span><span class="ident">TransportResponse</span><span class="op">&gt;</span>)<span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">MpscReceiver</span><span class="op">&lt;</span>(<span class="ident">BoxRequest</span>, <span class="ident">OneshotSender</span><span class="op">&lt;</span><span class="ident">BoxResponse</span><span class="op">&gt;</span>)<span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// Create a new pair of mock channels.</span>
