@@ -1,5 +1,3 @@
-//! Tracing layer for hRPC services.
-
 use std::{
     pin::Pin,
     task::{Context, Poll},
