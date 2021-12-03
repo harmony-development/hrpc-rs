@@ -15,7 +15,6 @@ pub type ModifyReq = fn(&mut BoxRequest);
 pub type ModifyResp = fn(&mut BoxResponse);
 
 /// Layer for creating [`Modify`] instances.
-/// Please see it's documentation for more information and limitations.
 #[derive(Clone)]
 pub struct ModifyLayer {
     req_fn: ModifyReq,
@@ -48,9 +47,6 @@ impl<S> Layer<S> for ModifyLayer {
 }
 
 /// Service that lets you modify / inspect requests and responses.
-///
-/// **Note:** only unary responses can be modified for responses. This is because
-/// there is no response to modify with a socket response.
 #[derive(Clone)]
 pub struct Modify<S> {
     inner: S,
