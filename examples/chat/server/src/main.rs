@@ -6,6 +6,7 @@ use chat_common::{
 };
 use hrpc::{
     bail,
+    common::layer::trace::TraceLayer,
     exports::http::StatusCode,
     server::{
         prelude::*,
@@ -15,6 +16,7 @@ use hrpc::{
 use tokio::sync::broadcast;
 use tower::limit::RateLimitLayer;
 use tower_http::cors::CorsLayer;
+use tracing_subscriber::EnvFilter;
 
 pub struct ChatService {
     message_broadcast: broadcast::Sender<Message>,
@@ -81,13 +83,19 @@ impl Chat for ChatService {
 #[tokio::main]
 async fn main() -> Result<(), BoxError> {
     // Set up logging
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
     // Create our chat service
-    let service =
-        ChatServer::new(ChatService::new()).layer(ErrorIdentifierToStatusLayer::new(|id| {
-            id.eq("empty-message").then(|| StatusCode::BAD_REQUEST)
-        }));
+    let service = ChatServer::new(ChatService::new());
+    // Layer our service with error identifier to HTTP status layer, which helps us convert our error identifers
+    // to HTTP statuses.
+    let service = service.layer(ErrorIdentifierToStatusLayer::new(|id| {
+        id.eq("empty-message").then(|| StatusCode::BAD_REQUEST)
+    }));
+    // Layer our service with a tracing layer.
+    let service = service.layer(TraceLayer::default_debug());
 
     // Create our transport that we will use to serve our service
     let transport = Hyper::new("127.0.0.1:2289")?;
