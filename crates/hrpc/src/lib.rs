@@ -1,4 +1,11 @@
-//! Common code used in hRPC code generation.
+//! Generic client and server implementations and transport implementations for hRPC.
+//!
+//! - For generic client and client implementations, see the [`client`] module.
+//! - For generic server and server implementations, see the [`server`] module.
+//! - For common code shared by client and servers, see the [`common`] module.
+//! - Modules named `transport` contain transport specific code.
+//! - Modules named `layer` contain layers for use. These can be generic, or
+//! transport specific.
 #![deny(missing_docs)]
 #![allow(clippy::blocks_in_if_conditions)]
 

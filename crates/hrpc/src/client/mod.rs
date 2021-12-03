@@ -27,10 +27,14 @@ pub mod layer;
 pub mod socket;
 /// hRPC client transports.
 ///
-/// A client transport is any [`tower::Service`] that has a [`TransportRequest`]
-/// request type, [`TransportResponse`] response type and [`TransportError<Err>`]
+/// A client transport is any [`tower::Service`] that has a `BoxRequest`
+/// request type, `BoxResponse` response type and [`TransportError<Err>`]
 /// (where `Err` is the error type the transport uses) error type. This allows
 /// [`tower::Layer`]s to be used to compose transports.
+///
+/// Currently implemented:
+/// - `hyper` client,
+/// - WASM web client
 pub mod transport;
 
 #[doc(hidden)]
