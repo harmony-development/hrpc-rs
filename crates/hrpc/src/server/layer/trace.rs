@@ -110,8 +110,8 @@ where
 
 type SpanFnPtr = fn(&BoxRequest) -> Span;
 type OnRequestFnPtr = fn(&BoxRequest, &Span);
-type OnSuccessFnPtr = fn(&BoxRequest, &Span);
-type OnErrorFnPtr = fn(&BoxRequest, &Span, &HrpcError);
+type OnSuccessFnPtr = fn(&BoxResponse, &Span);
+type OnErrorFnPtr = fn(&BoxResponse, &Span, &HrpcError);
 
 impl TraceLayer<SpanFnPtr, OnRequestFnPtr, OnSuccessFnPtr, OnErrorFnPtr> {
     /// Create a trace layer with a default configuration that logs on the info
