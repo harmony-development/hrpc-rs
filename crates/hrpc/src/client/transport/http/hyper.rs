@@ -61,7 +61,7 @@ pub fn http_client(builder: &mut hyper::client::Builder) -> HttpClient {
 ///
 /// This client will:
 /// - Adds [`http::HeaderMap`], [`http::StatusCode`], [`http::Version`],
-/// [`http::Extensions`] to the [`Response`] returned in unary requests.
+/// [`http::Extensions`] to the [`Response`] returned.
 /// - Looks for a [`http::HeaderMap`] in a [`Request`]s extensions, if it
 /// exists the headers in there will be added to the HTTP request that
 /// will be used. Headers added by the client by default will be overwrited,
