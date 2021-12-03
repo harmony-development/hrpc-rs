@@ -1,15 +1,10 @@
-use std::{
-    convert::Infallible,
-    fmt::{self, Debug, Formatter},
-};
+use std::convert::Infallible;
 
 use futures_util::{Sink, Stream};
 
 use crate::{
     common::socket::{BoxedSocketRx, BoxedSocketTx, SocketMessage},
-    request::BoxRequest,
-    response::BoxResponse,
-    BoxError,
+    BoxError, Request,
 };
 
 use super::error::ClientError;
@@ -72,83 +67,31 @@ impl<Err> From<ClientError<Err>> for TransportError<Err> {
     }
 }
 
-/// A request that a transport can get.
-#[derive(Debug)]
-pub enum TransportRequest {
-    /// A unary request.
-    Unary(BoxRequest),
-    /// A socket request.
-    Socket(BoxRequest),
+/// Struct that should be used by transports to return socket channels
+/// to generic client.
+pub struct SocketChannels {
+    pub(super) tx: BoxedSocketTx,
+    pub(super) rx: BoxedSocketRx,
 }
 
-/// A response that a transport can return.
-///
-/// Note: a transport MUST return the corresponding variant of response
-/// for the request variant they got.
-pub enum TransportResponse {
-    /// A unary response.
-    Unary(BoxResponse),
-    /// A socket response.
-    Socket {
-        /// Sender part of the socket.
-        tx: BoxedSocketTx,
-        /// Receiver part of the socket.
-        rx: BoxedSocketRx,
-    },
-}
-
-impl Debug for TransportResponse {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Unary(arg0) => f.debug_tuple("Unary").field(arg0).finish(),
-            Self::Socket { .. } => f
-                .debug_struct("Socket")
-                .field("tx", &"<hidden>")
-                .field("rx", &"<hidden>")
-                .finish(),
+impl SocketChannels {
+    /// Create a new socket channels.
+    pub fn new<Tx, Rx>(tx: Tx, rx: Rx) -> Self
+    where
+        Tx: Sink<SocketMessage, Error = BoxError> + Send + Sync + 'static,
+        Rx: Stream<Item = Result<SocketMessage, BoxError>> + Send + Sync + 'static,
+    {
+        Self {
+            tx: Box::pin(tx),
+            rx: Box::pin(rx),
         }
     }
 }
 
-impl TransportResponse {
-    /// Create a new unary transport response.
-    pub fn new_unary(resp: BoxResponse) -> Self {
-        Self::Unary(resp)
-    }
+/// Marker struct that marks a request as a socket request.
+pub(super) struct SocketRequestMarker;
 
-    /// Create a new socket transport response.
-    pub fn new_socket(tx: BoxedSocketTx, rx: BoxedSocketRx) -> Self {
-        Self::Socket { tx, rx }
-    }
-
-    /// Extracts a unary response from this transport response.
-    ///
-    /// # Panics
-    /// - Panics if the transport response isn't a unary response.
-    pub fn extract_unary(self) -> BoxResponse {
-        match self {
-            Self::Unary(req) => req,
-            _ => panic!("expected unary response"),
-        }
-    }
-
-    /// Extracts a socket response from this transport response.
-    ///
-    /// # Panics
-    /// - Panics if the transport response isn't a socket response.
-    pub fn extract_socket(self) -> (BoxedSocketTx, BoxedSocketRx) {
-        match self {
-            Self::Socket { tx, rx } => (tx, rx),
-            _ => panic!("expected socket response"),
-        }
-    }
-}
-
-/// Function that helps you meet bounds for boxed socket streams and sinks.
-pub fn box_socket_stream_sink<Tx, Rx>(tx: Tx, rx: Rx) -> (BoxedSocketTx, BoxedSocketRx)
-where
-    Tx: Sink<SocketMessage, Error = BoxError> + Send + 'static,
-    Rx: Stream<Item = Result<SocketMessage, BoxError>> + Send + 'static,
-{
-    (Box::pin(tx), Box::pin(rx))
+/// Returns whether a request is a socket request or not.
+pub fn is_socket_request<T>(req: &Request<T>) -> bool {
+    req.extensions().contains::<SocketRequestMarker>()
 }

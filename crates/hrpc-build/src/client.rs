@@ -97,7 +97,7 @@ pub fn generate<T: Service>(service: &T, proto_path: &str) -> TokenStream {
 
             impl<Inner, InnerErr> #service_ident<Inner>
             where
-                Inner: Service<TransportRequest, Response = TransportResponse, Error = TransportError<InnerErr>> + 'static,
+                Inner: Service<BoxRequest, Response = BoxResponse, Error = TransportError<InnerErr>> + 'static,
                 InnerErr: 'static,
             {
                 #methods

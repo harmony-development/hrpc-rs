@@ -8,9 +8,9 @@ use futures_util::{Future, FutureExt};
 use tokio::sync::oneshot::{self, Receiver as OneshotReceiver};
 use tower::Service;
 
-use crate::common::transport::mock::MockSender;
+use crate::{common::transport::mock::MockSender, request::BoxRequest, response::BoxResponse};
 
-use super::{TransportError, TransportRequest, TransportResponse};
+use super::TransportError;
 
 /// A client that uses a channel to send requests to a (possibly)
 /// mock server.
@@ -26,8 +26,8 @@ impl Mock {
     }
 }
 
-impl Service<TransportRequest> for Mock {
-    type Response = TransportResponse;
+impl Service<BoxRequest> for Mock {
+    type Response = BoxResponse;
 
     type Error = TransportError<MockError>;
 
@@ -37,7 +37,7 @@ impl Service<TransportRequest> for Mock {
         Ok(()).into()
     }
 
-    fn call(&mut self, req: TransportRequest) -> Self::Future {
+    fn call(&mut self, req: BoxRequest) -> Self::Future {
         let (resp_tx, resp_rx) = oneshot::channel();
         let send_res = self
             .tx
@@ -57,7 +57,7 @@ impl Service<TransportRequest> for Mock {
 }
 
 enum MockCallFutureInner {
-    Recv(OneshotReceiver<TransportResponse>),
+    Recv(OneshotReceiver<BoxResponse>),
     Err(Option<MockError>),
 }
 
@@ -67,7 +67,7 @@ pub struct MockCallFuture {
 }
 
 impl Future for MockCallFuture {
-    type Output = Result<TransportResponse, TransportError<MockError>>;
+    type Output = Result<BoxResponse, TransportError<MockError>>;
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         match &mut self.get_mut().inner {
@@ -90,7 +90,7 @@ pub enum MockError {
     Receive,
     /// Occurs if sending a request fails. Only happens if receiver end of the
     /// channel is dropped.
-    Send(TransportRequest),
+    Send(BoxRequest),
 }
 
 impl Display for MockError {

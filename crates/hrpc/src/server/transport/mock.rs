@@ -5,8 +5,9 @@ use tower::Service;
 
 use crate::{
     box_error,
-    client::transport::{TransportRequest, TransportResponse},
+    client::transport::SocketChannels,
     common::{socket::SocketMessage, transport::mock::MockReceiver},
+    response::BoxResponse,
     server::{socket::SocketHandler, MakeRoutes},
 };
 
@@ -40,10 +41,6 @@ impl Transport for Mock {
 
         Box::pin(async move {
             while let Some((req, sender)) = self.rx.inner.recv().await {
-                let req = match req {
-                    TransportRequest::Unary(req) => req,
-                    TransportRequest::Socket(req) => req,
-                };
                 let fut = Service::call(&mut svc, req);
 
                 tokio::spawn(async move {
@@ -54,12 +51,17 @@ impl Transport for Mock {
                             futures_channel::mpsc::unbounded::<SocketMessage>();
                         let (server_tx, client_rx) = futures_channel::mpsc::unbounded();
 
-                        sender
-                            .send(TransportResponse::Socket {
-                                rx: Box::pin(client_rx.map(Ok)),
-                                tx: Box::pin(client_tx.sink_map_err(box_error)),
-                            })
-                            .expect("sender dropped");
+                        {
+                            let client_socket_chans = SocketChannels::new(
+                                Box::pin(client_tx.sink_map_err(box_error)),
+                                Box::pin(client_rx.map(Ok)),
+                            );
+
+                            let mut resp = BoxResponse::empty();
+                            resp.extensions_mut().insert(client_socket_chans);
+
+                            sender.send(resp).expect("sender dropped");
+                        }
 
                         let fut = (socket_handler.inner)(
                             Box::pin(server_rx.map(Ok)),
@@ -68,9 +70,7 @@ impl Transport for Mock {
 
                         tokio::spawn(fut);
                     } else {
-                        sender
-                            .send(TransportResponse::Unary(resp))
-                            .expect("sender dropped");
+                        sender.send(resp).expect("sender dropped");
                     }
                 });
             }

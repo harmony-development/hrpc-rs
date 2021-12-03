@@ -7,11 +7,7 @@ use futures_util::{Future, FutureExt};
 use pin_project_lite::pin_project;
 use tower::{Layer, Service};
 
-use crate::{
-    client::transport::{TransportRequest, TransportResponse},
-    request::BoxRequest,
-    response::BoxResponse,
-};
+use crate::{request::BoxRequest, response::BoxResponse};
 
 /// Function to modify a request.
 pub type ModifyReq = fn(&mut BoxRequest);
@@ -73,11 +69,11 @@ impl<S> Modify<S> {
     }
 }
 
-impl<S> Service<TransportRequest> for Modify<S>
+impl<S> Service<BoxRequest> for Modify<S>
 where
-    S: Service<TransportRequest, Response = TransportResponse>,
+    S: Service<BoxRequest, Response = BoxResponse>,
 {
-    type Response = TransportResponse;
+    type Response = BoxResponse;
 
     type Error = S::Error;
 
@@ -87,11 +83,8 @@ where
         Service::poll_ready(&mut self.inner, cx)
     }
 
-    fn call(&mut self, mut req: TransportRequest) -> Self::Future {
-        match &mut req {
-            TransportRequest::Socket(req) => (self.req_fn)(req),
-            TransportRequest::Unary(req) => (self.req_fn)(req),
-        }
+    fn call(&mut self, mut req: BoxRequest) -> Self::Future {
+        (self.req_fn)(&mut req);
 
         ModifyFuture {
             fut: Service::call(&mut self.inner, req),
@@ -111,18 +104,15 @@ pin_project! {
 
 impl<Fut, Err> Future for ModifyFuture<Fut>
 where
-    Fut: Future<Output = Result<TransportResponse, Err>>,
+    Fut: Future<Output = Result<BoxResponse, Err>>,
 {
-    type Output = Result<TransportResponse, Err>;
+    type Output = Result<BoxResponse, Err>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         this.fut.poll_unpin(cx).map_ok(|mut resp| {
-            match &mut resp {
-                TransportResponse::Unary(resp) => (this.resp_fn)(resp),
-                TransportResponse::Socket { .. } => {}
-            }
+            (this.resp_fn)(&mut resp);
             resp
         })
     }

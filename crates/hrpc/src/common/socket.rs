@@ -30,9 +30,10 @@ type DecodeMessageFn<Msg> = fn(Vec<u8>) -> Result<DecodeResult<Msg>, DecodeBodyE
 
 /// A boxed stream that yields socket messages.
 pub type BoxedSocketRx =
-    Pin<Box<dyn Stream<Item = Result<SocketMessage, BoxError>> + Send + 'static>>;
+    Pin<Box<dyn Stream<Item = Result<SocketMessage, BoxError>> + Send + Sync + 'static>>;
 /// A boxed sink that accepts socket messages.
-pub type BoxedSocketTx = Pin<Box<dyn Sink<SocketMessage, Error = BoxError> + Send + 'static>>;
+pub type BoxedSocketTx =
+    Pin<Box<dyn Sink<SocketMessage, Error = BoxError> + Send + Sync + 'static>>;
 
 /// Generic socket message.
 #[derive(Debug)]

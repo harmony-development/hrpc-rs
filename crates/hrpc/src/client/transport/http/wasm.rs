@@ -20,7 +20,7 @@ use super::{check_uri, map_scheme_to_ws, InvalidServerUrl};
 use crate::{
     body::Body,
     client::{
-        transport::{box_socket_stream_sink, TransportError, TransportRequest, TransportResponse},
+        transport::{is_socket_request, SocketChannels, TransportError},
         ClientError,
     },
     common::transport::{
@@ -28,7 +28,9 @@ use crate::{
         ws_wasm::WebSocket,
     },
     proto::Error as HrpcError,
-    request, response, BoxError, Response, HRPC_CONTENT_MIMETYPE, HRPC_SPEC_VERSION,
+    request::{self, BoxRequest},
+    response::{self, BoxResponse},
+    BoxError, Response, HRPC_CONTENT_MIMETYPE, HRPC_SPEC_VERSION,
 };
 
 /// HTTP client that compiles to WASM and works on the Web.
@@ -85,8 +87,8 @@ impl Wasm {
     }
 }
 
-impl Service<TransportRequest> for Wasm {
-    type Response = TransportResponse;
+impl Service<BoxRequest> for Wasm {
+    type Response = BoxResponse;
 
     type Error = TransportError<WasmError>;
 
@@ -96,187 +98,185 @@ impl Service<TransportRequest> for Wasm {
         Ok(()).into()
     }
 
-    fn call(&mut self, req: TransportRequest) -> Self::Future {
-        match req {
-            TransportRequest::Socket(req) => {
-                let request::Parts {
-                    mut extensions,
-                    endpoint,
-                    ..
-                } = req.into();
+    fn call(&mut self, req: BoxRequest) -> Self::Future {
+        if is_socket_request(&req) {
+            let request::Parts {
+                mut extensions,
+                endpoint,
+                ..
+            } = req.into();
 
-                let scheme =
-                    map_scheme_to_ws(self.server.scheme_str().expect_throw("must have scheme"))
-                        .expect_throw("scheme can't be anything other than https or http");
-                let url = format!(
-                    "{}://{}:{}/{}",
-                    scheme,
-                    self.server
-                        .host()
-                        .expect_throw("expected host on server URI, this is a bug"),
-                    self.server
-                        .port_u16()
-                        .expect_throw("expected port on server URI, this is a bug"),
-                    endpoint.trim_start_matches('/'),
-                );
+            let scheme =
+                map_scheme_to_ws(self.server.scheme_str().expect_throw("must have scheme"))
+                    .expect_throw("scheme can't be anything other than https or http");
+            let url = format!(
+                "{}://{}:{}/{}",
+                scheme,
+                self.server
+                    .host()
+                    .expect_throw("expected host on server URI, this is a bug"),
+                self.server
+                    .port_u16()
+                    .expect_throw("expected port on server URI, this is a bug"),
+                endpoint.trim_start_matches('/'),
+            );
 
-                let sock_protocols = extensions
-                    .remove::<SocketProtocols>()
-                    .map_or_else(|| vec![Cow::Owned(ws_version())], |s| s.protocols);
+            let sock_protocols = extensions
+                .remove::<SocketProtocols>()
+                .map_or_else(|| vec![Cow::Owned(ws_version())], |s| s.protocols);
 
-                let inner = Box::pin(async move {
-                    let protocols = Some(sock_protocols.iter().map(|s| s.as_ref()).collect());
-                    let (_, ws_stream) = ws_stream_wasm::WsMeta::connect(url, protocols)
-                        .await
-                        .map_err(WasmError::SocketInitError)?;
+            let inner = Box::pin(async move {
+                let protocols = Some(sock_protocols.iter().map(|s| s.as_ref()).collect());
+                let (_, ws_stream) = ws_stream_wasm::WsMeta::connect(url, protocols)
+                    .await
+                    .map_err(WasmError::SocketInitError)?;
 
-                    let ws = WebSocket::new(ws_stream);
-                    let (ws_tx, ws_rx) = ws.split();
-                    let (tx, rx) = box_socket_stream_sink(ws_tx, ws_rx);
+                let ws = WebSocket::new(ws_stream);
+                let (ws_tx, ws_rx) = ws.split();
+                let chans = SocketChannels::new(ws_tx, ws_rx);
 
-                    Ok(TransportResponse::new_socket(tx, rx))
-                });
+                let mut resp = BoxResponse::empty();
+                resp.extensions_mut().insert(chans);
 
-                CallFuture { inner }
-            }
-            TransportRequest::Unary(req) => {
-                let request::Parts {
-                    body,
-                    mut extensions,
-                    endpoint,
-                } = req.into();
+                Ok(resp)
+            });
 
-                let req_url = format!("{}{}", self.server, endpoint.trim_start_matches('/'));
+            CallFuture { inner }
+        } else {
+            let request::Parts {
+                body,
+                mut extensions,
+                endpoint,
+            } = req.into();
 
-                let mut request = WasmRequest::post(req_url.as_str());
-                request = request
-                    .header(HRPC_VERSION_HEADER, HRPC_SPEC_VERSION)
-                    .header(header::CONTENT_TYPE.as_str(), HRPC_CONTENT_MIMETYPE);
+            let req_url = format!("{}{}", self.server, endpoint.trim_start_matches('/'));
 
-                if let Some(header_map) = extensions.remove::<HeaderMap>() {
-                    for (key, value) in header_map.iter() {
-                        if let Ok(value) = value.to_str() {
-                            request = request.header(key.as_str(), value);
-                        }
+            let mut request = WasmRequest::post(req_url.as_str());
+            request = request
+                .header(HRPC_VERSION_HEADER, HRPC_SPEC_VERSION)
+                .header(header::CONTENT_TYPE.as_str(), HRPC_CONTENT_MIMETYPE);
+
+            if let Some(header_map) = extensions.remove::<HeaderMap>() {
+                for (key, value) in header_map.iter() {
+                    if let Ok(value) = value.to_str() {
+                        request = request.header(key.as_str(), value);
                     }
                 }
+            }
 
-                let check_spec_version = self.check_spec_version;
+            let check_spec_version = self.check_spec_version;
 
-                let inner = Box::pin(async move {
-                    let mut data = body.aggregate().await.map_err(WasmError::BodyError)?;
+            let inner = Box::pin(async move {
+                let mut data = body.aggregate().await.map_err(WasmError::BodyError)?;
 
-                    request = request.body({
-                        let buf = Uint8Array::new_with_length(
-                            data.remaining()
-                                .try_into()
-                                .expect_throw("can't send data bigger than a u32"),
-                        );
-                        let mut offset = 0;
-                        while data.has_remaining() {
-                            let chunk_len = {
-                                let chunk = data.chunk();
-                                unsafe { buf.set(&Uint8Array::view(chunk), offset) }
-                                chunk.len()
-                            };
-                            let chunk_len_js: u32 = chunk_len
-                                .try_into()
-                                .expect_throw("can't send data bigger than a u32");
-                            offset += chunk_len_js;
-                            data.advance(chunk_len);
-                        }
-                        buf
-                    });
-
-                    let response = request.send().await.map_err(WasmError::HttpError)?;
-
-                    let status = http::StatusCode::from_u16(response.status())
-                        .expect_throw("got invalid status code from response");
-
-                    if status.is_success().not() {
-                        let raw_error = response.binary().await.map_err(WasmError::HttpError)?;
-                        let hrpc_error = HrpcError::decode(raw_error.as_ref())
-                            .unwrap_or_else(|_| HrpcError::invalid_hrpc_error(raw_error));
-                        return Err((ClientError::EndpointError {
-                            hrpc_error,
-                            endpoint,
-                        })
-                        .into());
-                    }
-
-                    let mut resp = Response::empty();
-
-                    let content_type = response
-                        .headers()
-                        .get(header::CONTENT_TYPE.as_str())
-                        .expect_throw("header name is valid");
-
-                    if !content_type
-                        .as_ref()
-                        .and_then(|v| v.split(';').next())
-                        .map_or(false, |v| v == HRPC_CONTENT_MIMETYPE)
-                    {
-                        return Err(ClientError::ContentNotSupported.into());
-                    }
-
-                    if let Some(value) = content_type.and_then(|v| HeaderValue::from_str(&v).ok()) {
-                        resp.get_or_insert_header_map()
-                            .insert(header::CONTENT_TYPE, value);
-                    }
-
-                    let hrpc_version = response
-                        .headers()
-                        .get(HRPC_VERSION_HEADER)
-                        .expect_throw("header name is valid");
-
-                    if check_spec_version
-                        && hrpc_version
-                            .as_ref()
-                            .map_or(false, |v| v == HRPC_SPEC_VERSION)
-                            .not()
-                    {
-                        return Err(ClientError::IncompatibleSpecVersion.into());
-                    }
-
-                    if let Some(value) = hrpc_version.and_then(|v| HeaderValue::from_str(&v).ok()) {
-                        resp.get_or_insert_header_map()
-                            .insert(version_header_name(), value);
-                    }
-
-                    resp.extensions_mut().insert(status);
-
-                    let body = wasm_streams::ReadableStream::from_raw(
-                        response
-                            .body()
-                            .expect_throw(
-                                "response body was used before we used it -- this is a bug",
-                            )
-                            .dyn_into()
-                            .expect_throw("failed to get body from response"),
+                request = request.body({
+                    let buf = Uint8Array::new_with_length(
+                        data.remaining()
+                            .try_into()
+                            .expect_throw("can't send data bigger than a u32"),
                     );
-
-                    let body = body.into_stream().map(|buf_js| {
-                        let buffer = Uint8Array::new(&buf_js.map_err(|_| {
-                            Box::new(HrpcError::from((
-                                "hrpcrs.wasm.body-error",
-                                "error occured while streaming response body",
-                            )))
-                        })?);
-                        let mut bytes = BytesMut::with_capacity(buffer.length() as usize);
-                        buffer.copy_to(&mut bytes);
-                        Ok(bytes.freeze())
-                    });
-
-                    let resp = Response::from(response::Parts {
-                        body: Body::new(SendSyncBody { inner: body }),
-                        ..response::Parts::from(resp)
-                    });
-
-                    Ok(TransportResponse::new_unary(resp))
+                    let mut offset = 0;
+                    while data.has_remaining() {
+                        let chunk_len = {
+                            let chunk = data.chunk();
+                            unsafe { buf.set(&Uint8Array::view(chunk), offset) }
+                            chunk.len()
+                        };
+                        let chunk_len_js: u32 = chunk_len
+                            .try_into()
+                            .expect_throw("can't send data bigger than a u32");
+                        offset += chunk_len_js;
+                        data.advance(chunk_len);
+                    }
+                    buf
                 });
 
-                CallFuture { inner }
-            }
+                let response = request.send().await.map_err(WasmError::HttpError)?;
+
+                let status = http::StatusCode::from_u16(response.status())
+                    .expect_throw("got invalid status code from response");
+
+                if status.is_success().not() {
+                    let raw_error = response.binary().await.map_err(WasmError::HttpError)?;
+                    let hrpc_error = HrpcError::decode(raw_error.as_ref())
+                        .unwrap_or_else(|_| HrpcError::invalid_hrpc_error(raw_error));
+                    return Err((ClientError::EndpointError {
+                        hrpc_error,
+                        endpoint,
+                    })
+                    .into());
+                }
+
+                let mut resp = Response::empty();
+
+                let content_type = response
+                    .headers()
+                    .get(header::CONTENT_TYPE.as_str())
+                    .expect_throw("header name is valid");
+
+                if !content_type
+                    .as_ref()
+                    .and_then(|v| v.split(';').next())
+                    .map_or(false, |v| v == HRPC_CONTENT_MIMETYPE)
+                {
+                    return Err(ClientError::ContentNotSupported.into());
+                }
+
+                if let Some(value) = content_type.and_then(|v| HeaderValue::from_str(&v).ok()) {
+                    resp.get_or_insert_header_map()
+                        .insert(header::CONTENT_TYPE, value);
+                }
+
+                let hrpc_version = response
+                    .headers()
+                    .get(HRPC_VERSION_HEADER)
+                    .expect_throw("header name is valid");
+
+                if check_spec_version
+                    && hrpc_version
+                        .as_ref()
+                        .map_or(false, |v| v == HRPC_SPEC_VERSION)
+                        .not()
+                {
+                    return Err(ClientError::IncompatibleSpecVersion.into());
+                }
+
+                if let Some(value) = hrpc_version.and_then(|v| HeaderValue::from_str(&v).ok()) {
+                    resp.get_or_insert_header_map()
+                        .insert(version_header_name(), value);
+                }
+
+                resp.extensions_mut().insert(status);
+
+                let body = wasm_streams::ReadableStream::from_raw(
+                    response
+                        .body()
+                        .expect_throw("response body was used before we used it -- this is a bug")
+                        .dyn_into()
+                        .expect_throw("failed to get body from response"),
+                );
+
+                let body = body.into_stream().map(|buf_js| {
+                    let buffer = Uint8Array::new(&buf_js.map_err(|_| {
+                        Box::new(HrpcError::from((
+                            "hrpcrs.wasm.body-error",
+                            "error occured while streaming response body",
+                        )))
+                    })?);
+                    let mut bytes = BytesMut::with_capacity(buffer.length() as usize);
+                    buffer.copy_to(&mut bytes);
+                    Ok(bytes.freeze())
+                });
+
+                let resp = Response::from(response::Parts {
+                    body: Body::new(SendSyncBody { inner: body }),
+                    ..response::Parts::from(resp)
+                });
+
+                Ok(resp)
+            });
+
+            CallFuture { inner }
         }
     }
 }
@@ -356,11 +356,11 @@ unsafe impl<S> Sync for SendSyncBody<S> {}
 
 /// Call future for [`Wasm`].
 pub struct CallFuture {
-    inner: LocalBoxFuture<'static, Result<TransportResponse, TransportError<WasmError>>>,
+    inner: LocalBoxFuture<'static, Result<BoxResponse, TransportError<WasmError>>>,
 }
 
 impl Future for CallFuture {
-    type Output = Result<TransportResponse, TransportError<WasmError>>;
+    type Output = Result<BoxResponse, TransportError<WasmError>>;
 
     fn poll(mut self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.inner.poll_unpin(cx)

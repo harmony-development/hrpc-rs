@@ -3,17 +3,17 @@ use tokio::sync::{
     oneshot::Sender as OneshotSender,
 };
 
-use crate::client::transport::{TransportRequest, TransportResponse};
+use crate::{request::BoxRequest, response::BoxResponse};
 
 /// A mock sender.
 #[derive(Clone)]
 pub struct MockSender {
-    pub(crate) inner: MpscSender<(TransportRequest, OneshotSender<TransportResponse>)>,
+    pub(crate) inner: MpscSender<(BoxRequest, OneshotSender<BoxResponse>)>,
 }
 
 /// A mock receiver.
 pub struct MockReceiver {
-    pub(crate) inner: MpscReceiver<(TransportRequest, OneshotSender<TransportResponse>)>,
+    pub(crate) inner: MpscReceiver<(BoxRequest, OneshotSender<BoxResponse>)>,
 }
 
 /// Create a new pair of mock channels.

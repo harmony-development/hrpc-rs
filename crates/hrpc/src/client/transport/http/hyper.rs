@@ -26,7 +26,7 @@ use tower::Service;
 use crate::{
     client::{
         error::{ClientError, HrpcError},
-        transport::{box_socket_stream_sink, TransportError, TransportRequest, TransportResponse},
+        transport::{is_socket_request, SocketChannels, TransportError},
     },
     common::transport::{
         http::{
@@ -35,7 +35,9 @@ use crate::{
         },
         tokio_tungstenite::WebSocket,
     },
-    request, Response, HRPC_SPEC_VERSION,
+    request::{self, BoxRequest},
+    response::BoxResponse,
+    Response, HRPC_SPEC_VERSION,
 };
 
 use super::{check_uri, map_scheme_to_ws, InvalidServerUrl};
@@ -113,8 +115,8 @@ impl Hyper {
     }
 }
 
-impl Service<TransportRequest> for Hyper {
-    type Response = TransportResponse;
+impl Service<BoxRequest> for Hyper {
+    type Response = BoxResponse;
 
     type Error = TransportError<HyperError>;
 
@@ -124,90 +126,82 @@ impl Service<TransportRequest> for Hyper {
         Ok(()).into()
     }
 
-    fn call(&mut self, req: TransportRequest) -> Self::Future {
-        match req {
-            TransportRequest::Unary(req) => {
-                let maybe_req_url = self.make_endpoint(None, req.endpoint());
+    fn call(&mut self, mut req: BoxRequest) -> Self::Future {
+        if is_socket_request(&req) {
+            let ws_scheme = map_scheme_to_ws(self.server.scheme_str().expect("must have scheme"))
+                .expect("scheme can't be anything other than https or http");
+            let maybe_endpoint =
+                self.make_endpoint(Some(ws_scheme.parse().unwrap()), req.endpoint());
 
-                let req_url = match maybe_req_url {
-                    Ok(uri) => uri,
-                    Err(err) => {
-                        return HyperCallFuture(HyperCallFutureInner::Err(Some(err.into())))
-                    }
-                };
+            let endpoint = match maybe_endpoint {
+                Ok(uri) => uri,
+                Err(err) => return HyperCallFuture(HyperCallFutureInner::Err(Some(err.into()))),
+            };
 
-                let request::Parts {
-                    body,
-                    mut extensions,
-                    endpoint,
-                } = req.into();
+            let mut request = SocketRequest::get(endpoint).body(()).unwrap();
 
-                let request = {
-                    let mut request = http::Request::builder().uri(req_url).method(Method::POST);
+            // Insert default protocol (can be overwritten by users)
+            request
+                .headers_mut()
+                .insert(header::SEC_WEBSOCKET_PROTOCOL, ws_version_header_value());
 
-                    let mut header_map = extensions.remove::<HeaderMap>().unwrap_or_default();
-                    // insert content type
-                    header_map.insert(header::CONTENT_TYPE, content_header_value());
-                    // insert spec version
-                    header_map.insert(version_header_name(), version_header_value());
-
-                    *request.headers_mut().unwrap() = header_map;
-
-                    let maybe_resp = request
-                        .body(body.into())
-                        .map_err(HyperError::FailedRequestBuilder);
-
-                    match maybe_resp {
-                        Ok(resp) => resp,
-                        Err(err) => {
-                            return HyperCallFuture(HyperCallFutureInner::Err(Some(err.into())))
-                        }
-                    }
-                };
-
-                let resp_fut = self.client.request(request);
-
-                HyperCallFuture(HyperCallFutureInner::Unary {
-                    request_fut: resp_fut,
-                    error_fut: None,
-                    endpoint: Some(endpoint),
-                })
-            }
-            TransportRequest::Socket(mut req) => {
-                let ws_scheme =
-                    map_scheme_to_ws(self.server.scheme_str().expect("must have scheme"))
-                        .expect("scheme can't be anything other than https or http");
-                let maybe_endpoint =
-                    self.make_endpoint(Some(ws_scheme.parse().unwrap()), req.endpoint());
-
-                let endpoint = match maybe_endpoint {
-                    Ok(uri) => uri,
-                    Err(err) => {
-                        return HyperCallFuture(HyperCallFutureInner::Err(Some(err.into())))
-                    }
-                };
-
-                let mut request = SocketRequest::get(endpoint).body(()).unwrap();
-
-                // Insert default protocol (can be overwritten by users)
-                request
-                    .headers_mut()
-                    .insert(header::SEC_WEBSOCKET_PROTOCOL, ws_version_header_value());
-
-                if let Some(header_map) = req.extensions_mut().remove::<HeaderMap>() {
-                    for (key, value) in header_map {
-                        if let Some(key) = key {
-                            request.headers_mut().insert(key, value);
-                        }
+            if let Some(header_map) = req.extensions_mut().remove::<HeaderMap>() {
+                for (key, value) in header_map {
+                    if let Some(key) = key {
+                        request.headers_mut().insert(key, value);
                     }
                 }
-
-                let connect_fut = tokio_tungstenite::connect_async(request);
-
-                HyperCallFuture(HyperCallFutureInner::Socket {
-                    connect_fut: Box::pin(connect_fut),
-                })
             }
+
+            let connect_fut = tokio_tungstenite::connect_async(request);
+
+            HyperCallFuture(HyperCallFutureInner::Socket {
+                connect_fut: Box::pin(connect_fut),
+            })
+        } else {
+            let maybe_req_url = self.make_endpoint(None, req.endpoint());
+
+            let req_url = match maybe_req_url {
+                Ok(uri) => uri,
+                Err(err) => return HyperCallFuture(HyperCallFutureInner::Err(Some(err.into()))),
+            };
+
+            let request::Parts {
+                body,
+                mut extensions,
+                endpoint,
+            } = req.into();
+
+            let request = {
+                let mut request = http::Request::builder().uri(req_url).method(Method::POST);
+
+                let mut header_map = extensions.remove::<HeaderMap>().unwrap_or_default();
+                // insert content type
+                header_map.insert(header::CONTENT_TYPE, content_header_value());
+                // insert spec version
+                header_map.insert(version_header_name(), version_header_value());
+
+                *request.headers_mut().unwrap() = header_map;
+
+                let maybe_resp = request
+                    .body(body.into())
+                    .map_err(HyperError::FailedRequestBuilder);
+
+                match maybe_resp {
+                    Ok(resp) => resp,
+                    Err(err) => {
+                        return HyperCallFuture(HyperCallFutureInner::Err(Some(err.into())))
+                    }
+                }
+            };
+
+            let resp_fut = self.client.request(request);
+
+            HyperCallFuture(HyperCallFutureInner::Unary {
+                request_fut: resp_fut,
+                error_fut: None,
+                endpoint: Some(endpoint),
+            })
         }
     }
 }
@@ -238,7 +232,7 @@ enum HyperCallFutureInner {
 pub struct HyperCallFuture(HyperCallFutureInner);
 
 impl Future for HyperCallFuture {
-    type Output = Result<TransportResponse, TransportError<HyperError>>;
+    type Output = Result<BoxResponse, TransportError<HyperError>>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match &mut self.get_mut().0 {
@@ -261,9 +255,21 @@ impl Future for HyperCallFuture {
                         }
 
                         let (ws_tx, ws_rx) = WebSocket::new(ws_stream).split();
-                        let (tx, rx) = box_socket_stream_sink(ws_tx, ws_rx);
+                        let chans = SocketChannels::new(ws_tx, ws_rx);
 
-                        Poll::Ready(Ok(TransportResponse::new_socket(tx, rx)))
+                        let mut resp = BoxResponse::empty();
+
+                        let exts_mut = resp.extensions_mut();
+
+                        let (parts, _) = response.into_parts();
+                        exts_mut.insert(parts.status);
+                        exts_mut.insert(parts.extensions);
+                        exts_mut.insert(parts.headers);
+                        exts_mut.insert(parts.version);
+
+                        exts_mut.insert(chans);
+
+                        Poll::Ready(Ok(resp))
                     }
                     Err(err) => Poll::Ready(Err(HyperError::SocketInitError(
                         SocketInitError::Tungstenite(err),
@@ -343,7 +349,7 @@ impl Future for HyperCallFuture {
                         exts_mut.insert(parts.headers);
                         exts_mut.insert(parts.version);
 
-                        Poll::Ready(Ok(TransportResponse::new_unary(response)))
+                        Poll::Ready(Ok(response))
                     }
                     Err(err) => Poll::Ready(Err(HyperError::Http(err).into())),
                 }

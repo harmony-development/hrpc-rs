@@ -7,10 +7,11 @@ use crate::{
     body::Body,
     decode,
     request::{self, BoxRequest},
+    response::BoxResponse,
     Response,
 };
 
-use self::transport::{TransportError, TransportRequest, TransportResponse};
+use self::transport::{SocketChannels, SocketRequestMarker, TransportError};
 
 use super::Request;
 use error::*;
@@ -37,12 +38,12 @@ pub mod prelude {
     pub use super::{
         error::{ClientError, ClientResult},
         socket::Socket,
-        transport::{TransportError, TransportRequest, TransportResponse},
+        transport::TransportError,
         Client,
     };
     pub use crate::{
-        request::{IntoRequest, Request},
-        response::Response,
+        request::{BoxRequest, IntoRequest, Request},
+        response::{BoxResponse, Response},
     };
     pub use std::{borrow::Cow, convert::TryInto, fmt::Debug, future::Future};
     pub use tower::Service;
@@ -78,15 +79,14 @@ impl<Inner> Client<Inner> {
 
 impl<Inner, InnerErr> Client<Inner>
 where
-    Inner: Service<TransportRequest, Response = TransportResponse, Error = TransportError<InnerErr>>
-        + 'static,
+    Inner: Service<BoxRequest, Response = BoxResponse, Error = TransportError<InnerErr>> + 'static,
     InnerErr: 'static,
 {
     /// Layer this client with a new [`Layer`].
     pub fn layer<S, L>(self, l: L) -> Client<S>
     where
         L: Layer<Inner, Service = S>,
-        S: Service<TransportRequest>,
+        S: Service<BoxRequest>,
     {
         Client {
             transport: l.layer(self.transport),
@@ -102,25 +102,34 @@ where
         Req: prost::Message,
         Resp: prost::Message + Default,
     {
-        Service::call(&mut self.transport, TransportRequest::Unary(req.map()))
-            .map_ok(|resp| resp.extract_unary().map::<Resp>())
+        Service::call(&mut self.transport, req.map::<()>())
+            .map_ok(|resp| resp.map::<Resp>())
             .map_err(ClientError::from)
     }
 
     /// Connect a socket with the server and return it.
     pub fn connect_socket<Req, Resp>(
         &mut self,
-        req: Request<()>,
+        mut req: Request<()>,
     ) -> impl Future<Output = ClientResult<Socket<Req, Resp>, InnerErr>> + 'static
     where
         Req: prost::Message,
         Resp: prost::Message + Default,
     {
-        Service::call(&mut self.transport, TransportRequest::Socket(req))
-            .map_ok(|resp| {
-                let (tx, rx) = resp.extract_socket();
+        req.extensions_mut().insert(SocketRequestMarker);
+        Service::call(&mut self.transport, req)
+            .map_ok(|mut resp| {
+                let chans = resp
+                    .extensions_mut()
+                    .remove::<SocketChannels>()
+                    .expect("transport did not return socket channels - this is a bug");
 
-                Socket::new(rx, tx, socket::encode_message, socket::decode_message)
+                Socket::new(
+                    chans.rx,
+                    chans.tx,
+                    socket::encode_message,
+                    socket::decode_message,
+                )
             })
             .map_err(ClientError::from)
     }
