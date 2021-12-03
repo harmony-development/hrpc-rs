@@ -21,10 +21,10 @@ pub struct TraceLayer<SpanFn, OnRequestFn, OnSuccessFn, OnErrorFn> {
 impl<SpanFn, OnRequestFn, OnSuccessFn, OnErrorFn>
     TraceLayer<SpanFn, OnRequestFn, OnSuccessFn, OnErrorFn>
 where
-    SpanFn: Fn(&BoxRequest) -> Span + Clone,
-    OnRequestFn: Fn(&BoxRequest, &Span) + Clone,
-    OnSuccessFn: Fn(&BoxResponse, &Span) + Clone,
-    OnErrorFn: Fn(&BoxResponse, &Span, &HrpcError) + Clone,
+    SpanFn: Fn(&BoxRequest) -> Span,
+    OnRequestFn: Fn(&BoxRequest, &Span),
+    OnSuccessFn: Fn(&BoxResponse, &Span),
+    OnErrorFn: Fn(&BoxResponse, &Span, &HrpcError),
 {
     /// Create a new trace layer.
     pub fn new(
@@ -47,7 +47,7 @@ where
         span_fn: NewSpanFn,
     ) -> TraceLayer<NewSpanFn, OnRequestFn, OnSuccessFn, OnErrorFn>
     where
-        NewSpanFn: Fn(&BoxRequest) -> Span + Clone,
+        NewSpanFn: Fn(&BoxRequest) -> Span,
     {
         TraceLayer {
             span_fn,
@@ -63,7 +63,7 @@ where
         on_request: NewOnRequestFn,
     ) -> TraceLayer<SpanFn, NewOnRequestFn, OnSuccessFn, OnErrorFn>
     where
-        NewOnRequestFn: Fn(&BoxRequest, &Span) + Clone,
+        NewOnRequestFn: Fn(&BoxRequest, &Span),
     {
         TraceLayer {
             span_fn: self.span_fn,
@@ -79,7 +79,7 @@ where
         on_success: NewOnSuccessFn,
     ) -> TraceLayer<SpanFn, OnRequestFn, NewOnSuccessFn, OnErrorFn>
     where
-        NewOnSuccessFn: Fn(&BoxResponse, &Span) + Clone,
+        NewOnSuccessFn: Fn(&BoxResponse, &Span),
     {
         TraceLayer {
             span_fn: self.span_fn,
@@ -95,7 +95,7 @@ where
         on_error: NewOnErrorFn,
     ) -> TraceLayer<SpanFn, OnRequestFn, OnSuccessFn, NewOnErrorFn>
     where
-        NewOnErrorFn: Fn(&BoxResponse, &Span, &HrpcError) + Clone,
+        NewOnErrorFn: Fn(&BoxResponse, &Span, &HrpcError),
     {
         TraceLayer {
             span_fn: self.span_fn,
@@ -171,8 +171,8 @@ impl<S, SpanFn, OnRequestFn, OnSuccessFn, OnErrorFn>
 where
     SpanFn: Fn(&BoxRequest) -> Span,
     OnRequestFn: Fn(&BoxRequest, &Span),
-    OnSuccessFn: Fn(&BoxResponse, &Span) + Clone,
-    OnErrorFn: Fn(&BoxResponse, &Span, &HrpcError) + Clone,
+    OnSuccessFn: Fn(&BoxResponse, &Span),
+    OnErrorFn: Fn(&BoxResponse, &Span, &HrpcError),
 {
     /// Create a new trace service.
     pub fn new(
