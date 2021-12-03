@@ -42,6 +42,70 @@ where
             on_error,
         }
     }
+
+    /// Change the span function that will be used.
+    pub fn span_fn<NewSpanFn>(
+        self,
+        span_fn: NewSpanFn,
+    ) -> TraceLayer<NewSpanFn, OnRequestFn, OnSuccessFn, OnErrorFn>
+    where
+        NewSpanFn: Fn(&BoxRequest) -> Span + Clone,
+    {
+        TraceLayer {
+            span_fn,
+            on_error: self.on_error,
+            on_request: self.on_request,
+            on_success: self.on_success,
+        }
+    }
+
+    /// Change the on request function that will be used.
+    pub fn on_request<NewOnRequestFn>(
+        self,
+        on_request: NewOnRequestFn,
+    ) -> TraceLayer<SpanFn, NewOnRequestFn, OnSuccessFn, OnErrorFn>
+    where
+        NewOnRequestFn: Fn(&BoxRequest, &Span) + Clone,
+    {
+        TraceLayer {
+            span_fn: self.span_fn,
+            on_error: self.on_error,
+            on_request,
+            on_success: self.on_success,
+        }
+    }
+
+    /// Change the on success function that will be used.
+    pub fn on_success<NewOnSuccessFn>(
+        self,
+        on_success: NewOnSuccessFn,
+    ) -> TraceLayer<SpanFn, OnRequestFn, NewOnSuccessFn, OnErrorFn>
+    where
+        NewOnSuccessFn: Fn(&BoxResponse, &Span) + Clone,
+    {
+        TraceLayer {
+            span_fn: self.span_fn,
+            on_error: self.on_error,
+            on_request: self.on_request,
+            on_success,
+        }
+    }
+
+    /// Change the on error function that will be used.
+    pub fn on_error<NewOnErrorFn>(
+        self,
+        on_error: NewOnErrorFn,
+    ) -> TraceLayer<SpanFn, OnRequestFn, OnSuccessFn, NewOnErrorFn>
+    where
+        NewOnErrorFn: Fn(&BoxResponse, &Span, &HrpcError) + Clone,
+    {
+        TraceLayer {
+            span_fn: self.span_fn,
+            on_error,
+            on_request: self.on_request,
+            on_success: self.on_success,
+        }
+    }
 }
 
 type SpanFnPtr = fn(&BoxRequest) -> Span;
