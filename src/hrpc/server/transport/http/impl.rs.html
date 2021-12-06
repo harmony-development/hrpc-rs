@@ -292,18 +292,36 @@
 <span id="292">292</span>
 <span id="293">293</span>
 <span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
     <span class="ident">convert::Infallible</span>,
+    <span class="ident">net::SocketAddr</span>,
     <span class="ident">str::FromStr</span>,
     <span class="ident">task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>},
 };
 
 <span class="kw">use</span> <span class="ident">futures_util</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">FutureExt</span>, <span class="ident">StreamExt</span>};
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>, <span class="ident">HeaderMap</span>, <span class="ident">Method</span>, <span class="ident">StatusCode</span>};
+<span class="kw">use</span> <span class="ident">hyper::server::conn::AddrStream</span>;
 <span class="kw">use</span> <span class="ident">tower</span>::{
     <span class="ident">layer::util</span>::{<span class="ident">Identity</span>, <span class="ident">Stack</span>},
-    <span class="ident">util::BoxService</span>,
     <span class="ident">Layer</span>, <span class="ident">Service</span>,
 };
 
@@ -327,20 +345,27 @@
     <span class="ident">Request</span>, <span class="ident">Response</span>, <span class="ident">HRPC_CONTENT_MIMETYPE</span>,
 };
 
-<span class="doccomment">/// A type alias for a boxed [`Service`] that takes [`HttpRequest`]s and</span>
-<span class="doccomment">/// outputs [`HttpResponse`]s.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HttpService</span> <span class="op">=</span> <span class="ident">BoxService</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">HttpResponse</span>, <span class="ident">Infallible</span><span class="op">&gt;</span>;
-
 <span class="doccomment">/// A service that wraps a [`HrpcService`], and takes HTTP requests and</span>
 <span class="doccomment">/// produces HTTP responses.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HrpcServiceToHttp</span> {
     <span class="ident">inner</span>: <span class="ident">HrpcService</span>,
+    <span class="ident">socket_addr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">HrpcServiceToHttp</span> {
     <span class="doccomment">/// Create a new service by wrapping a [`HrpcService`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">svc</span>: <span class="ident">HrpcService</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">inner</span>: <span class="ident">svc</span> }
+        <span class="self">Self</span> {
+            <span class="ident">inner</span>: <span class="ident">svc</span>,
+            <span class="ident">socket_addr</span>: <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="doccomment">/// Set a [`SocketAddr`] that will be passed to all requests made to this</span>
+    <span class="doccomment">/// service. Using this method after another will overwrite the older value.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_socket_addr</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">addr</span>: <span class="ident">SocketAddr</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="ident">socket_addr</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">addr</span>);
+        <span class="self">self</span>
     }
 }
 
@@ -402,28 +427,33 @@
         };
 
         <span class="kw">match</span> <span class="ident">hrpc_req</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">req</span>) =&gt; <span class="ident">Box::pin</span>(<span class="ident">Service::call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">inner</span>, <span class="ident">req</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">res</span><span class="op">|</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">unwrap</span>();
-
-                <span class="kw">if</span> <span class="kw">let</span> (<span class="prelude-val">Some</span>(<span class="ident">socket_handler</span>), <span class="prelude-val">Some</span>(<span class="ident">ws_upgrade</span>)) <span class="op">=</span>
-                    (<span class="ident">resp</span>.<span class="ident">extensions_mut</span>().<span class="ident">remove</span>::<span class="op">&lt;</span><span class="ident">SocketHandler</span><span class="op">&gt;</span>(), <span class="ident">ws_upgrade</span>)
-                {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ws_resp</span> <span class="op">=</span> <span class="ident">ws_upgrade</span>
-                        .<span class="ident">on_upgrade</span>(<span class="op">|</span><span class="ident">stream</span><span class="op">|</span> {
-                            <span class="kw">let</span> (<span class="ident">ws_tx</span>, <span class="ident">ws_rx</span>) <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">split</span>();
-                            (<span class="ident">socket_handler</span>.<span class="ident">inner</span>)(<span class="ident">Box::pin</span>(<span class="ident">ws_rx</span>), <span class="ident">Box::pin</span>(<span class="ident">ws_tx</span>))
-                        })
-                        .<span class="ident">into_response</span>();
-
-                    <span class="kw">let</span> <span class="ident">parts</span>: <span class="ident">response::Parts</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">into</span>();
-
-                    <span class="ident">set_http_extensions</span>(<span class="ident">parts</span>.<span class="ident">extensions</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ws_resp</span>);
-
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ws_resp</span>);
+            <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">req</span>) =&gt; {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">socket_addr</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">socket_addr</span> {
+                    <span class="ident">req</span>.<span class="ident">extensions_mut</span>().<span class="ident">insert</span>(<span class="ident">socket_addr</span>);
                 }
+                <span class="ident">Box::pin</span>(<span class="ident">Service::call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">inner</span>, <span class="ident">req</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">res</span><span class="op">|</span> {
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">unwrap</span>();
 
-                <span class="prelude-val">Ok</span>(<span class="ident">into_unary_response</span>(<span class="ident">resp</span>))
-            })),
+                    <span class="kw">if</span> <span class="kw">let</span> (<span class="prelude-val">Some</span>(<span class="ident">socket_handler</span>), <span class="prelude-val">Some</span>(<span class="ident">ws_upgrade</span>)) <span class="op">=</span>
+                        (<span class="ident">resp</span>.<span class="ident">extensions_mut</span>().<span class="ident">remove</span>::<span class="op">&lt;</span><span class="ident">SocketHandler</span><span class="op">&gt;</span>(), <span class="ident">ws_upgrade</span>)
+                    {
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ws_resp</span> <span class="op">=</span> <span class="ident">ws_upgrade</span>
+                            .<span class="ident">on_upgrade</span>(<span class="op">|</span><span class="ident">stream</span><span class="op">|</span> {
+                                <span class="kw">let</span> (<span class="ident">ws_tx</span>, <span class="ident">ws_rx</span>) <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">split</span>();
+                                (<span class="ident">socket_handler</span>.<span class="ident">inner</span>)(<span class="ident">Box::pin</span>(<span class="ident">ws_rx</span>), <span class="ident">Box::pin</span>(<span class="ident">ws_tx</span>))
+                            })
+                            .<span class="ident">into_response</span>();
+
+                        <span class="kw">let</span> <span class="ident">parts</span>: <span class="ident">response::Parts</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">into</span>();
+
+                        <span class="ident">set_http_extensions</span>(<span class="ident">parts</span>.<span class="ident">extensions</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ws_resp</span>);
+
+                        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ws_resp</span>);
+                    }
+
+                    <span class="prelude-val">Ok</span>(<span class="ident">into_unary_response</span>(<span class="ident">resp</span>))
+                }))
+            }
             <span class="prelude-val">Err</span>((<span class="ident">status</span>, <span class="ident">err</span>)) =&gt; {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">err_into_unary_response</span>(<span class="ident">err</span>);
                 <span class="kw-2">*</span><span class="ident">resp</span>.<span class="ident">status_mut</span>() <span class="op">=</span> <span class="ident">status</span>;
@@ -445,7 +475,7 @@
 }
 
 <span class="doccomment">/// Service that wraps an [`IntoMakeService`] and transforms the services</span>
-<span class="doccomment">/// it produces into [`HttpService`].</span>
+<span class="doccomment">/// it produces to work with [`hyper`].</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MakeRoutesToHttp</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">MakeRoutes</span>, <span class="ident">L</span><span class="op">&gt;</span> {
     <span class="ident">inner</span>: <span class="ident">IntoMakeService</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>,
     <span class="ident">layer</span>: <span class="ident">L</span>,
@@ -471,29 +501,33 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MakeRoutes</span>, <span class="ident">T</span>, <span class="ident">L</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MakeRoutesToHttp</span><span class="op">&lt;</span><span class="ident">M</span>, <span class="ident">L</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MakeRoutes</span>, <span class="ident">L</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">AddrStream</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MakeRoutesToHttp</span><span class="op">&lt;</span><span class="ident">M</span>, <span class="ident">L</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">L</span>: <span class="ident">Layer</span><span class="op">&lt;</span><span class="ident">HrpcServiceToHttp</span>, <span class="ident">Service</span> <span class="op">=</span> <span class="ident">S</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Send</span>,
     <span class="ident">S</span>: <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">HttpRequest</span>, <span class="ident">Response</span> <span class="op">=</span> <span class="ident">HttpResponse</span>, <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     <span class="ident">S::Future</span>: <span class="ident">Send</span>,
 {
-    <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">HttpService</span>;
+    <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">L::Service</span>;
 
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span>;
 
-    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">Ready</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HttpService</span>, <span class="ident">Infallible</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">Ready</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">L::Service</span>, <span class="ident">Infallible</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">poll_ready</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">Service</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="ident">::poll_ready</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">inner</span>, <span class="ident">cx</span>)
+        <span class="ident">Service</span>::<span class="op">&lt;</span><span class="ident">AddrStream</span><span class="op">&gt;</span><span class="ident">::poll_ready</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">inner</span>, <span class="ident">cx</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="ident">T</span>) -&gt; <span class="ident"><span class="self">Self</span>::Future</span> {
+    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">req</span>: <span class="kw-2">&amp;</span><span class="ident">AddrStream</span>) -&gt; <span class="ident"><span class="self">Self</span>::Future</span> {
+        <span class="kw">let</span> <span class="ident">socket_addr</span> <span class="op">=</span> <span class="ident">req</span>.<span class="ident">remote_addr</span>();
+
+        <span class="macro">tracing::debug!</span>(<span class="string">&quot;creating new service for: {}&quot;</span>, <span class="ident">socket_addr</span>);
+
         <span class="kw">let</span> <span class="ident">routes</span> <span class="op">=</span> <span class="ident">Service::call</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">inner</span>, <span class="ident">req</span>)
             .<span class="ident">into_inner</span>()
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">http_service</span> <span class="op">=</span> <span class="ident">HrpcServiceToHttp::new</span>(<span class="ident">routes</span>.<span class="ident">inner</span>);
-        <span class="ident">future::ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">BoxService::new</span>(<span class="self">self</span>.<span class="ident">layer</span>.<span class="ident">layer</span>(<span class="ident">http_service</span>))))
+            .<span class="ident">expect</span>(<span class="string">&quot;future must always contain value&quot;</span>)
+            .<span class="ident">expect</span>(<span class="string">&quot;this call is infallible&quot;</span>);
+        <span class="kw">let</span> <span class="ident">http_service</span> <span class="op">=</span> <span class="ident">HrpcServiceToHttp::new</span>(<span class="ident">routes</span>.<span class="ident">inner</span>).<span class="ident">with_socket_addr</span>(<span class="ident">socket_addr</span>);
+        <span class="ident">future::ready</span>(<span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">layer</span>.<span class="ident">layer</span>(<span class="ident">http_service</span>)))
     }
 }
 
