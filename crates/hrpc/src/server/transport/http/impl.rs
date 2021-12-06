@@ -207,11 +207,15 @@ where
     }
 
     fn call(&mut self, req: &AddrStream) -> Self::Future {
+        let socket_addr = req.remote_addr();
+
+        tracing::debug!("creating new service for: {}", socket_addr);
+
         let routes = Service::call(&mut self.inner, req)
             .into_inner()
             .expect("future must always contain value")
             .expect("this call is infallible");
-        let http_service = HrpcServiceToHttp::new(routes.inner);
+        let http_service = HrpcServiceToHttp::new(routes.inner).with_socket_addr(socket_addr);
         future::ready(Ok(self.layer.layer(http_service)))
     }
 }
