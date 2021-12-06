@@ -11,7 +11,6 @@ use http::{header, HeaderMap, Method, StatusCode};
 use hyper::server::conn::AddrStream;
 use tower::{
     layer::util::{Identity, Stack},
-    util::BoxService,
     Layer, Service,
 };
 
@@ -34,10 +33,6 @@ use crate::{
     server::{service::HrpcService, socket::SocketHandler, IntoMakeService, MakeRoutes},
     Request, Response, HRPC_CONTENT_MIMETYPE,
 };
-
-/// A type alias for a boxed [`Service`] that takes [`HttpRequest`]s and
-/// outputs [`HttpResponse`]s.
-pub type HttpService = BoxService<HttpRequest, HttpResponse, Infallible>;
 
 /// A service that wraps a [`HrpcService`], and takes HTTP requests and
 /// produces HTTP responses.
