@@ -1,12 +1,14 @@
 use std::{
     borrow::Cow,
     convert::Infallible,
+    net::SocketAddr,
     str::FromStr,
     task::{Context, Poll},
 };
 
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
 use http::{header, HeaderMap, Method, StatusCode};
+use hyper::server::conn::AddrStream;
 use tower::{
     layer::util::{Identity, Stack},
     util::BoxService,
@@ -41,12 +43,23 @@ pub type HttpService = BoxService<HttpRequest, HttpResponse, Infallible>;
 /// produces HTTP responses.
 pub struct HrpcServiceToHttp {
     inner: HrpcService,
+    socket_addr: Option<SocketAddr>,
 }
 
 impl HrpcServiceToHttp {
     /// Create a new service by wrapping a [`HrpcService`].
     pub fn new(svc: HrpcService) -> Self {
-        Self { inner: svc }
+        Self {
+            inner: svc,
+            socket_addr: None,
+        }
+    }
+
+    /// Set a [`SocketAddr`] that will be passed to all requests made to this
+    /// service. Using this method after another will overwrite the older value.
+    pub fn with_socket_addr(mut self, addr: SocketAddr) -> Self {
+        self.socket_addr = Some(addr);
+        self
     }
 }
 
@@ -108,28 +121,33 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
         };
 
         match hrpc_req {
-            Ok(req) => Box::pin(Service::call(&mut self.inner, req).map(|res| {
-                let mut resp = res.unwrap();
-
-                if let (Some(socket_handler), Some(ws_upgrade)) =
-                    (resp.extensions_mut().remove::<SocketHandler>(), ws_upgrade)
-                {
-                    let mut ws_resp = ws_upgrade
-                        .on_upgrade(|stream| {
-                            let (ws_tx, ws_rx) = stream.split();
-                            (socket_handler.inner)(Box::pin(ws_rx), Box::pin(ws_tx))
-                        })
-                        .into_response();
-
-                    let parts: response::Parts = resp.into();
-
-                    set_http_extensions(parts.extensions, &mut ws_resp);
-
-                    return Ok(ws_resp);
+            Ok(mut req) => {
+                if let Some(socket_addr) = self.socket_addr {
+                    req.extensions_mut().insert(socket_addr);
                 }
+                Box::pin(Service::call(&mut self.inner, req).map(|res| {
+                    let mut resp = res.unwrap();
 
-                Ok(into_unary_response(resp))
-            })),
+                    if let (Some(socket_handler), Some(ws_upgrade)) =
+                        (resp.extensions_mut().remove::<SocketHandler>(), ws_upgrade)
+                    {
+                        let mut ws_resp = ws_upgrade
+                            .on_upgrade(|stream| {
+                                let (ws_tx, ws_rx) = stream.split();
+                                (socket_handler.inner)(Box::pin(ws_rx), Box::pin(ws_tx))
+                            })
+                            .into_response();
+
+                        let parts: response::Parts = resp.into();
+
+                        set_http_extensions(parts.extensions, &mut ws_resp);
+
+                        return Ok(ws_resp);
+                    }
+
+                    Ok(into_unary_response(resp))
+                }))
+            }
             Err((status, err)) => {
                 let mut resp = err_into_unary_response(err);
                 *resp.status_mut() = status;
@@ -177,29 +195,29 @@ impl<M: MakeRoutes, L> MakeRoutesToHttp<M, L> {
     }
 }
 
-impl<M: MakeRoutes, T, L, S> Service<T> for MakeRoutesToHttp<M, L>
+impl<M: MakeRoutes, L, S> Service<&AddrStream> for MakeRoutesToHttp<M, L>
 where
     L: Layer<HrpcServiceToHttp, Service = S> + Clone + Send,
     S: Service<HttpRequest, Response = HttpResponse, Error = Infallible> + Send + 'static,
     S::Future: Send,
 {
-    type Response = HttpService;
+    type Response = L::Service;
 
     type Error = Infallible;
 
-    type Future = Ready<Result<HttpService, Infallible>>;
+    type Future = Ready<Result<L::Service, Infallible>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Service::<T>::poll_ready(&mut self.inner, cx)
+        Service::<AddrStream>::poll_ready(&mut self.inner, cx)
     }
 
-    fn call(&mut self, req: T) -> Self::Future {
+    fn call(&mut self, req: &AddrStream) -> Self::Future {
         let routes = Service::call(&mut self.inner, req)
             .into_inner()
-            .unwrap()
-            .unwrap();
+            .expect("future must always contain value")
+            .expect("this call is infallible");
         let http_service = HrpcServiceToHttp::new(routes.inner);
-        future::ready(Ok(BoxService::new(self.layer.layer(http_service))))
+        future::ready(Ok(self.layer.layer(http_service)))
     }
 }
 
