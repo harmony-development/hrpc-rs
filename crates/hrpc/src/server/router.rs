@@ -67,7 +67,11 @@ impl Routes {
         S: Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,
         S::Future: Send,
     {
-        self.all_layer = Some(HrpcLayer::new(layer));
+        let outer = HrpcLayer::new(layer);
+        self.all_layer = match self.all_layer {
+            Some(inner) => Some(HrpcLayer::stack(inner, outer)),
+            None => Some(outer),
+        };
         self
     }
 

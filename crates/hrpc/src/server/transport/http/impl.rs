@@ -128,23 +128,7 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
                     return Ok(ws_resp);
                 }
 
-                let status = resp
-                    .extensions_mut()
-                    .remove::<StatusCode>()
-                    .or_else(|| {
-                        resp.extensions().get::<HrpcError>().map(|err| {
-                            match HrpcErrorIdentifier::from_str(err.identifier.as_str()) {
-                                Ok(err_id) => err_id.into(),
-                                _ => StatusCode::INTERNAL_SERVER_ERROR,
-                            }
-                        })
-                    })
-                    .unwrap_or(StatusCode::OK);
-
-                let mut http_resp = into_unary_response(resp);
-                *http_resp.status_mut() = status;
-
-                Ok(http_resp)
+                Ok(into_unary_response(resp))
             })),
             Err((status, err)) => {
                 let mut resp = err_into_unary_response(err);
@@ -227,6 +211,19 @@ pub(crate) fn set_http_extensions(mut exts: Extensions, resp: &mut HttpResponse)
 
     if let Some(headers) = exts.remove::<HeaderMap>() {
         resp.headers_mut().extend(headers);
+    }
+
+    let maybe_status = exts.remove::<StatusCode>().or_else(|| {
+        exts.get::<HrpcError>().map(|err| {
+            match HrpcErrorIdentifier::from_str(err.identifier.as_str()) {
+                Ok(err_id) => err_id.into(),
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            }
+        })
+    });
+
+    if let Some(status) = maybe_status {
+        *resp.status_mut() = status;
     }
 }
 
