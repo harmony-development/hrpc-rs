@@ -164,7 +164,7 @@ impl Layer<HrpcService> for HrpcServiceToHttpLayer {
 }
 
 /// Service that wraps an [`IntoMakeService`] and transforms the services
-/// it produces into [`HttpService`].
+/// it produces to work with [`hyper`].
 pub struct MakeRoutesToHttp<S: MakeRoutes, L> {
     inner: IntoMakeService<S>,
     layer: L,
