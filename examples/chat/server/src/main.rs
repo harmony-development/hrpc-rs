@@ -9,12 +9,12 @@ use hrpc::{
     common::layer::trace::TraceLayer,
     exports::http::StatusCode,
     server::{
+        layer::ratelimit::RateLimitLayer,
         prelude::*,
         transport::http::{layer::errid_to_status::ErrorIdentifierToStatusLayer, Hyper},
     },
 };
 use tokio::sync::broadcast;
-use tower::limit::RateLimitLayer;
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::EnvFilter;
 
