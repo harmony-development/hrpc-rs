@@ -4,9 +4,8 @@ use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
-    time::Duration,
+    time::{Duration, Instant},
 };
-use tokio::time::Instant;
 use tower::{Layer, Service};
 
 use crate::{
