@@ -16,17 +16,17 @@ use crate::{
     request::BoxRequest,
 };
 
-type ExtractKeyFn<K> = fn(&mut BoxRequest) -> Option<K>;
-
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
 #[derive(Clone)]
-pub struct RateLimitLayer<K> {
+pub struct RateLimitLayer<ExtractKeyFn> {
     rate: Rate,
-    extract_key: ExtractKeyFn<K>,
+    extract_key: ExtractKeyFn,
 }
 
-impl RateLimitLayer<()> {
+type ExtractKeyFnDefault = fn(&mut BoxRequest) -> Option<()>;
+
+impl RateLimitLayer<ExtractKeyFnDefault> {
     /// Create new rate limit layer.
     pub fn new(num: u64, per: Duration) -> Self {
         let rate = Rate::new(num, per);
@@ -37,9 +37,16 @@ impl RateLimitLayer<()> {
     }
 }
 
-impl<K> RateLimitLayer<K> {
+impl<ExtractKeyFn> RateLimitLayer<ExtractKeyFn> {
     /// Set the extract key function.
-    pub fn extract_key_with<NewKey>(self, f: ExtractKeyFn<NewKey>) -> RateLimitLayer<NewKey> {
+    pub fn extract_key_with<NewExtractKeyFn, NewKey>(
+        self,
+        f: NewExtractKeyFn,
+    ) -> RateLimitLayer<NewExtractKeyFn>
+    where
+        NewExtractKeyFn: Fn(&mut BoxRequest) -> Option<NewKey> + Clone,
+        NewKey: Eq + Hash,
+    {
         RateLimitLayer {
             rate: self.rate,
             extract_key: f,
@@ -47,22 +54,26 @@ impl<K> RateLimitLayer<K> {
     }
 }
 
-impl<K, S> Layer<S> for RateLimitLayer<K> {
-    type Service = RateLimit<S, K>;
+impl<ExtractKeyFn, Key, S> Layer<S> for RateLimitLayer<ExtractKeyFn>
+where
+    ExtractKeyFn: Fn(&mut BoxRequest) -> Option<Key> + Clone,
+    Key: Eq + Hash,
+{
+    type Service = RateLimit<S, ExtractKeyFn, Key>;
 
     fn layer(&self, service: S) -> Self::Service {
-        RateLimit::new(service, self.rate, self.extract_key)
+        RateLimit::new(service, self.rate, self.extract_key.clone())
     }
 }
 
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
-pub struct RateLimit<T, K> {
+pub struct RateLimit<T, ExtractKeyFn, Key> {
     inner: T,
     rate: Rate,
     global_state: State,
-    keyed_states: HashMap<K, State>,
-    extract_key: ExtractKeyFn<K>,
+    keyed_states: HashMap<Key, State>,
+    extract_key: ExtractKeyFn,
 }
 
 #[derive(Debug)]
@@ -81,9 +92,13 @@ impl State {
     }
 }
 
-impl<T, K> RateLimit<T, K> {
+impl<S, ExtractKeyFn, Key> RateLimit<S, ExtractKeyFn, Key>
+where
+    ExtractKeyFn: Fn(&mut BoxRequest) -> Option<Key>,
+    Key: Eq + Hash,
+{
     /// Create a new rate limiter
-    pub fn new(inner: T, rate: Rate, extract_key: ExtractKeyFn<K>) -> Self {
+    pub fn new(inner: S, rate: Rate, extract_key: ExtractKeyFn) -> Self {
         RateLimit {
             inner,
             global_state: State::new_ready(&rate),
@@ -94,25 +109,26 @@ impl<T, K> RateLimit<T, K> {
     }
 
     /// Get a reference to the inner service
-    pub fn get_ref(&self) -> &T {
+    pub fn get_ref(&self) -> &S {
         &self.inner
     }
 
     /// Get a mutable reference to the inner service
-    pub fn get_mut(&mut self) -> &mut T {
+    pub fn get_mut(&mut self) -> &mut S {
         &mut self.inner
     }
 
     /// Consume `self`, returning the inner service
-    pub fn into_inner(self) -> T {
+    pub fn into_inner(self) -> S {
         self.inner
     }
 }
 
-impl<K, S> Service<BoxRequest> for RateLimit<S, K>
+impl<S, ExtractKeyFn, Key> Service<BoxRequest> for RateLimit<S, ExtractKeyFn, Key>
 where
     S: Service<BoxRequest, Response = BoxResponse, Error = Infallible>,
-    K: Eq + Hash,
+    ExtractKeyFn: Fn(&mut BoxRequest) -> Option<Key>,
+    Key: Eq + Hash,
 {
     type Response = S::Response;
     type Error = S::Error;
