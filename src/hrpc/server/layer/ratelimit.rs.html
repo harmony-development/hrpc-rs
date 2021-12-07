@@ -282,6 +282,14 @@
 <span id="282">282</span>
 <span id="283">283</span>
 <span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">pin_project_lite::pin_project</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashMap</span>,
@@ -323,6 +331,14 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">ExtractKeyFn</span><span class="op">&gt;</span> <span class="ident">RateLimitLayer</span><span class="op">&lt;</span><span class="ident">ExtractKeyFn</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Set the extract key function.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// # use hrpc::server::layer::ratelimit::RateLimitLayer;</span>
+    <span class="doccomment">/// # use std::{time::Duration, net::SocketAddr};</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// let layer = RateLimitLayer::new(5, Duration::from_secs(10))</span>
+    <span class="doccomment">///     .extract_key_with(|req| req.extensions().get::&lt;SocketAddr&gt;().map(|addr| addr.ip()));</span>
+    <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">extract_key_with</span><span class="op">&lt;</span><span class="ident">NewExtractKeyFn</span>, <span class="ident">NewKey</span><span class="op">&gt;</span>(
         <span class="self">self</span>,
         <span class="ident">f</span>: <span class="ident">NewExtractKeyFn</span>,
