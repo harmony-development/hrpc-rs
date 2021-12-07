@@ -1,7 +1,9 @@
 use pin_project_lite::pin_project;
 use std::{
+    collections::HashMap,
     convert::Infallible,
     future::Future,
+    hash::Hash,
     pin::Pin,
     task::{Context, Poll},
     time::{Duration, Instant},
@@ -11,38 +13,56 @@ use tower::{Layer, Service};
 use crate::{
     encode,
     proto::{Error as HrpcError, RetryInfo},
+    request::BoxRequest,
 };
+
+type ExtractKeyFn<K> = fn(&mut BoxRequest) -> Option<K>;
 
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
-#[derive(Debug, Clone)]
-pub struct RateLimitLayer {
+#[derive(Clone)]
+pub struct RateLimitLayer<K> {
     rate: Rate,
+    extract_key: ExtractKeyFn<K>,
 }
 
-impl RateLimitLayer {
+impl RateLimitLayer<()> {
     /// Create new rate limit layer.
     pub fn new(num: u64, per: Duration) -> Self {
         let rate = Rate::new(num, per);
-        RateLimitLayer { rate }
+        RateLimitLayer {
+            rate,
+            extract_key: |_| None,
+        }
     }
 }
 
-impl<S> Layer<S> for RateLimitLayer {
-    type Service = RateLimit<S>;
+impl<K> RateLimitLayer<K> {
+    /// Set the extract key function.
+    pub fn extract_key_with<NewKey>(self, f: ExtractKeyFn<NewKey>) -> RateLimitLayer<NewKey> {
+        RateLimitLayer {
+            rate: self.rate,
+            extract_key: f,
+        }
+    }
+}
+
+impl<K, S> Layer<S> for RateLimitLayer<K> {
+    type Service = RateLimit<S, K>;
 
     fn layer(&self, service: S) -> Self::Service {
-        RateLimit::new(service, self.rate)
+        RateLimit::new(service, self.rate, self.extract_key)
     }
 }
 
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
-#[derive(Debug)]
-pub struct RateLimit<T> {
+pub struct RateLimit<T, K> {
     inner: T,
     rate: Rate,
-    state: State,
+    global_state: State,
+    keyed_states: HashMap<K, State>,
+    extract_key: ExtractKeyFn<K>,
 }
 
 #[derive(Debug)]
@@ -52,16 +72,25 @@ enum State {
     Ready { until: Instant, rem: u64 },
 }
 
-impl<T> RateLimit<T> {
-    /// Create a new rate limiter
-    pub fn new(inner: T, rate: Rate) -> Self {
-        let until = Instant::now();
-        let state = State::Ready {
-            until,
+impl State {
+    fn new_ready(rate: &Rate) -> Self {
+        State::Ready {
             rem: rate.num(),
-        };
+            until: Instant::now(),
+        }
+    }
+}
 
-        RateLimit { inner, rate, state }
+impl<T, K> RateLimit<T, K> {
+    /// Create a new rate limiter
+    pub fn new(inner: T, rate: Rate, extract_key: ExtractKeyFn<K>) -> Self {
+        RateLimit {
+            inner,
+            global_state: State::new_ready(&rate),
+            rate,
+            extract_key,
+            keyed_states: HashMap::new(),
+        }
     }
 
     /// Get a reference to the inner service
@@ -80,9 +109,10 @@ impl<T> RateLimit<T> {
     }
 }
 
-impl<S, Request> Service<Request> for RateLimit<S>
+impl<K, S> Service<BoxRequest> for RateLimit<S, K>
 where
-    S: Service<Request, Response = BoxResponse, Error = Infallible>,
+    S: Service<BoxRequest, Response = BoxResponse, Error = Infallible>,
+    K: Eq + Hash,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -92,8 +122,16 @@ where
         Service::poll_ready(&mut self.inner, cx)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
-        match self.state {
+    fn call(&mut self, mut request: BoxRequest) -> Self::Future {
+        let state = match (self.extract_key)(&mut request) {
+            Some(key) => self
+                .keyed_states
+                .entry(key)
+                .or_insert_with(|| State::new_ready(&self.rate)),
+            None => &mut self.global_state,
+        };
+
+        match *state {
             State::Ready { mut until, mut rem } => {
                 let now = Instant::now();
 
@@ -105,15 +143,15 @@ where
 
                 if rem > 1 {
                     rem -= 1;
-                    self.state = State::Ready { until, rem };
+                    *state = State::Ready { until, rem };
                 } else {
                     // The service is disabled until further notice
                     let after = Instant::now() + self.rate.per();
-                    self.state = State::Limited { after };
+                    *state = State::Limited { after };
                 }
 
                 // Call the inner future
-                let fut = self.inner.call(request);
+                let fut = Service::call(&mut self.inner, request);
                 RateLimitFuture::ready(fut)
             }
             State::Limited { after } => {
@@ -125,13 +163,13 @@ where
                 }
 
                 // Reset state
-                self.state = State::Ready {
+                *state = State::Ready {
                     until: now + self.rate.per(),
                     rem: self.rate.num(),
                 };
 
                 // Call the inner future
-                let fut = self.inner.call(request);
+                let fut = Service::call(&mut self.inner, request);
                 RateLimitFuture::ready(fut)
             }
         }
