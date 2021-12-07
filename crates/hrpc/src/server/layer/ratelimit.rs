@@ -39,6 +39,14 @@ impl RateLimitLayer<ExtractKeyFnDefault> {
 
 impl<ExtractKeyFn> RateLimitLayer<ExtractKeyFn> {
     /// Set the extract key function.
+    ///
+    /// ```
+    /// # use hrpc::server::layer::ratelimit::RateLimitLayer;
+    /// # use std::{time::Duration, net::SocketAddr};
+    ///
+    /// let layer = RateLimitLayer::new(5, Duration::from_secs(10))
+    ///     .extract_key_with(|req| req.extensions().get::<SocketAddr>().map(|addr| addr.ip()));
+    /// ```
     pub fn extract_key_with<NewExtractKeyFn, NewKey>(
         self,
         f: NewExtractKeyFn,
