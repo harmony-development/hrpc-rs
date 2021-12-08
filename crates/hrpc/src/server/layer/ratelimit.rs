@@ -19,69 +19,87 @@ use crate::{
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
 #[derive(Clone)]
-pub struct RateLimitLayer<ExtractKeyFn> {
+pub struct RateLimitLayer<ExtractKey, BypassForKey> {
     rate: Rate,
-    extract_key: ExtractKeyFn,
+    extract_key: ExtractKey,
+    bypass_for_key: BypassForKey,
 }
 
-type ExtractKeyFnDefault = fn(&mut BoxRequest) -> Option<()>;
+type ExtractKeyDefault = fn(&mut BoxRequest) -> Option<()>;
+type BypassForKeyDefault = fn(&()) -> bool;
 
-impl RateLimitLayer<ExtractKeyFnDefault> {
+impl RateLimitLayer<ExtractKeyDefault, BypassForKeyDefault> {
     /// Create new rate limit layer.
     pub fn new(num: u64, per: Duration) -> Self {
         let rate = Rate::new(num, per);
         RateLimitLayer {
             rate,
             extract_key: |_| None,
+            bypass_for_key: |_| false,
         }
     }
 }
 
-impl<ExtractKeyFn> RateLimitLayer<ExtractKeyFn> {
-    /// Set the extract key function.
+impl<ExtractKey, BypassForKey> RateLimitLayer<ExtractKey, BypassForKey> {
+    /// Set the key extraction and bypass functions.
     ///
     /// ```
     /// # use hrpc::server::layer::ratelimit::RateLimitLayer;
     /// # use std::{time::Duration, net::SocketAddr};
     ///
     /// let layer = RateLimitLayer::new(5, Duration::from_secs(10))
-    ///     .extract_key_with(|req| req.extensions().get::<SocketAddr>().map(|addr| addr.ip()));
+    ///     .set_key_fns(
+    ///         // extract ip addr from request
+    ///         |req| req.extensions().get::<SocketAddr>().map(|addr| addr.ip()),
+    ///         // bypass ratelimit for loopback ips
+    ///         |key| key.is_loopback(),
+    ///     );
     /// ```
-    pub fn extract_key_with<NewExtractKeyFn, NewKey>(
+    pub fn set_key_fns<NewBypassForKey, NewExtractKeyFn, NewKey>(
         self,
-        f: NewExtractKeyFn,
-    ) -> RateLimitLayer<NewExtractKeyFn>
+        extract: NewExtractKeyFn,
+        bypass: NewBypassForKey,
+    ) -> RateLimitLayer<NewExtractKeyFn, NewBypassForKey>
     where
+        NewBypassForKey: Fn(&NewKey) -> bool + Clone,
         NewExtractKeyFn: Fn(&mut BoxRequest) -> Option<NewKey> + Clone,
         NewKey: Eq + Hash,
     {
         RateLimitLayer {
             rate: self.rate,
-            extract_key: f,
+            bypass_for_key: bypass,
+            extract_key: extract,
         }
     }
 }
 
-impl<ExtractKeyFn, Key, S> Layer<S> for RateLimitLayer<ExtractKeyFn>
+impl<BypassForKey, ExtractKey, Key, S> Layer<S> for RateLimitLayer<ExtractKey, BypassForKey>
 where
-    ExtractKeyFn: Fn(&mut BoxRequest) -> Option<Key> + Clone,
+    ExtractKey: Fn(&mut BoxRequest) -> Option<Key> + Clone,
+    BypassForKey: Fn(&Key) -> bool + Clone,
     Key: Eq + Hash,
 {
-    type Service = RateLimit<S, ExtractKeyFn, Key>;
+    type Service = RateLimit<S, ExtractKey, BypassForKey, Key>;
 
     fn layer(&self, service: S) -> Self::Service {
-        RateLimit::new(service, self.rate, self.extract_key.clone())
+        RateLimit::new(
+            service,
+            self.rate,
+            self.extract_key.clone(),
+            self.bypass_for_key.clone(),
+        )
     }
 }
 
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
-pub struct RateLimit<T, ExtractKeyFn, Key> {
+pub struct RateLimit<T, ExtractKey, BypassForKey, Key> {
     inner: T,
     rate: Rate,
     global_state: State,
     keyed_states: HashMap<Key, State>,
-    extract_key: ExtractKeyFn,
+    extract_key: ExtractKey,
+    bypass_for_key: BypassForKey,
 }
 
 #[derive(Debug)]
@@ -100,18 +118,25 @@ impl State {
     }
 }
 
-impl<S, ExtractKeyFn, Key> RateLimit<S, ExtractKeyFn, Key>
+impl<S, ExtractKey, BypassForKey, Key> RateLimit<S, ExtractKey, BypassForKey, Key>
 where
-    ExtractKeyFn: Fn(&mut BoxRequest) -> Option<Key>,
+    ExtractKey: Fn(&mut BoxRequest) -> Option<Key>,
+    BypassForKey: Fn(&Key) -> bool,
     Key: Eq + Hash,
 {
     /// Create a new rate limiter
-    pub fn new(inner: S, rate: Rate, extract_key: ExtractKeyFn) -> Self {
+    pub fn new(
+        inner: S,
+        rate: Rate,
+        extract_key: ExtractKey,
+        bypass_for_key: BypassForKey,
+    ) -> Self {
         RateLimit {
             inner,
             global_state: State::new_ready(&rate),
             rate,
             extract_key,
+            bypass_for_key,
             keyed_states: HashMap::new(),
         }
     }
@@ -132,10 +157,12 @@ where
     }
 }
 
-impl<S, ExtractKeyFn, Key> Service<BoxRequest> for RateLimit<S, ExtractKeyFn, Key>
+impl<S, ExtractKey, BypassForKey, Key> Service<BoxRequest>
+    for RateLimit<S, ExtractKey, BypassForKey, Key>
 where
     S: Service<BoxRequest, Response = BoxResponse, Error = Infallible>,
-    ExtractKeyFn: Fn(&mut BoxRequest) -> Option<Key>,
+    ExtractKey: Fn(&mut BoxRequest) -> Option<Key>,
+    BypassForKey: Fn(&Key) -> bool,
     Key: Eq + Hash,
 {
     type Response = S::Response;
@@ -148,10 +175,16 @@ where
 
     fn call(&mut self, mut request: BoxRequest) -> Self::Future {
         let state = match (self.extract_key)(&mut request) {
-            Some(key) => self
-                .keyed_states
-                .entry(key)
-                .or_insert_with(|| State::new_ready(&self.rate)),
+            Some(key) => {
+                if (self.bypass_for_key)(&key) {
+                    let fut = Service::call(&mut self.inner, request);
+                    return RateLimitFuture::ready(fut);
+                }
+
+                self.keyed_states
+                    .entry(key)
+                    .or_insert_with(|| State::new_ready(&self.rate))
+            }
             None => &mut self.global_state,
         };
 
