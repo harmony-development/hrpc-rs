@@ -5,10 +5,10 @@ use std::{
 
 use crate::{
     body::Body,
-    decode,
+    box_error, decode,
     request::{self, BoxRequest},
     response::BoxResponse,
-    Response,
+    BoxError, Response,
 };
 
 use self::transport::{SocketChannels, SocketRequestMarker, TransportError};
@@ -17,7 +17,7 @@ use super::Request;
 use error::*;
 use futures_util::TryFutureExt;
 use socket::*;
-use tower::{Layer, Service};
+use tower::{util::BoxCloneService, Layer, Service, ServiceExt};
 
 /// Error types.
 pub mod error;
@@ -53,6 +53,9 @@ pub mod prelude {
     pub use tower::Service;
 }
 
+/// A type erased boxed transport.
+pub type BoxedTransport = BoxCloneService<BoxRequest, BoxResponse, TransportError<BoxError>>;
+
 /// Generic client implementation with common methods.
 pub struct Client<Inner> {
     transport: Inner,
@@ -78,6 +81,29 @@ impl<Inner> Client<Inner> {
     /// Create a new client using the provided transport.
     pub fn new(transport: Inner) -> Client<Inner> {
         Client { transport }
+    }
+}
+
+impl<Inner, InnerErr> Client<Inner>
+where
+    Inner: Service<BoxRequest, Response = BoxResponse, Error = TransportError<InnerErr>>
+        + Send
+        + Clone
+        + 'static,
+    Inner::Future: Send,
+    InnerErr: std::error::Error + Sync + Send + 'static,
+{
+    /// Box the inner transport. This erases the type, making it easier
+    /// to store the client in structures.
+    pub fn boxed(self) -> Client<BoxedTransport> {
+        let transport = self.transport.map_err(|err| match err {
+            TransportError::GenericClient(err) => TransportError::GenericClient(err),
+            TransportError::Transport(err) => TransportError::Transport(box_error(err)),
+        });
+        let boxed_transport = BoxedTransport::new(transport);
+        Client {
+            transport: boxed_transport,
+        }
     }
 }
 

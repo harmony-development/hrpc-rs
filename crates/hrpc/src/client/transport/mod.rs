@@ -1,4 +1,8 @@
-use std::convert::Infallible;
+use std::{
+    convert::Infallible,
+    error::Error as StdError,
+    fmt::{self, Display, Formatter},
+};
 
 use futures_util::{Sink, Stream};
 
@@ -17,6 +21,7 @@ pub mod http;
 pub mod mock;
 
 /// Error type that transports need to return.
+#[derive(Debug)]
 pub enum TransportError<Err> {
     /// A transport specific error.
     Transport(Err),
@@ -63,6 +68,24 @@ impl<Err> From<ClientError<Err>> for TransportError<Err> {
                 ClientError::MessageDecode(err) => ClientError::MessageDecode(err),
                 ClientError::Transport(_) => unreachable!("infallible"),
             }),
+        }
+    }
+}
+
+impl<Err: Display> Display for TransportError<Err> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            TransportError::Transport(err) => write!(f, "transport error: {}", err),
+            TransportError::GenericClient(err) => write!(f, "{}", err),
+        }
+    }
+}
+
+impl<Err: StdError + 'static> StdError for TransportError<Err> {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            TransportError::GenericClient(err) => Some(err),
+            TransportError::Transport(err) => Some(err),
         }
     }
 }
