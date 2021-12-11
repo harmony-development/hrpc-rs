@@ -27,7 +27,7 @@ impl BoxedTransport {
         let svc = svc.map_err(|err| match err {
             TransportError::GenericClient(err) => TransportError::GenericClient(err),
             TransportError::Transport(err) => {
-                TransportError::Transport(BoxedTransportError::new(box_error(err)))
+                TransportError::Transport(BoxedTransportError::new(err))
             }
         });
         Self {
@@ -62,8 +62,14 @@ pub struct BoxedTransportError {
 }
 
 impl BoxedTransportError {
-    pub(super) fn new(err: BoxError) -> Self {
-        Self { inner: err }
+    /// Create a new boxed transport error.
+    pub fn new<Err>(err: Err) -> Self
+    where
+        Err: StdError + Send + Sync + 'static,
+    {
+        Self {
+            inner: box_error(err),
+        }
     }
 
     /// Extract the inner box error from this error.
