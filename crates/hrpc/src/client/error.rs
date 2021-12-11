@@ -30,6 +30,28 @@ pub enum ClientError<TransportError> {
     IncompatibleSpecVersion,
 }
 
+impl<TransportError> ClientError<TransportError> {
+    /// Map the transport error.
+    pub fn map_transport_err<F, NewTransportError>(self, f: F) -> ClientError<NewTransportError>
+    where
+        F: FnOnce(TransportError) -> NewTransportError,
+    {
+        match self {
+            ClientError::Transport(err) => ClientError::Transport(f(err)),
+            ClientError::EndpointError {
+                hrpc_error,
+                endpoint,
+            } => ClientError::EndpointError {
+                hrpc_error,
+                endpoint,
+            },
+            ClientError::ContentNotSupported => ClientError::ContentNotSupported,
+            ClientError::IncompatibleSpecVersion => ClientError::IncompatibleSpecVersion,
+            ClientError::MessageDecode(err) => ClientError::MessageDecode(err),
+        }
+    }
+}
+
 impl<TransportError: StdError> Display for ClientError<TransportError> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
