@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BoxedTransport","A type erased boxed transport."],["BoxedTransportError","A type erased boxed transport error."]]});

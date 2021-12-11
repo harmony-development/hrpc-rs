@@ -212,9 +212,6 @@
 <span id="212">212</span>
 <span id="213">213</span>
 <span id="214">214</span>
-<span id="215">215</span>
-<span id="216">216</span>
-<span id="217">217</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Formatter</span>},
     <span class="ident">future::Future</span>,
@@ -222,20 +219,25 @@
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">body::Body</span>,
-    <span class="ident">box_error</span>, <span class="ident">decode</span>,
+    <span class="ident">decode</span>,
     <span class="ident">request</span>::{<span class="self">self</span>, <span class="ident">BoxRequest</span>},
     <span class="ident">response::BoxResponse</span>,
-    <span class="ident">BoxError</span>, <span class="ident">Response</span>,
+    <span class="ident">Response</span>,
 };
 
-<span class="kw">use</span> <span class="ident"><span class="self">self</span>::transport</span>::{<span class="ident">SocketChannels</span>, <span class="ident">SocketRequestMarker</span>, <span class="ident">TransportError</span>};
+<span class="kw">use</span> <span class="self">self</span>::{
+    <span class="ident">boxed::BoxedTransport</span>,
+    <span class="ident">transport</span>::{<span class="ident">SocketChannels</span>, <span class="ident">SocketRequestMarker</span>, <span class="ident">TransportError</span>},
+};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::Request</span>;
 <span class="kw">use</span> <span class="ident">error</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">futures_util::TryFutureExt</span>;
 <span class="kw">use</span> <span class="ident">socket</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">util::BoxCloneService</span>, <span class="ident">Layer</span>, <span class="ident">Service</span>, <span class="ident">ServiceExt</span>};
+<span class="kw">use</span> <span class="ident">tower</span>::{<span class="ident">Layer</span>, <span class="ident">Service</span>};
 
+<span class="doccomment">/// Contains code for a boxed transport.</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">boxed</span>;
 <span class="doccomment">/// Error types.</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">error</span>;
 <span class="doccomment">/// Useful layers to use with the generic client.</span>
@@ -269,9 +271,6 @@
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">borrow::Cow</span>, <span class="ident">convert::TryInto</span>, <span class="ident">fmt::Debug</span>, <span class="ident">future::Future</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tower::Service</span>;
 }
-
-<span class="doccomment">/// A type erased boxed transport.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">BoxedTransport</span> <span class="op">=</span> <span class="ident">BoxCloneService</span><span class="op">&lt;</span><span class="ident">BoxRequest</span>, <span class="ident">BoxResponse</span>, <span class="ident">TransportError</span><span class="op">&lt;</span><span class="ident">BoxError</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// Generic client implementation with common methods.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Client</span><span class="op">&lt;</span><span class="ident">Inner</span><span class="op">&gt;</span> {
@@ -313,13 +312,8 @@
     <span class="doccomment">/// Box the inner transport. This erases the type, making it easier</span>
     <span class="doccomment">/// to store the client in structures.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">boxed</span>(<span class="self">self</span>) -&gt; <span class="ident">Client</span><span class="op">&lt;</span><span class="ident">BoxedTransport</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">transport</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">err</span> {
-            <span class="ident">TransportError::GenericClient</span>(<span class="ident">err</span>) =&gt; <span class="ident">TransportError::GenericClient</span>(<span class="ident">err</span>),
-            <span class="ident">TransportError::Transport</span>(<span class="ident">err</span>) =&gt; <span class="ident">TransportError::Transport</span>(<span class="ident">box_error</span>(<span class="ident">err</span>)),
-        });
-        <span class="kw">let</span> <span class="ident">boxed_transport</span> <span class="op">=</span> <span class="ident">BoxedTransport::new</span>(<span class="ident">transport</span>);
         <span class="ident">Client</span> {
-            <span class="ident">transport</span>: <span class="ident">boxed_transport</span>,
+            <span class="ident">transport</span>: <span class="ident">BoxedTransport::new</span>(<span class="self">self</span>.<span class="ident">transport</span>),
         }
     }
 }
