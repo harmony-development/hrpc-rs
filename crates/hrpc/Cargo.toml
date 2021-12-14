@@ -1,6 +1,6 @@
 [package]
 name = "hrpc"
-version = "0.33.10"
+version = "0.33.11"
 authors = ["Yusuf Bera Ertan <y.bera003.06@protonmail.com>"]
 edition = "2021"
 license = "MIT"
