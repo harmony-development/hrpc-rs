@@ -124,7 +124,7 @@ http-body = { version = "0.4", optional = true }
 matchit = { version = "0.4", default-features = false, optional = true }
 
 # Used by server to implement WS request handling
-sha-1 = { version = "0.9", default-features = false, optional = true }
+sha-1 = { version = "0.10", default-features = false, optional = true }
 base64 = { version = "0.13", default-features = false, optional = true }
 
 # Used by http server impl in ws handling
