@@ -238,6 +238,11 @@ impl Service<BoxRequest> for Wasm {
                         .map_or(false, |v| v.trim() == HRPC_SPEC_VERSION)
                         .not()
                 {
+                    tracing::debug!(
+                        "incompatible spec version {:?} (ours is {})",
+                        hrpc_version,
+                        HRPC_SPEC_VERSION
+                    );
                     return Err(ClientError::IncompatibleSpecVersion.into());
                 }
 
