@@ -235,7 +235,7 @@ impl Service<BoxRequest> for Wasm {
                 if check_spec_version
                     && hrpc_version
                         .as_ref()
-                        .map_or(false, |v| v == HRPC_SPEC_VERSION)
+                        .map_or(false, |v| v.trim() == HRPC_SPEC_VERSION)
                         .not()
                 {
                     return Err(ClientError::IncompatibleSpecVersion.into());
