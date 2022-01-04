@@ -3,10 +3,12 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use http::Uri;
+use http::{HeaderMap, Uri};
 
 #[cfg(feature = "http_hyper_client")]
 pub mod hyper;
+use crate::common::extensions::Extensions;
+
 #[cfg(feature = "http_hyper_client")]
 pub use self::hyper::{Hyper, HyperError};
 
@@ -14,6 +16,14 @@ pub use self::hyper::{Hyper, HyperError};
 pub mod wasm;
 #[cfg(feature = "http_wasm_client")]
 pub use self::wasm::{Wasm, WasmError};
+
+/// Clones HTTP extensions that will be added from a hRPC request to a HTTP
+/// request. Intended for use with `Backoff` layer.
+pub fn clone_http_extensions(from: &Extensions, to: &mut Extensions) {
+    if let Some(header_map) = from.get::<HeaderMap>().cloned() {
+        to.insert(header_map);
+    }
+}
 
 /// Check if a URI is a valid server URI or not.
 fn check_uri(uri: Uri) -> Result<Uri, InvalidServerUrl> {

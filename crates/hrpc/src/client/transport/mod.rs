@@ -112,6 +112,7 @@ impl SocketChannels {
 }
 
 /// Marker struct that marks a request as a socket request.
+#[derive(Clone)]
 pub(super) struct SocketRequestMarker;
 
 /// Returns whether a request is a socket request or not.
