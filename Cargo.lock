@@ -179,9 +179,9 @@ dependencies = [
 
 [[package]]
 name = "clipboard-win"
-version = "4.2.2"
+version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3db8340083d28acb43451166543b98c838299b7e0863621be53a338adceea0ed"
+checksum = "1951fb8aa063a2ee18b4b4d217e4aa2ec9cc4f2430482983f607fa10cd36d7aa"
 dependencies = [
  "error-code",
  "str-buf",
@@ -308,9 +308,9 @@ dependencies = [
 
 [[package]]
 name = "fixedbitset"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "398ea4fabe40b9b0d885340a2a991a44c8a645624075ad966d21f88688e2b69e"
+checksum = "279fb028e20b3c4c320317955b77c5e0c9701f05a1d309905d6fc702cdc5053e"
 
 [[package]]
 name = "fnv"
@@ -419,9 +419,9 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "0.14.4"
+version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "501466ecc8a30d1d3b7fc9229b122b2ce8ed6e9d9223f1138d4babb253e51817"
+checksum = "fd48d33ec7f05fbfa152300fdad764757cbded343c1aa1cff2fbaf4134851803"
 dependencies = [
  "typenum",
  "version_check",
@@ -1204,9 +1204,9 @@ dependencies = [
 
 [[package]]
 name = "reqwasm"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa6aedd568ce547a57fd2a5781b0805497cb418da3b5d207ef504467aa8a5b6b"
+checksum = "34b9b71430c0b3f076a806c389b5a8f806171a1b9365692b86e9878ad1312879"
 dependencies = [
  "gloo-utils",
  "js-sys",
@@ -1275,9 +1275,9 @@ dependencies = [
 
 [[package]]
 name = "rustyline"
-version = "9.1.1"
+version = "9.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c38cfbd0a4d7df7aab7cf53732d5d43449d0300358fd15cd4e8c8468a956aca"
+checksum = "db7826789c0e25614b03e5a54a0717a86f9ff6e6e5247f92b369472869320039"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -1372,18 +1372,18 @@ checksum = "930c0acf610d3fdb5e2ab6213019aaa04e227ebe9547b0649ba599b16d788bd7"
 
 [[package]]
 name = "serde"
-version = "1.0.132"
+version = "1.0.133"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b9875c23cf305cd1fd7eb77234cbb705f21ea6a72c637a5c6db5fe4b8e7f008"
+checksum = "97565067517b60e2d1ea8b268e59ce036de907ac523ad83a0475da04e818989a"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.132"
+version = "1.0.133"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecc0db5cb2556c0e558887d9bbdcf6ac4471e83ff66cf696e5419024d1606276"
+checksum = "ed201699328568d8d08208fdd080e3ff594e6c422e438b6705905da01005d537"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1392,9 +1392,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.73"
+version = "1.0.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcbd0344bc6533bc7ec56df11d42fb70f1b912351c0825ccb7211b59d8af7cf5"
+checksum = "ee2bb9cd061c5865d345bb02ca49fcef1391741b672b54a0bf7b679badec3142"
 dependencies = [
  "itoa 1.0.1",
  "ryu",
@@ -2030,7 +2030,7 @@ dependencies = [
 [[package]]
 name = "yew"
 version = "0.19.3"
-source = "git+https://github.com/yewstack/yew.git?branch=master#a36ccfc843e04fff7943890b4f5dce410ceb6187"
+source = "git+https://github.com/yewstack/yew.git?branch=master#eb23b327d98917ee206663ea4c71fa0abef7203b"
 dependencies = [
  "console_error_panic_hook",
  "gloo",
@@ -2048,7 +2048,7 @@ dependencies = [
 [[package]]
 name = "yew-macro"
 version = "0.19.3"
-source = "git+https://github.com/yewstack/yew.git?branch=master#a36ccfc843e04fff7943890b4f5dce410ceb6187"
+source = "git+https://github.com/yewstack/yew.git?branch=master#eb23b327d98917ee206663ea4c71fa0abef7203b"
 dependencies = [
  "boolinator",
  "lazy_static",
