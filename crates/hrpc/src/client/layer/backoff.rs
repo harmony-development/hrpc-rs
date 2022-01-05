@@ -189,7 +189,7 @@ pin_project_lite::pin_project! {
         max_retries: usize,
         retried: usize,
         req_fut: Option<Pin<Box<S::Future>>>,
-        wait: Option<Pin<Box<dyn Sleeper>>>,
+        wait: Option<Pin<BoxedSleeper>>,
     }
 }
 
@@ -270,6 +270,7 @@ impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> Future for Backof
 trait Sleeper {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()>;
 }
+type BoxedSleeper = Box<dyn Sleeper + Send>;
 
 #[cfg(feature = "tokio")]
 mod sleeper {
@@ -277,7 +278,7 @@ mod sleeper {
 
     use ::tokio::time::Sleep;
 
-    pub(super) fn sleep(duration: Duration) -> Box<dyn Sleeper> {
+    pub(super) fn sleep(duration: Duration) -> BoxedSleeper {
         Box::new(::tokio::time::sleep(duration))
     }
 
@@ -292,7 +293,7 @@ mod sleeper {
 mod sleeper {
     use super::*;
 
-    pub(super) fn sleep(_duration: Duration) -> Box<dyn Sleeper> {
+    pub(super) fn sleep(_duration: Duration) -> BoxedSleeper {
         panic!("backoff layer is not supported on WASM: can't use Sleep")
     }
 
