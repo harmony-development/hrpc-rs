@@ -22,7 +22,10 @@ use tower::{Layer, Service};
 
 use crate::{
     body::Body,
-    client::{prelude::ClientError, transport::SocketRequestMarker},
+    client::{
+        prelude::ClientError,
+        transport::{SocketRequestMarker, TransportError},
+    },
     common::extensions::Extensions,
     proto::{Error as HrpcError, HrpcErrorIdentifier, RetryInfo},
     request::{self, BoxRequest},
@@ -102,7 +105,7 @@ impl<S> Backoff<S> {
 
 impl<S, Err> Service<BoxRequest> for Backoff<S>
 where
-    S: Service<BoxRequest, Error = ClientError<Err>> + Clone,
+    S: Service<BoxRequest, Error = TransportError<Err>> + Clone,
 {
     type Response = S::Response;
 
@@ -180,7 +183,7 @@ impl RequestFactory {
 
 pin_project_lite::pin_project! {
     /// Future for [`Backoff`] service.
-    pub struct BackoffFuture<Err, S: Service<BoxRequest, Error = ClientError<Err>>> {
+    pub struct BackoffFuture<Err, S: Service<BoxRequest, Error = TransportError<Err>>> {
         maybe_request_factory: Result<RequestFactory, BoxRequest>,
         service: S,
         max_retries: usize,
@@ -190,7 +193,7 @@ pin_project_lite::pin_project! {
     }
 }
 
-impl<Err, S: Service<BoxRequest, Error = ClientError<Err>>> BackoffFuture<Err, S> {
+impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> BackoffFuture<Err, S> {
     fn new(
         service: S,
         clone_exts_fn: CloneExtensionsFn,
@@ -208,7 +211,7 @@ impl<Err, S: Service<BoxRequest, Error = ClientError<Err>>> BackoffFuture<Err, S
     }
 }
 
-impl<Err, S: Service<BoxRequest, Error = ClientError<Err>>> Future for BackoffFuture<Err, S> {
+impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> Future for BackoffFuture<Err, S> {
     type Output = <<S as Service<BoxRequest>>::Future as Future>::Output;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -216,8 +219,12 @@ impl<Err, S: Service<BoxRequest, Error = ClientError<Err>>> Future for BackoffFu
 
         if let Some(req_fut) = this.req_fut.as_mut().map(|pin| pin.as_mut()) {
             let resp = futures_util::ready!(req_fut.poll(cx));
-            if let (true, Err(ClientError::EndpointError { hrpc_error, .. })) =
-                ((this.retried < this.max_retries), &resp)
+            if let (
+                true,
+                Err(TransportError::GenericClient(ClientError::EndpointError {
+                    hrpc_error, ..
+                })),
+            ) = ((this.retried < this.max_retries), &resp)
             {
                 // if rate limited error, wait and try again
                 if HrpcErrorIdentifier::ResourceExhausted.compare(&hrpc_error.identifier) {
@@ -249,12 +256,12 @@ impl<Err, S: Service<BoxRequest, Error = ClientError<Err>>> Future for BackoffFu
                 Poll::Pending
             },
             Err(req) => {
-                Poll::Ready(Err(ClientError::EndpointError {
+                Poll::Ready(Err(TransportError::GenericClient(ClientError::EndpointError {
                     endpoint: Cow::Owned(req.endpoint().to_string()),
                     hrpc_error: HrpcError::default()
                         .with_message("can't do request because no body was immediately available; this might be a bug in the backoff layer")
                         .with_identifier("hrpcrs.client.backoff-no-immediate-body"),
-                }))
+                })))
             }
         }
     }
