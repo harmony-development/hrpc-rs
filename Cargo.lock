@@ -536,9 +536,9 @@ dependencies = [
 
 [[package]]
 name = "gloo-utils"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d77d28d9a6f7c384d9e40293fa11f05558bf928a993208e12528ee6633cb415"
+checksum = "05c77af6f96a4f9e27c8ac23a88407381a31f4a74c3fb985c85aa79b8d898136"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
@@ -2030,7 +2030,7 @@ dependencies = [
 [[package]]
 name = "yew"
 version = "0.19.3"
-source = "git+https://github.com/yewstack/yew.git?branch=master#eb23b327d98917ee206663ea4c71fa0abef7203b"
+source = "git+https://github.com/yewstack/yew.git?branch=master#f6f0e34d0f914821cbeb1a9cfbd8f201d2594b18"
 dependencies = [
  "console_error_panic_hook",
  "gloo",
@@ -2039,6 +2039,7 @@ dependencies = [
  "js-sys",
  "scoped-tls-hkt",
  "slab",
+ "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -2048,7 +2049,7 @@ dependencies = [
 [[package]]
 name = "yew-macro"
 version = "0.19.3"
-source = "git+https://github.com/yewstack/yew.git?branch=master#eb23b327d98917ee206663ea4c71fa0abef7203b"
+source = "git+https://github.com/yewstack/yew.git?branch=master#f6f0e34d0f914821cbeb1a9cfbd8f201d2594b18"
 dependencies = [
  "boolinator",
  "lazy_static",
