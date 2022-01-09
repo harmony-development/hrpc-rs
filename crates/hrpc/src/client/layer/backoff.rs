@@ -272,7 +272,7 @@ trait Sleeper {
 }
 type BoxedSleeper = Box<dyn Sleeper + Send>;
 
-#[cfg(feature = "http_hyper_client")]
+#[cfg(all(feature = "http_hyper_client", not(target_arch = "wasm32")))]
 mod sleeper {
     use super::*;
 
@@ -289,7 +289,7 @@ mod sleeper {
     }
 }
 
-#[cfg(feature = "http_wasm_client")]
+#[cfg(all(feature = "http_wasm_client", target_arch = "wasm32"))]
 mod sleeper {
     use super::*;
 
