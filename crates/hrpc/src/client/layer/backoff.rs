@@ -272,7 +272,7 @@ trait Sleeper {
 }
 type BoxedSleeper = Box<dyn Sleeper + Send>;
 
-#[cfg(feature = "tokio")]
+#[cfg(feature = "http_hyper_client")]
 mod sleeper {
     use super::*;
 
@@ -289,19 +289,32 @@ mod sleeper {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "http_wasm_client")]
 mod sleeper {
     use super::*;
 
-    pub(super) fn sleep(_duration: Duration) -> BoxedSleeper {
-        panic!("backoff layer is not supported on WASM: can't use Sleep")
+    use gloo_timers::future::TimeoutFuture;
+
+    pub(super) fn sleep(duration: Duration) -> BoxedSleeper {
+        Box::new(TimeoutFutureWrapped {
+            inner: gloo_timers::future::sleep(duration),
+        })
     }
 
-    struct Sleep;
+    pin_project_lite::pin_project! {
+        struct TimeoutFutureWrapped {
+            #[pin]
+            inner: TimeoutFuture,
+        }
+    }
 
-    impl Sleeper for Sleep {
-        fn poll(self: std::pin::Pin<&mut Self>, _cx: &mut Context<'_>) -> std::task::Poll<()> {
-            panic!("backoff layer is not supported on WASM: can't use Sleep")
+    // Safety: this is safe on WASM (for now, at least, since there are no threads)
+    unsafe impl Send for TimeoutFutureWrapped {}
+
+    impl Sleeper for TimeoutFutureWrapped {
+        fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> std::task::Poll<()> {
+            let this = self.project();
+            Future::poll(this.inner, cx)
         }
     }
 }

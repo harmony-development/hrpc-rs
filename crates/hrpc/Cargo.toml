@@ -83,6 +83,7 @@ http_wasm_client = [
     "wasm-bindgen",
     "websocket_wasm",
     "wasm-streams",
+    "gloo-timers",
 ]
 # Internal feature used to indicate that a HTTP client is enabled
 _common_http_client = ["client", "_common_http"]
@@ -158,6 +159,9 @@ ws_stream_wasm = { version = "0.7", default-features = false, optional = true }
 js-sys = { version = "0.3", default-features = false, optional = true }
 wasm-bindgen = { version = "0.2", default-features = false, optional = true }
 wasm-streams = { version = "0.2", default-features = false, optional = true }
+gloo-timers = { version = "0.2", default-features = false, features = [
+    "futures",
+], optional = true }
 
 # used by mock client
 futures-channel = { version = "0.3", default-features = false, optional = true }
