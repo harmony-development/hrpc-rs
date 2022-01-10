@@ -268,8 +268,14 @@ impl Service<BoxRequest> for Wasm {
                             "error occured while streaming response body",
                         )))
                     })?);
-                    let mut bytes = BytesMut::with_capacity(buffer.length() as usize);
-                    buffer.copy_to(&mut bytes);
+                    let fill_len = buffer.length() as usize;
+                    let mut bytes = BytesMut::with_capacity(fill_len);
+                    // Safety: this is safe because `copy_to` doesn't read
+                    // anything from `bytes`, so we don't need to initialize it
+                    unsafe {
+                        bytes.set_len(fill_len);
+                        buffer.copy_to(&mut bytes);
+                    }
                     Ok(bytes.freeze())
                 });
 
