@@ -10,6 +10,7 @@
 
 use std::{
     borrow::Cow,
+    ops::Not,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
@@ -38,6 +39,15 @@ type CloneExtensionsFn = fn(&Extensions, &mut Extensions);
 pub struct BackoffLayer {
     clone_exts: CloneExtensionsFn,
     max_retries: usize,
+}
+
+impl Default for BackoffLayer {
+    fn default() -> Self {
+        Self {
+            clone_exts: |_, _| {},
+            max_retries: 5,
+        }
+    }
 }
 
 impl BackoffLayer {
@@ -221,6 +231,7 @@ impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> Future for Backof
 
         if let Some(req_fut) = this.req_fut.as_mut().map(|pin| pin.as_mut()) {
             let resp = futures_util::ready!(req_fut.poll(cx));
+            let mut scheduled = false;
             if let (
                 true,
                 Err(TransportError::GenericClient(ClientError::EndpointError {
@@ -239,13 +250,16 @@ impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> Future for Backof
                     tracing::error!(
                         retry_count = %this.retried,
                         "request rate limited, scheduling for retry in {} seconds",
-                        retry_after
+                        retry_after,
                     );
                     *this.wait = Some(Box::pin(sleep(Duration::from_secs(retry_after.into()))));
+                    scheduled = true;
                 }
             }
-            // otherwise return the result
-            return Poll::Ready(resp);
+            if scheduled.not() {
+                // otherwise return the result
+                return Poll::Ready(resp);
+            }
         }
 
         // wait until ratelimit is gone
