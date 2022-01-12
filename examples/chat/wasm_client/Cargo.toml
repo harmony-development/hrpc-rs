@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 chat_common = { path = "../common" }
 hrpc = { path = "../../../crates/hrpc", features = ["http_wasm_client"] }
-yew = { git = "https://github.com/yewstack/yew.git", branch = "master" }
+yew = "0.19"
 web-sys = { version = "0.3", features = ["HtmlInputElement"] }
