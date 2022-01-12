@@ -70,6 +70,8 @@ impl<S> Layer<S> for BackoffLayer {
 }
 
 /// Retries ratelimited requests.
+/// 
+/// This uses an exponential backoff algorithm.
 #[derive(Clone)]
 pub struct Backoff<S> {
     inner: S,
