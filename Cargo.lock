@@ -27,6 +27,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84450d0b4a8bd1ba4144ce8ce718fbc5d071358b1e5384bace6536b3d1f2d5b3"
 
 [[package]]
+name = "anymap2"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d301b3b94cb4b2f23d7917810addbbaff90738e0ca2be692bd027e70d7e0330c"
+
+[[package]]
 name = "arc-swap"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -74,6 +80,15 @@ name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
+
+[[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bitflags"
@@ -449,18 +464,20 @@ dependencies = [
 
 [[package]]
 name = "gloo"
-version = "0.4.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23947965eee55e3e97a5cd142dd4c10631cc349b48cecca0ed230fd296f568cd"
+checksum = "d21d2b3c97d07d967ff927dda82528d3c1c6cbc3c189ebf2f450222dbcd77a55"
 dependencies = [
  "gloo-console",
  "gloo-dialogs",
  "gloo-events",
  "gloo-file",
+ "gloo-history",
  "gloo-render",
  "gloo-storage",
  "gloo-timers",
  "gloo-utils",
+ "gloo-worker",
 ]
 
 [[package]]
@@ -503,6 +520,22 @@ checksum = "d31ba1f51868ae10a0b665c6dccd5ed967486e7c17055d1c889596ee983be493"
 dependencies = [
  "gloo-events",
  "js-sys",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "gloo-history"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f81af52c0d31e86242eecefe1ed4d066deb79cfb80f9f7da0847fac417396bfe"
+dependencies = [
+ "gloo-events",
+ "gloo-utils",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_urlencoded",
+ "thiserror",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -552,6 +585,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05c77af6f96a4f9e27c8ac23a88407381a31f4a74c3fb985c85aa79b8d898136"
 dependencies = [
  "js-sys",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "gloo-worker"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c843b9a46d07485026f030be7bd008580a12a2920fea837745a440a3b0c97cb"
+dependencies = [
+ "anymap2",
+ "bincode",
+ "gloo-console",
+ "gloo-utils",
+ "js-sys",
+ "serde",
+ "slab",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -956,9 +1006,9 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openssl-probe"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28988d872ab76095a6e6ac88d99b54fd267702734fd7ffe610ca27f533ddb95a"
+checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "percent-encoding"
@@ -1401,6 +1451,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-wasm-bindgen"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "618365e8e586c22123d692b72a7d791d5ee697817b65a218cdf12a98870af0f7"
+dependencies = [
+ "fnv",
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.133"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1418,6 +1480,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee2bb9cd061c5865d345bb02ca49fcef1391741b672b54a0bf7b679badec3142"
 dependencies = [
  "itoa 1.0.1",
+ "ryu",
+ "serde",
+]
+
+[[package]]
+name = "serde_urlencoded"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edfa57a7f8d9c1d260a549e7224100f6c43d43f9103e06dd8b4095a9b2b43ce9"
+dependencies = [
+ "form_urlencoded",
+ "itoa 0.4.8",
  "ryu",
  "serde",
 ]
@@ -2051,7 +2125,7 @@ dependencies = [
 [[package]]
 name = "yew"
 version = "0.19.3"
-source = "git+https://github.com/yewstack/yew.git?branch=master#0ed6cb7617cc1878ee4462d5de024814f441965f"
+source = "git+https://github.com/yewstack/yew.git?branch=master#f05ba4152c2472d25f8cff2b50854bbcf2b75009"
 dependencies = [
  "console_error_panic_hook",
  "gloo",
@@ -2070,7 +2144,7 @@ dependencies = [
 [[package]]
 name = "yew-macro"
 version = "0.19.3"
-source = "git+https://github.com/yewstack/yew.git?branch=master#0ed6cb7617cc1878ee4462d5de024814f441965f"
+source = "git+https://github.com/yewstack/yew.git?branch=master#f05ba4152c2472d25f8cff2b50854bbcf2b75009"
 dependencies = [
  "boolinator",
  "lazy_static",
