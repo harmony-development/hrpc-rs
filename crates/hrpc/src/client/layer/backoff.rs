@@ -17,7 +17,10 @@ use std::{
 };
 
 use bytes::Bytes;
-use futures_util::{Future, FutureExt, StreamExt};
+use futures_util::{
+    future::{Fuse, FusedFuture},
+    Future, FutureExt, StreamExt,
+};
 use prost::Message;
 use tower::{Layer, Service};
 
@@ -200,7 +203,7 @@ pin_project_lite::pin_project! {
         service: S,
         max_retries: usize,
         retried: usize,
-        req_fut: Option<Pin<Box<S::Future>>>,
+        req_fut: Option<Pin<Box<Fuse<S::Future>>>>,
         wait: Option<Pin<Box<Sleep>>>,
     }
 }
@@ -230,35 +233,38 @@ impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> Future for Backof
         let mut this = self.project();
 
         if let Some(req_fut) = this.req_fut.as_mut().map(|pin| pin.as_mut()) {
-            let resp = futures_util::ready!(req_fut.poll(cx));
-            let mut scheduled = false;
-            if let (
-                true,
-                Err(TransportError::GenericClient(ClientError::EndpointError {
-                    hrpc_error, ..
-                })),
-            ) = ((this.retried < this.max_retries), &resp)
-            {
-                // if rate limited error, wait and try again
-                if HrpcErrorIdentifier::ResourceExhausted.compare(&hrpc_error.identifier) {
-                    // try to decode the retry info, if we can't we default to 5 seconds
-                    let retry_after = RetryInfo::decode(hrpc_error.details.clone())
-                        .map_or(3, |info| info.retry_after);
-                    // exponential backoff
-                    let retry_after =
-                        (0..this.retried.saturating_sub(1)).fold(retry_after, |r, _| r * 2);
-                    tracing::error!(
-                        retry_count = %this.retried,
-                        "request rate limited, scheduling for retry in {} seconds",
-                        retry_after,
-                    );
-                    *this.wait = Some(Box::pin(sleep(Duration::from_secs(retry_after.into()))));
-                    scheduled = true;
+            if req_fut.is_terminated().not() {
+                let resp = futures_util::ready!(req_fut.poll(cx));
+                let mut scheduled = false;
+                if let (
+                    true,
+                    Err(TransportError::GenericClient(ClientError::EndpointError {
+                        hrpc_error,
+                        ..
+                    })),
+                ) = ((this.retried < this.max_retries), &resp)
+                {
+                    // if rate limited error, wait and try again
+                    if HrpcErrorIdentifier::ResourceExhausted.compare(&hrpc_error.identifier) {
+                        // try to decode the retry info, if we can't we default to 5 seconds
+                        let retry_after = RetryInfo::decode(hrpc_error.details.clone())
+                            .map_or(3, |info| info.retry_after);
+                        // exponential backoff
+                        let retry_after =
+                            (0..this.retried.saturating_sub(1)).fold(retry_after, |r, _| r * 2);
+                        tracing::error!(
+                            retry_count = %this.retried,
+                            "request rate limited, scheduling for retry in {} seconds",
+                            retry_after,
+                        );
+                        *this.wait = Some(Box::pin(sleep(Duration::from_secs(retry_after.into()))));
+                        scheduled = true;
+                    }
                 }
-            }
-            if scheduled.not() {
-                // otherwise return the result
-                return Poll::Ready(resp);
+                if scheduled.not() {
+                    // otherwise return the result
+                    return Poll::Ready(resp);
+                }
             }
         }
 
@@ -271,7 +277,7 @@ impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> Future for Backof
             Ok(request_factory) => {
                 // create a new request future, and increase our retried count
                 let req = request_factory.make_req();
-                *this.req_fut = Some(Box::pin(Service::call(&mut this.service, req)));
+                *this.req_fut = Some(Box::pin(Service::call(&mut this.service, req).fuse()));
                 *this.retried += 1;
 
                 tracing::debug!(retry_count = %this.retried, "retrying request");
