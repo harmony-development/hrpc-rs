@@ -189,7 +189,7 @@ pin_project_lite::pin_project! {
         max_retries: usize,
         retried: usize,
         req_fut: Option<Pin<Box<S::Future>>>,
-        wait: Option<Pin<BoxedSleeper>>,
+        wait: Option<Pin<Box<Sleep>>>,
     }
 }
 
@@ -230,9 +230,16 @@ impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> Future for Backof
                 if HrpcErrorIdentifier::ResourceExhausted.compare(&hrpc_error.identifier) {
                     // try to decode the retry info, if we can't we default to 5 seconds
                     let retry_after = RetryInfo::decode(hrpc_error.details.clone())
-                        .map_or(5, |info| info.retry_after);
-                    *this.wait =
-                        Some(sleeper::sleep(Duration::from_secs(retry_after.into())).into());
+                        .map_or(3, |info| info.retry_after);
+                    // exponential backoff
+                    let retry_after =
+                        (0..this.retried.saturating_sub(1)).fold(retry_after, |r, _| r * 2);
+                    tracing::error!(
+                        retry_count = %this.retried,
+                        "request rate limited, scheduling for retry in {} seconds",
+                        retry_after
+                    );
+                    *this.wait = Some(Box::pin(sleep(Duration::from_secs(retry_after.into()))));
                 }
             }
             // otherwise return the result
@@ -241,7 +248,7 @@ impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> Future for Backof
 
         // wait until ratelimit is gone
         if let Some(sleep) = this.wait.as_mut().map(|pin| pin.as_mut()) {
-            futures_util::ready!(sleep.poll(cx));
+            futures_util::ready!(Sleeper::poll(sleep, cx));
         }
 
         match &this.maybe_request_factory {
@@ -250,6 +257,8 @@ impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> Future for Backof
                 let req = request_factory.make_req();
                 *this.req_fut = Some(Box::pin(Service::call(&mut this.service, req)));
                 *this.retried += 1;
+
+                tracing::debug!(retry_count = %this.retried, "retrying request");
 
                 // wake is needed here since we want it to poll the request future
                 cx.waker().wake_by_ref();
@@ -270,16 +279,17 @@ impl<Err, S: Service<BoxRequest, Error = TransportError<Err>>> Future for Backof
 trait Sleeper {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()>;
 }
-type BoxedSleeper = Box<dyn Sleeper + Send>;
+
+use sleeper::*;
 
 #[cfg(all(feature = "http_hyper_client", not(target_arch = "wasm32")))]
 mod sleeper {
     use super::*;
 
-    use ::tokio::time::Sleep;
+    pub(super) use ::tokio::time::Sleep;
 
-    pub(super) fn sleep(duration: Duration) -> BoxedSleeper {
-        Box::new(::tokio::time::sleep(duration))
+    pub(super) fn sleep(duration: Duration) -> Sleep {
+        ::tokio::time::sleep(duration)
     }
 
     impl Sleeper for Sleep {
@@ -295,23 +305,23 @@ mod sleeper {
 
     use gloo_timers::future::TimeoutFuture;
 
-    pub(super) fn sleep(duration: Duration) -> BoxedSleeper {
-        Box::new(TimeoutFutureWrapped {
+    pub(super) fn sleep(duration: Duration) -> Sleep {
+        Sleep {
             inner: gloo_timers::future::sleep(duration),
-        })
+        }
     }
 
     pin_project_lite::pin_project! {
-        struct TimeoutFutureWrapped {
+        pub(super) struct Sleep {
             #[pin]
             inner: TimeoutFuture,
         }
     }
 
     // Safety: this is safe on WASM (for now, at least, since there are no threads)
-    unsafe impl Send for TimeoutFutureWrapped {}
+    unsafe impl Send for Sleep {}
 
-    impl Sleeper for TimeoutFutureWrapped {
+    impl Sleeper for Sleep {
         fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> std::task::Poll<()> {
             let this = self.project();
             Future::poll(this.inner, cx)
