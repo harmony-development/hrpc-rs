@@ -273,9 +273,8 @@ where
         match self.project().inner.project() {
             EnumProj::Ready { fut } => fut.poll(cx),
             EnumProj::Limited { after } => {
-                let retry_info = RetryInfo {
-                    retry_after: after.as_secs() as u32,
-                };
+                let retry_after = after.as_secs_f64().ceil() as u32;
+                let retry_info = RetryInfo { retry_after };
 
                 let err = HrpcError::new_resource_exhausted("rate limited; please try later")
                     .with_details(encode::encode_protobuf_message(&retry_info).freeze());
