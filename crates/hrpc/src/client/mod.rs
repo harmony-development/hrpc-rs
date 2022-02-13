@@ -38,8 +38,9 @@ pub mod socket;
 /// [`tower::Layer`]s to be used to compose transports.
 ///
 /// Currently implemented:
-/// - `hyper` client,
-/// - WASM web client
+/// - HTTP `hyper` client ([`transport::http::hyper`]),
+/// - HTTP WASM web client ([`transport::http::wasm`]),
+/// - mock client, useful for testing ([`transport::mock`]).
 pub mod transport;
 
 #[doc(hidden)]

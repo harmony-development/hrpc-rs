@@ -13,7 +13,7 @@ use crate::{
 
 use super::error::ClientError;
 
-/// Client HTTP transport.
+/// The HTTP transport.
 #[cfg(feature = "_common_http_client")]
 pub mod http;
 /// The mock transport. Useful for testing.

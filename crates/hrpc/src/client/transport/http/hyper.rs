@@ -290,7 +290,7 @@ impl Future for HyperCallFuture {
                             return Poll::Ready(Err((ClientError::EndpointError {
                                 hrpc_error,
                                 endpoint: endpoint.take().expect(
-                                    "hyper call future polled after copmletion - this is a bug",
+                                    "hyper call future polled after completion - this is a bug",
                                 ),
                             })
                             .into()));

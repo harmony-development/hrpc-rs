@@ -2,11 +2,13 @@
 //!
 //! # Limitations
 //!
-//! - This layer is not supported on WASM platforms.
 //! - This layer will drop all extensions that aren't cloned using the
 //! `clone_extensions_fn` method on the layer. The method can be used
 //! to set a function that will extract the values you want to clone from
-//! the original extensions into the new extensions.
+//! the original extensions into the new extensions. For example, if you
+//! are using a HTTP-backed client, you should use
+//! [`crate::client::transport::http::clone_http_extensions`] which will
+//! clone HTTP specific extensions for you.
 
 use std::{
     borrow::Cow,
@@ -38,6 +40,8 @@ use crate::{
 type CloneExtensionsFn = fn(&Extensions, &mut Extensions);
 
 /// Layer that creates [`Backoff`] services.
+///
+/// Please read [`Backoff`] and module documentation for more information.
 #[derive(Clone)]
 pub struct BackoffLayer {
     clone_exts: CloneExtensionsFn,
@@ -57,13 +61,15 @@ impl BackoffLayer {
     /// Set a function to extract extensions from a request and add it to a new request.
     ///
     /// This is needed so that user extensions can be added for new requests that
-    /// are created for retry.
+    /// are created for retry. Check the module documentation for more information.
     pub fn clone_extensions_fn(mut self, f: CloneExtensionsFn) -> Self {
         self.clone_exts = f;
         self
     }
 
-    /// Set max retry count.
+    /// Set max retry count. After this is reached, the request won't be
+    /// retried anymore and a [`HrpcErrorIdentifier::ResourceExhausted`]
+    /// error will be returned.
     pub fn max_retries(mut self, num: usize) -> Self {
         self.max_retries = num;
         self
@@ -82,9 +88,9 @@ impl<S> Layer<S> for BackoffLayer {
     }
 }
 
-/// Retries ratelimited requests.
+/// Retries ratelimited requests. It uses an exponential backoff algorithm.
 ///
-/// This uses an exponential backoff algorithm.
+/// Please read module documentation for more information.
 #[derive(Clone)]
 pub struct Backoff<S> {
     inner: S,
@@ -105,13 +111,15 @@ impl<S> Backoff<S> {
     /// Set a function to extract extensions from a request and add it to a new request.
     ///
     /// This is needed so that user extensions can be added for new requests that
-    /// are created for retry.
+    /// are created for retry. Check the module documentation for more information.
     pub fn clone_extensions_fn(mut self, f: CloneExtensionsFn) -> Self {
         self.clone_exts = f;
         self
     }
 
-    /// Set max retry count.
+    /// Set max retry count. After this is reached, the request won't be
+    /// retried anymore and a [`HrpcErrorIdentifier::ResourceExhausted`]
+    /// error will be returned.
     pub fn max_retries(mut self, num: usize) -> Self {
         self.max_retries = num;
         self

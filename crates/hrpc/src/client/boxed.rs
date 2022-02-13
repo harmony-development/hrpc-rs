@@ -7,7 +7,8 @@ use crate::{box_error, request::BoxRequest, response::BoxResponse, BoxError};
 
 use super::transport::TransportError;
 
-/// A type erased boxed transport.
+/// A type erased transport. This is useful for storing transports or clients
+/// and swapping them at runtime.
 #[derive(Clone)]
 pub struct BoxedTransport {
     inner: BoxCloneService<BoxRequest, BoxResponse, TransportError<BoxedTransportError>>,

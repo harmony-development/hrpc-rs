@@ -18,7 +18,7 @@ pub mod wasm;
 pub use self::wasm::{Wasm, WasmError};
 
 /// Clones HTTP extensions that will be added from a hRPC request to a HTTP
-/// request. Intended for use with `Backoff` layer.
+/// request. Intended for use with [`crate::client::layer::backoff`].
 pub fn clone_http_extensions(from: &Extensions, to: &mut Extensions) {
     if let Some(header_map) = from.get::<HeaderMap>().cloned() {
         to.insert(header_map);
@@ -42,7 +42,7 @@ fn map_scheme_to_ws(scheme: &str) -> Option<&'static str> {
 }
 
 #[derive(Debug)]
-/// Errors that can occur while parsing the URL given to `Client::new()`.
+/// Errors that can occur while parsing a URL when creating a client.
 pub enum InvalidServerUrl {
     /// Occurs if URL scheme isn't `http` or `https`.
     InvalidScheme,
