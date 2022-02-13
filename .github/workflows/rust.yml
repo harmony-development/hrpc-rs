@@ -38,28 +38,13 @@ jobs:
     - name: Cache rust
       uses: Swatinem/rust-cache@v1
 
-    - name: Clippy (Common hrpc)
-      uses: actions-rs/clippy-check@v1
-      with:
-        args: --package hrpc --features server,client
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Build (Common hrpc)
+    - name: Build common hrpc
       run: cargo build --package hrpc --features server,client --verbose
 
-    - name: Test (Common hrpc)
+    - name: Test common hrpc
       run: RUST_LOG=info cargo test --package hrpc --features server,client --verbose
 
-    - name: Clippy
-      uses: actions-rs/clippy-check@v1
-      with:
-        args: --all-targets
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Build
-      run: cargo build --all-targets --verbose
-
-    - name: Test
+    - name: Test all targets
       run: RUST_LOG=info cargo test --all-targets --verbose
     
     - name: Doc
