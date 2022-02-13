@@ -1,3 +1,17 @@
+//! Layer to ratelimit a hRPC service and return errors respecting the hRPC
+//! protocol.
+//!
+//! This layer allows you to control what is used as a key for storing state.
+//! For example, this can allow you to use seperate state for seperate
+//! connections based on [`std::net::SocketAddr`] or similar.
+//!
+//! You can extract and bypass keys using `ExtractKey` and `BypassForKey`
+//! functions which you can specify on [`RateLimitLayer`] and [`RateLimit`].
+//! An example can be found on [`RateLimitLayer::set_key_fns`] documentation.
+//!
+//! Note that if you don't specify anything and use the default configuration,
+//! this essentially acts as a [`tower::limit::RateLimit`].
+
 use pin_project_lite::pin_project;
 use std::{
     collections::HashMap,
@@ -18,6 +32,8 @@ use crate::{
 
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
+///
+/// Read module documentation for more information.
 #[derive(Clone)]
 pub struct RateLimitLayer<ExtractKey, BypassForKey> {
     rate: Rate,
@@ -47,6 +63,8 @@ impl<ExtractKey, BypassForKey> RateLimitLayer<ExtractKey, BypassForKey> {
     /// # use hrpc::server::layer::ratelimit::RateLimitLayer;
     /// # use std::{time::Duration, net::SocketAddr};
     ///
+    /// // create a rate limit layer that uses SocketAddr as keys
+    /// // to distinguish connections and use seperate state for them
     /// let layer = RateLimitLayer::new(5, Duration::from_secs(10))
     ///     .set_key_fns(
     ///         // extract ip addr from request
@@ -93,6 +111,8 @@ where
 
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
+///
+/// Read module documentation for more information.
 pub struct RateLimit<T, ExtractKey, BypassForKey, Key> {
     inner: T,
     rate: Rate,
@@ -124,7 +144,7 @@ where
     BypassForKey: Fn(&Key) -> bool,
     Key: Eq + Hash,
 {
-    /// Create a new rate limiter
+    /// Create a new rate limiter.
     pub fn new(
         inner: S,
         rate: Rate,
@@ -141,17 +161,17 @@ where
         }
     }
 
-    /// Get a reference to the inner service
+    /// Get a reference to the inner service.
     pub fn get_ref(&self) -> &S {
         &self.inner
     }
 
-    /// Get a mutable reference to the inner service
+    /// Get a mutable reference to the inner service.
     pub fn get_mut(&mut self) -> &mut S {
         &mut self.inner
     }
 
-    /// Consume `self`, returning the inner service
+    /// Consume `self`, returning the inner service.
     pub fn into_inner(self) -> S {
         self.inner
     }
