@@ -278,10 +278,10 @@ impl Builder {
         self
     }
 
-    /// Set the path to where tonic will search for the Request/Response proto structs
+    /// Set the path to where hrpc-rs will search for the Request/Response proto structs
     /// live relative to the module where you call `include_proto!`.
     ///
-    /// This defaults to `super` since tonic will generate code in a module.
+    /// This defaults to `super` since hrpc-rs will generate code in a module.
     pub fn proto_path(mut self, proto_path: impl AsRef<str>) -> Self {
         self.proto_path = proto_path.as_ref().to_string();
         self
