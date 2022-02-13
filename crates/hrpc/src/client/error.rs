@@ -27,7 +27,11 @@ pub enum ClientError<TransportError> {
     /// Occures if the underlying transport yields an error.
     Transport(TransportError),
     /// Occurs if the spec implemented on server doesn't match ours.
-    IncompatibleSpecVersion,
+    ///
+    /// The value is the version of the server. If it is `unknown`, it means
+    /// that either no version was provided, or the version couldn't be parsed
+    /// (ie. if it's an HTTP header).
+    IncompatibleSpecVersion(String),
 }
 
 impl<TransportError> ClientError<TransportError> {
@@ -46,7 +50,9 @@ impl<TransportError> ClientError<TransportError> {
                 endpoint,
             },
             ClientError::ContentNotSupported => ClientError::ContentNotSupported,
-            ClientError::IncompatibleSpecVersion => ClientError::IncompatibleSpecVersion,
+            ClientError::IncompatibleSpecVersion(server_ver) => {
+                ClientError::IncompatibleSpecVersion(server_ver)
+            }
             ClientError::MessageDecode(err) => ClientError::MessageDecode(err),
         }
     }
@@ -72,8 +78,13 @@ impl<TransportError: StdError> Display for ClientError<TransportError> {
                 err
             ),
             ClientError::Transport(err) => write!(f, "transport error: {}", err),
-            ClientError::IncompatibleSpecVersion => {
-                write!(f, "server hrpc version is incompatible with ours")
+            ClientError::IncompatibleSpecVersion(server_ver) => {
+                write!(
+                    f,
+                    "server hrpc version ({}) is incompatible with ours ({})",
+                    server_ver,
+                    crate::HRPC_SPEC_VERSION
+                )
             }
         }
     }

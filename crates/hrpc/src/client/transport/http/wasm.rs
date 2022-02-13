@@ -243,7 +243,10 @@ impl Service<BoxRequest> for Wasm {
                         hrpc_version,
                         HRPC_SPEC_VERSION
                     );
-                    return Err(ClientError::IncompatibleSpecVersion.into());
+                    return Err(ClientError::IncompatibleSpecVersion(
+                        hrpc_version.unwrap_or_else(|| "unknown".to_string()),
+                    )
+                    .into());
                 }
 
                 if let Some(value) = hrpc_version.and_then(|v| HeaderValue::from_str(&v).ok()) {

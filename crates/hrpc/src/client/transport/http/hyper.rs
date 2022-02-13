@@ -327,16 +327,17 @@ impl Future for HyperCallFuture {
                         }
 
                         // check if the spec version matches
-                        if !resp
-                            .headers()
-                            .get(version_header_name())
-                            .map(|h| h.as_bytes())
-                            .map_or(false, |v| {
-                                v.eq_ignore_ascii_case(HRPC_SPEC_VERSION.as_bytes())
-                            })
-                        {
-                            // TODO: parse the header properly and extract the version instead of just doing a contains
-                            return Poll::Ready(Err(ClientError::IncompatibleSpecVersion.into()));
+                        let version_header = resp.headers().get(version_header_name());
+                        if !version_header.map(|h| h.as_bytes()).map_or(false, |v| {
+                            v.eq_ignore_ascii_case(HRPC_SPEC_VERSION.as_bytes())
+                        }) {
+                            let server_ver = version_header
+                                .and_then(|h| h.to_str().ok())
+                                .map_or_else(|| "unknown".to_string(), |v| v.to_string());
+                            return Poll::Ready(Err(ClientError::IncompatibleSpecVersion(
+                                server_ver,
+                            )
+                            .into()));
                         }
 
                         let (parts, body) = resp.into_parts();

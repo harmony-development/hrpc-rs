@@ -43,7 +43,9 @@ impl<Err> From<TransportError<Err>> for ClientError<Err> {
                     hrpc_error,
                     endpoint,
                 },
-                ClientError::IncompatibleSpecVersion => ClientError::IncompatibleSpecVersion,
+                ClientError::IncompatibleSpecVersion(server_ver) => {
+                    ClientError::IncompatibleSpecVersion(server_ver)
+                }
                 ClientError::MessageDecode(err) => ClientError::MessageDecode(err),
                 ClientError::Transport(_) => unreachable!("infallible"),
             },
@@ -64,7 +66,9 @@ impl<Err> From<ClientError<Err>> for TransportError<Err> {
                     hrpc_error,
                     endpoint,
                 },
-                ClientError::IncompatibleSpecVersion => ClientError::IncompatibleSpecVersion,
+                ClientError::IncompatibleSpecVersion(server_ver) => {
+                    ClientError::IncompatibleSpecVersion(server_ver)
+                }
                 ClientError::MessageDecode(err) => ClientError::MessageDecode(err),
                 ClientError::Transport(_) => unreachable!("infallible"),
             }),
