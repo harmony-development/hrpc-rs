@@ -434,6 +434,7 @@
 <span id="433">433</span>
 <span id="434">434</span>
 <span id="435">435</span>
+<span id="436">436</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A HTTP client transport implementation using [`hyper`].</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -763,16 +764,17 @@
                         }
 
                         <span class="comment">// check if the spec version matches</span>
-                        <span class="kw">if</span> <span class="op">!</span><span class="ident">resp</span>
-                            .<span class="ident">headers</span>()
-                            .<span class="ident">get</span>(<span class="ident">version_header_name</span>())
-                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">h</span><span class="op">|</span> <span class="ident">h</span>.<span class="ident">as_bytes</span>())
-                            .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> {
-                                <span class="ident">v</span>.<span class="ident">eq_ignore_ascii_case</span>(<span class="ident">HRPC_SPEC_VERSION</span>.<span class="ident">as_bytes</span>())
-                            })
-                        {
-                            <span class="comment">// TODO: parse the header properly and extract the version instead of just doing a contains</span>
-                            <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">ClientError::IncompatibleSpecVersion</span>.<span class="ident">into</span>()));
+                        <span class="kw">let</span> <span class="ident">version_header</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">headers</span>().<span class="ident">get</span>(<span class="ident">version_header_name</span>());
+                        <span class="kw">if</span> <span class="op">!</span><span class="ident">version_header</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">h</span><span class="op">|</span> <span class="ident">h</span>.<span class="ident">as_bytes</span>()).<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> {
+                            <span class="ident">v</span>.<span class="ident">eq_ignore_ascii_case</span>(<span class="ident">HRPC_SPEC_VERSION</span>.<span class="ident">as_bytes</span>())
+                        }) {
+                            <span class="kw">let</span> <span class="ident">server_ver</span> <span class="op">=</span> <span class="ident">version_header</span>
+                                .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">h</span><span class="op">|</span> <span class="ident">h</span>.<span class="ident">to_str</span>().<span class="ident">ok</span>())
+                                .<span class="ident">map_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;unknown&quot;</span>.<span class="ident">to_string</span>(), <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">to_string</span>());
+                            <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">ClientError::IncompatibleSpecVersion</span>(
+                                <span class="ident">server_ver</span>,
+                            )
+                            .<span class="ident">into</span>()));
                         }
 
                         <span class="kw">let</span> (<span class="ident">parts</span>, <span class="ident">body</span>) <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">into_parts</span>();
