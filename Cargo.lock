@@ -619,7 +619,6 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "gloo-timers",
- "hrpc-build",
  "hrpc-proc-macro",
  "http",
  "http-body",

@@ -46,7 +46,7 @@ impl Routes {
         self
     }
 
-    /// Layer the routes that were added until this.
+    /// Layer the routes that were added until this was called.
     pub fn layer<L, S>(mut self, layer: L) -> Self
     where
         L: Layer<HrpcService, Service = S>,
@@ -60,7 +60,7 @@ impl Routes {
         self
     }
 
-    /// Set layer for the finalized router service.
+    /// Set layer for the finalized router service. This applies to all routes.
     pub fn layer_all<L, S>(mut self, layer: L) -> Self
     where
         L: Layer<HrpcService, Service = S> + Sync + Send + 'static,
@@ -92,7 +92,7 @@ impl Routes {
         self
     }
 
-    /// Set the service that will be used if no routes are matched.
+    /// Set the handler that will be used if no routes are matched.
     pub fn any<S>(mut self, handler: S) -> Self
     where
         S: Service<BoxRequest, Response = BoxResponse, Error = Infallible> + Send + 'static,

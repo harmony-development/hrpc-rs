@@ -96,8 +96,6 @@ websocket_tokio_tungstenite = ["tokio-tungstenite", "tokio"]
 websocket_wasm = ["ws_stream_wasm"]
 
 [build-dependencies]
-# Needed to compile the hRPC proto
-hrpc-build = { version = "0.33.0", path = "../hrpc-build", default-features = false }
 prost-build = "0.9"
 
 [dependencies]
