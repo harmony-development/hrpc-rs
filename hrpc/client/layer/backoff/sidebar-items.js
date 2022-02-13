@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Backoff","Retries ratelimited requests. It uses an exponential backoff algorithm."],["BackoffFuture","Future for [`Backoff`] service."],["BackoffLayer","Layer that creates [`Backoff`] services."]]});
