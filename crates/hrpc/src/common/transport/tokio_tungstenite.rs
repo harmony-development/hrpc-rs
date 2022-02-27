@@ -74,6 +74,8 @@ where
 impl From<WsMessage> for SocketMessage {
     fn from(msg: WsMessage) -> Self {
         match msg {
+            // TODO: do we actually need to handle this?
+            WsMessage::Frame(data) => Self::Binary(data.into_data()),
             WsMessage::Binary(data) => Self::Binary(data),
             WsMessage::Close(_) => Self::Close,
             WsMessage::Text(data) => Self::Text(data),
