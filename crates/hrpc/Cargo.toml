@@ -141,7 +141,7 @@ hyper-rustls = { version = "0.23", default-features = false, features = [
     "http1",
     "http2",
 ], optional = true }
-tokio-tungstenite = { version = "0.16", default-features = false, features = [
+tokio-tungstenite = { version = "0.17", default-features = false, features = [
     "rustls-tls-native-roots",
     "connect",
 ], optional = true }
