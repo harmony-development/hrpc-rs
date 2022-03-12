@@ -70,66 +70,42 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
     }
 
     fn call(&mut self, mut req: HttpRequest) -> Self::Future {
-        let (ws_upgrade, hrpc_req) = match WebSocketUpgrade::from_request(&mut req) {
+        let (ws_upgrade, maybe_hrpc_req) = match WebSocketUpgrade::from_request(&mut req) {
             Ok(mut upgrade) => {
                 upgrade = upgrade.protocols([ws_version()]);
 
-                let (parts, body) = req.into_parts();
-
-                let endpoint = Cow::Owned(parts.uri.path().to_string());
-
-                let mut extensions = Extensions::new();
-                extensions.insert(parts.extensions);
-                extensions.insert(parts.headers);
-                extensions.insert(parts.method);
-                extensions.insert(parts.version);
-                extensions.insert(parts.uri);
-
-                let req = Request::from(request::Parts {
-                    body: body.into(),
-                    extensions,
-                    endpoint,
-                });
-
-                (Some(upgrade), Ok(req))
+                (Ok(upgrade), Ok(from_http_request(req)))
             }
             Err(err) => {
-                // TODO: this is not good, find a way to properly get if a path is socket or unary
-                if let WebSocketUpgradeError::MethodNotGet = err {
-                    (None, from_unary_request(req))
-                } else {
-                    let message = err.to_string();
-                    let mut resp = err_into_unary_response(
-                        HrpcError::default()
-                            .with_identifier("hrpc.http.bad-streaming-request")
-                            .with_message(message),
-                    );
+                let hrpc_err = HrpcError::default()
+                    .with_identifier("hrpc.http.bad-streaming-request")
+                    .with_message(err.to_string());
+                let status = match err {
+                    WebSocketUpgradeError::MethodNotGet => StatusCode::METHOD_NOT_ALLOWED,
+                    _ => StatusCode::BAD_REQUEST,
+                };
 
-                    *resp.status_mut() = match err {
-                        WebSocketUpgradeError::MethodNotGet => StatusCode::METHOD_NOT_ALLOWED,
-                        _ => StatusCode::BAD_REQUEST,
-                    };
-
-                    return Box::pin(futures_util::future::ready(Ok(resp)));
-                }
+                (Err((status, hrpc_err)), from_unary_request(req))
             }
         };
 
-        match hrpc_req {
-            Ok(mut req) => {
-                if let Some(socket_addr) = self.socket_addr {
-                    req.extensions_mut().insert(socket_addr);
-                }
-                Box::pin(Service::call(&mut self.inner, req).map(|res| {
-                    let mut resp = res.unwrap();
+        let (mut req, maybe_unary_err) = match maybe_hrpc_req {
+            Ok(req) => (req, None),
+            Err((req, err_info)) => (req, Some(err_info)),
+        };
+        if let Some(socket_addr) = self.socket_addr {
+            req.extensions_mut().insert(socket_addr);
+        }
+        Box::pin(Service::call(&mut self.inner, req).map(|res| {
+            let mut resp = res.unwrap();
 
-                    if let (Some(socket_handler), Some(ws_upgrade)) =
-                        (resp.extensions_mut().remove::<SocketHandler>(), ws_upgrade)
-                    {
+            if let Some(sock_handler) = resp.extensions_mut().remove::<SocketHandler>() {
+                let resp = match ws_upgrade {
+                    Ok(ws_upgrade) => {
                         let mut ws_resp = ws_upgrade
                             .on_upgrade(|stream| {
                                 let (ws_tx, ws_rx) = stream.split();
-                                (socket_handler.inner)(Box::pin(ws_rx), Box::pin(ws_tx))
+                                (sock_handler.inner)(Box::pin(ws_rx), Box::pin(ws_tx))
                             })
                             .into_response();
 
@@ -137,18 +113,23 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
 
                         set_http_extensions(parts.extensions, &mut ws_resp);
 
-                        return Ok(ws_resp);
+                        ws_resp
                     }
-
-                    Ok(into_unary_response(resp))
-                }))
-            }
-            Err((status, err)) => {
+                    Err((status, err)) => {
+                        let mut resp = err_into_unary_response(err);
+                        *resp.status_mut() = status;
+                        resp
+                    }
+                };
+                Ok(resp)
+            } else if let Some((status, err)) = maybe_unary_err {
                 let mut resp = err_into_unary_response(err);
                 *resp.status_mut() = status;
-                Box::pin(futures_util::future::ready(Ok(resp)))
+                Ok(resp)
+            } else {
+                Ok(into_unary_response(resp))
             }
-        }
+        }))
     }
 }
 
@@ -260,32 +241,8 @@ pub(crate) fn into_unary_response<T>(resp: Response<T>) -> HttpResponse {
     resp
 }
 
-/// Try to create a [`Request`] from a unary [`HttpRequest`].
-pub(crate) fn from_unary_request<T>(
-    req: HttpRequest,
-) -> Result<Request<T>, (StatusCode, HrpcError)> {
+pub(crate) fn from_http_request<T>(req: HttpRequest) -> Request<T> {
     let (parts, body) = req.into_parts();
-
-    if parts.method != Method::POST {
-        return Err((
-            StatusCode::METHOD_NOT_ALLOWED,
-            ("hrpc.http.bad-unary-request", "method must be POST").into(),
-        ));
-    }
-
-    if !parts
-        .headers
-        .header_eq(&header::CONTENT_TYPE, HRPC_CONTENT_MIMETYPE.as_bytes())
-    {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            (
-                "hrpc.http.bad-unary-request",
-                "request content type not supported",
-            )
-                .into(),
-        ));
-    }
 
     let endpoint = Cow::Owned(parts.uri.path().to_string());
 
@@ -301,6 +258,47 @@ pub(crate) fn from_unary_request<T>(
         extensions,
         endpoint,
     });
+
+    req
+}
+
+/// Try to create a [`Request`] from a unary [`HttpRequest`].
+pub(crate) fn from_unary_request<T>(
+    req: HttpRequest,
+) -> Result<Request<T>, (Request<T>, (StatusCode, HrpcError))> {
+    let req = from_http_request(req);
+
+    if req
+        .http_method()
+        .expect("must have http method -- this is a bug")
+        != Method::POST
+    {
+        return Err((
+            req,
+            (
+                StatusCode::METHOD_NOT_ALLOWED,
+                ("hrpc.http.bad-unary-request", "method must be POST").into(),
+            ),
+        ));
+    }
+
+    if !req
+        .header_map()
+        .expect("must have http header map -- this is a bug")
+        .header_eq(&header::CONTENT_TYPE, HRPC_CONTENT_MIMETYPE.as_bytes())
+    {
+        return Err((
+            req,
+            (
+                StatusCode::BAD_REQUEST,
+                (
+                    "hrpc.http.bad-unary-request",
+                    "request content type not supported",
+                )
+                    .into(),
+            ),
+        ));
+    }
 
     Ok(req)
 }
