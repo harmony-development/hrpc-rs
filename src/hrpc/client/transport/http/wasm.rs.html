@@ -376,14 +376,6 @@
 <span id="374">374</span>
 <span id="375">375</span>
 <span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A HTTP transport that compiles to WASM and works on the Web.</span>
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
@@ -600,14 +592,14 @@
                     .<span class="ident">expect_throw</span>(<span class="string">&quot;header name is valid&quot;</span>);
 
                 <span class="kw">if</span> <span class="op">!</span><span class="ident">content_type</span>
-                    .<span class="ident">as_ref</span>()
-                    .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">split</span>(<span class="string">&#39;;&#39;</span>).<span class="ident">next</span>())
+                    .<span class="ident">split</span>(<span class="string">&#39;;&#39;</span>)
+                    .<span class="ident">next</span>()
                     .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span> <span class="op">==</span> <span class="ident">HRPC_CONTENT_MIMETYPE</span>)
                 {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::ContentNotSupported</span>.<span class="ident">into</span>());
                 }
 
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">value</span>) <span class="op">=</span> <span class="ident">content_type</span>.<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">HeaderValue::from_str</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>).<span class="ident">ok</span>()) {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">value</span>) <span class="op">=</span> <span class="ident">HeaderValue::from_str</span>(<span class="kw-2">&amp;</span><span class="ident">content_type</span>) {
                     <span class="ident">resp</span>.<span class="ident">get_or_insert_header_map</span>()
                         .<span class="ident">insert</span>(<span class="ident">header::CONTENT_TYPE</span>, <span class="ident">value</span>);
                 }
@@ -617,24 +609,16 @@
                     .<span class="ident">get</span>(<span class="ident">HRPC_VERSION_HEADER</span>)
                     .<span class="ident">expect_throw</span>(<span class="string">&quot;header name is valid&quot;</span>);
 
-                <span class="kw">if</span> <span class="ident">check_spec_version</span>
-                    <span class="op">&amp;&amp;</span> <span class="ident">hrpc_version</span>
-                        .<span class="ident">as_ref</span>()
-                        .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">trim</span>() <span class="op">==</span> <span class="ident">HRPC_SPEC_VERSION</span>)
-                        .<span class="ident">not</span>()
-                {
+                <span class="kw">if</span> <span class="ident">check_spec_version</span> <span class="op">&amp;&amp;</span> <span class="ident">hrpc_version</span>.<span class="ident">trim</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">HRPC_SPEC_VERSION</span> {
                     <span class="macro">tracing::debug!</span>(
                         <span class="string">&quot;incompatible spec version {:?} (ours is {})&quot;</span>,
                         <span class="ident">hrpc_version</span>,
                         <span class="ident">HRPC_SPEC_VERSION</span>
                     );
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::IncompatibleSpecVersion</span>(
-                        <span class="ident">hrpc_version</span>.<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;unknown&quot;</span>.<span class="ident">to_string</span>()),
-                    )
-                    .<span class="ident">into</span>());
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ClientError::IncompatibleSpecVersion</span>(<span class="ident">hrpc_version</span>).<span class="ident">into</span>());
                 }
 
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">value</span>) <span class="op">=</span> <span class="ident">hrpc_version</span>.<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">HeaderValue::from_str</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>).<span class="ident">ok</span>()) {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">value</span>) <span class="op">=</span> <span class="ident">HeaderValue::from_str</span>(<span class="kw-2">&amp;</span><span class="ident">hrpc_version</span>) {
                     <span class="ident">resp</span>.<span class="ident">get_or_insert_header_map</span>()
                         .<span class="ident">insert</span>(<span class="ident">version_header_name</span>(), <span class="ident">value</span>);
                 }
