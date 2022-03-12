@@ -42,7 +42,6 @@ use crate::{
 
 use super::{check_uri, map_scheme_to_ws, InvalidServerUrl};
 
-type SocketRequest = tungstenite::handshake::client::Request;
 /// A `hyper` HTTP client that supports HTTPS.
 pub type HttpClient = hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>;
 
@@ -138,7 +137,8 @@ impl Service<BoxRequest> for Hyper {
                 Err(err) => return HyperCallFuture(HyperCallFutureInner::Err(Some(err.into()))),
             };
 
-            let mut request = SocketRequest::get(endpoint).body(()).unwrap();
+            let mut request = tungstenite::client::IntoClientRequest::into_client_request(endpoint)
+                .expect("must not error, we validate our uri before -- this is a bug");
 
             // Insert default protocol (can be overwritten by users)
             request
