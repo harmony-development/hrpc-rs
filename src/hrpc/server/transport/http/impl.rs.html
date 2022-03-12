@@ -309,6 +309,13 @@
 <span id="307">307</span>
 <span id="308">308</span>
 <span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
     <span class="ident">convert::Infallible</span>,
@@ -433,12 +440,19 @@
                     }
                 };
                 <span class="prelude-val">Ok</span>(<span class="ident">resp</span>)
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">status</span>, <span class="ident">err</span>)) <span class="op">=</span> <span class="ident">maybe_unary_err</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">err_into_unary_response</span>(<span class="ident">err</span>);
-                <span class="kw-2">*</span><span class="ident">resp</span>.<span class="ident">status_mut</span>() <span class="op">=</span> <span class="ident">status</span>;
-                <span class="prelude-val">Ok</span>(<span class="ident">resp</span>)
             } <span class="kw">else</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">into_unary_response</span>(<span class="ident">resp</span>))
+                <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">into_unary_response</span>(<span class="ident">resp</span>);
+                <span class="comment">// Return the response if it&#39;s a not found</span>
+                <span class="comment">// only return the unary err if it&#39;s not these</span>
+                <span class="kw">if</span> <span class="ident">resp</span>.<span class="ident">status</span>() <span class="op">==</span> <span class="ident">StatusCode::NOT_FOUND</span> {
+                    <span class="prelude-val">Ok</span>(<span class="ident">resp</span>)
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">status</span>, <span class="ident">err</span>)) <span class="op">=</span> <span class="ident">maybe_unary_err</span> {
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">err_into_unary_response</span>(<span class="ident">err</span>);
+                    <span class="kw-2">*</span><span class="ident">resp</span>.<span class="ident">status_mut</span>() <span class="op">=</span> <span class="ident">status</span>;
+                    <span class="prelude-val">Ok</span>(<span class="ident">resp</span>)
+                } <span class="kw">else</span> {
+                    <span class="prelude-val">Ok</span>(<span class="ident">resp</span>)
+                }
             }
         }))
     }
