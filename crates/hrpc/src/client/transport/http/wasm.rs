@@ -109,17 +109,16 @@ impl Service<BoxRequest> for Wasm {
             let scheme =
                 map_scheme_to_ws(self.server.scheme_str().expect_throw("must have scheme"))
                     .expect_throw("scheme can't be anything other than https or http");
-            let url = format!(
-                "{}://{}:{}/{}",
-                scheme,
-                self.server
-                    .host()
-                    .expect_throw("expected host on server URI, this is a bug"),
-                self.server
-                    .port_u16()
-                    .expect_throw("expected port on server URI, this is a bug"),
-                endpoint.trim_start_matches('/'),
-            );
+            let port = self
+                .server
+                .port()
+                .map_or_else(String::new, |port| format!(":{}", port.as_str()));
+            let host = self
+                .server
+                .host()
+                .expect_throw("expected host on server URI, this is a bug");
+            let path = endpoint.trim_start_matches('/');
+            let url = format!("{}://{}{}/{}", scheme, host, port, path);
 
             let sock_protocols = extensions
                 .remove::<SocketProtocols>()
