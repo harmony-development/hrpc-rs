@@ -214,14 +214,14 @@ impl Service<BoxRequest> for Wasm {
                     .expect_throw("header name is valid");
 
                 if !content_type
-                    .as_ref()
-                    .and_then(|v| v.split(';').next())
+                    .split(';')
+                    .next()
                     .map_or(false, |v| v == HRPC_CONTENT_MIMETYPE)
                 {
                     return Err(ClientError::ContentNotSupported.into());
                 }
 
-                if let Some(value) = content_type.and_then(|v| HeaderValue::from_str(&v).ok()) {
+                if let Ok(value) = HeaderValue::from_str(&content_type) {
                     resp.get_or_insert_header_map()
                         .insert(header::CONTENT_TYPE, value);
                 }
@@ -231,24 +231,16 @@ impl Service<BoxRequest> for Wasm {
                     .get(HRPC_VERSION_HEADER)
                     .expect_throw("header name is valid");
 
-                if check_spec_version
-                    && hrpc_version
-                        .as_ref()
-                        .map_or(false, |v| v.trim() == HRPC_SPEC_VERSION)
-                        .not()
-                {
+                if check_spec_version && hrpc_version.trim() != HRPC_SPEC_VERSION {
                     tracing::debug!(
                         "incompatible spec version {:?} (ours is {})",
                         hrpc_version,
                         HRPC_SPEC_VERSION
                     );
-                    return Err(ClientError::IncompatibleSpecVersion(
-                        hrpc_version.unwrap_or_else(|| "unknown".to_string()),
-                    )
-                    .into());
+                    return Err(ClientError::IncompatibleSpecVersion(hrpc_version).into());
                 }
 
-                if let Some(value) = hrpc_version.and_then(|v| HeaderValue::from_str(&v).ok()) {
+                if let Ok(value) = HeaderValue::from_str(&hrpc_version) {
                     resp.get_or_insert_header_map()
                         .insert(version_header_name(), value);
                 }

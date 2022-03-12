@@ -120,7 +120,7 @@ http = { version = "0.2", optional = true }
 http-body = { version = "0.4", optional = true }
 
 # Used by server for routing
-matchit = { version = "0.4", default-features = false, optional = true }
+matchit = { version = "0.5", default-features = false, optional = true }
 
 # Used by server to implement WS request handling
 sha-1 = { version = "0.10", default-features = false, optional = true }
@@ -150,7 +150,7 @@ axum-server = { version = "0.3", default-features = false, features = [
 ], optional = true }
 
 # Used by wasm client
-reqwasm = { version = "0.4", default-features = false, features = [
+reqwasm = { version = "0.5", default-features = false, features = [
     "http",
 ], optional = true }
 ws_stream_wasm = { version = "0.7", default-features = false, optional = true }

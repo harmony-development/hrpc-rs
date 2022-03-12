@@ -9,7 +9,7 @@ use super::{
     HrpcLayer,
 };
 
-use matchit::Node as Matcher;
+use matchit::{MatchError, Router as Matcher};
 use tower::{Layer, Service};
 use tracing::Span;
 
@@ -182,25 +182,29 @@ impl Service<BoxRequest> for RoutesInternal {
                 unsafe { matched.value.as_mut().deref_mut() },
                 req,
             ),
-            Err(err) if err.tsr() => {
-                let redirect_to = if let Some(without_tsr) = path.strip_suffix('/') {
-                    Cow::Borrowed(without_tsr)
-                } else {
-                    Cow::Owned(format!("{}/", path))
-                };
-                Span::current().record("redirected_to", &redirect_to.as_ref());
-                match self.matcher.at_mut(redirect_to.as_ref()) {
-                    Ok(matched) => {
-                        Service::call(
-                            // SAFETY: our ptr is always initialized
-                            unsafe { matched.value.as_mut().deref_mut() },
-                            req,
-                        )
+            Err(err) => {
+                match err {
+                    MatchError::ExtraTrailingSlash | MatchError::MissingTrailingSlash => {
+                        let redirect_to = if let Some(without_tsr) = path.strip_suffix('/') {
+                            Cow::Borrowed(without_tsr)
+                        } else {
+                            Cow::Owned(format!("{}/", path))
+                        };
+                        Span::current().record("redirected_to", &redirect_to.as_ref());
+                        match self.matcher.at_mut(redirect_to.as_ref()) {
+                            Ok(matched) => {
+                                Service::call(
+                                    // SAFETY: our ptr is always initialized
+                                    unsafe { matched.value.as_mut().deref_mut() },
+                                    req,
+                                )
+                            }
+                            _ => Service::call(&mut self.any, req),
+                        }
                     }
-                    _ => Service::call(&mut self.any, req),
+                    MatchError::NotFound => Service::call(&mut self.any, req),
                 }
             }
-            _ => Service::call(&mut self.any, req),
         }
     }
 }
