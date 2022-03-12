@@ -122,12 +122,19 @@ impl Service<HttpRequest> for HrpcServiceToHttp {
                     }
                 };
                 Ok(resp)
-            } else if let Some((status, err)) = maybe_unary_err {
-                let mut resp = err_into_unary_response(err);
-                *resp.status_mut() = status;
-                Ok(resp)
             } else {
-                Ok(into_unary_response(resp))
+                let resp = into_unary_response(resp);
+                // Return the response if it's a not found
+                // only return the unary err if it's not these
+                if resp.status() == StatusCode::NOT_FOUND {
+                    Ok(resp)
+                } else if let Some((status, err)) = maybe_unary_err {
+                    let mut resp = err_into_unary_response(err);
+                    *resp.status_mut() = status;
+                    Ok(resp)
+                } else {
+                    Ok(resp)
+                }
             }
         }))
     }
