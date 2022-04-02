@@ -135,6 +135,7 @@ impl crate::Method for Method {
 }
 
 struct ServiceGenerator {
+    #[allow(dead_code)]
     builder: Builder,
     #[cfg(feature = "client")]
     clients: TokenStream,
@@ -155,21 +156,21 @@ impl ServiceGenerator {
 }
 
 impl prost_build::ServiceGenerator for ServiceGenerator {
-    fn generate(&mut self, service: prost_build::Service, _buf: &mut String) {
+    fn generate(&mut self, _service: prost_build::Service, _buf: &mut String) {
         #[cfg(feature = "server")]
         if self.builder.build_server {
-            let server = server::generate(&service, &self.builder.proto_path);
+            let server = server::generate(&_service, &self.builder.proto_path);
             self.servers.extend(server);
         }
 
         #[cfg(feature = "client")]
         if self.builder.build_client {
-            let client = client::generate(&service, &self.builder.proto_path);
+            let client = client::generate(&_service, &self.builder.proto_path);
             self.clients.extend(client);
         }
     }
 
-    fn finalize(&mut self, buf: &mut String) {
+    fn finalize(&mut self, _buf: &mut String) {
         #[cfg(feature = "client")]
         if self.builder.build_client && !self.clients.is_empty() {
             let clients = &self.clients;
@@ -179,7 +180,7 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
             };
 
             let code = format!("{}", client_service);
-            buf.push_str(&code);
+            _buf.push_str(&code);
 
             self.clients = TokenStream::default();
         }
@@ -193,7 +194,7 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
             };
 
             let code = format!("{}", server_service);
-            buf.push_str(&code);
+            _buf.push_str(&code);
 
             self.servers = TokenStream::default();
         }

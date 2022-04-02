@@ -109,6 +109,7 @@ pub fn fmt(out_dir: &str) {
 }
 
 // Generate a singular line of a doc comment
+#[allow(dead_code)]
 fn generate_doc_comment<S: AsRef<str>>(comment: S) -> TokenStream {
     let mut doc_stream = TokenStream::new();
 
@@ -127,6 +128,7 @@ fn generate_doc_comment<S: AsRef<str>>(comment: S) -> TokenStream {
 }
 
 // Generate a larger doc comment composed of many lines of doc comments
+#[allow(dead_code)]
 fn generate_doc_comments<T: AsRef<str>>(comments: &[T]) -> TokenStream {
     let mut stream = TokenStream::new();
 
@@ -137,6 +139,7 @@ fn generate_doc_comments<T: AsRef<str>>(comments: &[T]) -> TokenStream {
     stream
 }
 
+#[allow(dead_code)]
 fn naive_snake_case(name: &str) -> String {
     let mut s = String::new();
     let mut it = name.chars().peekable();
