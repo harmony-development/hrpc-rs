@@ -630,7 +630,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc"
-version = "0.33.27"
+version = "0.33.28"
 dependencies = [
  "axum-server",
  "base64",
@@ -661,7 +661,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc-build"
-version = "0.33.0"
+version = "0.33.1"
 dependencies = [
  "proc-macro2",
  "prost-build",
