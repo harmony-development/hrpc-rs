@@ -96,11 +96,11 @@ websocket_tokio_tungstenite = ["tokio-tungstenite", "tokio"]
 websocket_wasm = ["ws_stream_wasm"]
 
 [build-dependencies]
-prost-build = "0.9"
+prost-build = "0.10"
 
 [dependencies]
 # Core types, traits and utilities
-prost = "0.9"
+prost = "0.10"
 bytes = "1.0"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 pin-project-lite = { version = "0.2", default-features = false, optional = true }

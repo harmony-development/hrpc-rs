@@ -11,7 +11,7 @@ keywords = ["hrpc", "harmony", "rpc", "build", "protobuf"]
 categories = ["development-tools::build-utils"]
 
 [dependencies]
-prost-build = "0.9"
+prost-build = "0.10"
 syn = "1.0"
 quote = "1.0"
 proc-macro2 = "1.0"

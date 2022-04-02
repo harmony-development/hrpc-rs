@@ -153,6 +153,26 @@ impl Drop for RoutesInternal {
     }
 }
 
+impl RoutesInternal {
+    fn call_redirected(
+        &mut self,
+        mut req: BoxRequest,
+        redirect_to: String,
+    ) -> <Self as Service<BoxRequest>>::Future {
+        *req.endpoint_mut() = Cow::Owned(redirect_to);
+        Span::current().record("redirected_to", &req.endpoint());
+        let matched = self
+            .matcher
+            .at_mut(req.endpoint())
+            .expect("the path must be correct");
+        Service::call(
+            // SAFETY: our ptr is always initialized
+            unsafe { matched.value.as_mut().deref_mut() },
+            req,
+        )
+    }
+}
+
 impl Service<BoxRequest> for RoutesInternal {
     type Response = BoxResponse;
 
@@ -182,29 +202,15 @@ impl Service<BoxRequest> for RoutesInternal {
                 unsafe { matched.value.as_mut().deref_mut() },
                 req,
             ),
-            Err(err) => {
-                match err {
-                    MatchError::ExtraTrailingSlash | MatchError::MissingTrailingSlash => {
-                        let redirect_to = if let Some(without_tsr) = path.strip_suffix('/') {
-                            Cow::Borrowed(without_tsr)
-                        } else {
-                            Cow::Owned(format!("{}/", path))
-                        };
-                        Span::current().record("redirected_to", &redirect_to.as_ref());
-                        match self.matcher.at_mut(redirect_to.as_ref()) {
-                            Ok(matched) => {
-                                Service::call(
-                                    // SAFETY: our ptr is always initialized
-                                    unsafe { matched.value.as_mut().deref_mut() },
-                                    req,
-                                )
-                            }
-                            _ => Service::call(&mut self.any, req),
-                        }
-                    }
-                    MatchError::NotFound => Service::call(&mut self.any, req),
-                }
+            Err(MatchError::ExtraTrailingSlash) => {
+                let redirect_to = path.trim_end_matches('/').to_string();
+                self.call_redirected(req, redirect_to)
             }
+            Err(MatchError::MissingTrailingSlash) => {
+                let redirect_to = format!("{}/", path);
+                self.call_redirected(req, redirect_to)
+            }
+            _ => Service::call(&mut self.any, req),
         }
     }
 }

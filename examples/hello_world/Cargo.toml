@@ -6,7 +6,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-prost = "0.9"
+prost = "0.10"
 hrpc = { path = "../../crates/hrpc", features = [
     "http_hyper_client",
     "http_server",

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-prost = "0.9"
+prost = "0.10"
 hrpc = { path = "../../crates/hrpc", features = ["mock_client", "mock_server"] }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
 
