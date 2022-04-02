@@ -234,6 +234,12 @@
 <span id="232">232</span>
 <span id="233">233</span>
 <span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>, <span class="ident">convert::Infallible</span>, <span class="ident">mem::ManuallyDrop</span>, <span class="ident">ops::DerefMut</span>, <span class="ident">ptr::NonNull</span>, <span class="ident">task::Poll</span>,
 };
@@ -389,6 +395,26 @@
     }
 }
 
+<span class="kw">impl</span> <span class="ident">RoutesInternal</span> {
+    <span class="kw">fn</span> <span class="ident">call_redirected</span>(
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="kw-2">mut</span> <span class="ident">req</span>: <span class="ident">BoxRequest</span>,
+        <span class="ident">redirect_to</span>: <span class="ident">String</span>,
+    ) -&gt; <span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">BoxRequest</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Future</span> {
+        <span class="kw-2">*</span><span class="ident">req</span>.<span class="ident">endpoint_mut</span>() <span class="op">=</span> <span class="ident">Cow::Owned</span>(<span class="ident">redirect_to</span>);
+        <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;redirected_to&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">req</span>.<span class="ident">endpoint</span>());
+        <span class="kw">let</span> <span class="ident">matched</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">matcher</span>
+            .<span class="ident">at_mut</span>(<span class="ident">req</span>.<span class="ident">endpoint</span>())
+            .<span class="ident">expect</span>(<span class="string">&quot;the path must be correct&quot;</span>);
+        <span class="ident">Service::call</span>(
+            <span class="comment">// SAFETY: our ptr is always initialized</span>
+            <span class="kw">unsafe</span> { <span class="ident">matched</span>.<span class="ident">value</span>.<span class="ident">as_mut</span>().<span class="ident">deref_mut</span>() },
+            <span class="ident">req</span>,
+        )
+    }
+}
+
 <span class="kw">impl</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">BoxRequest</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RoutesInternal</span> {
     <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">BoxResponse</span>;
 
@@ -418,29 +444,15 @@
                 <span class="kw">unsafe</span> { <span class="ident">matched</span>.<span class="ident">value</span>.<span class="ident">as_mut</span>().<span class="ident">deref_mut</span>() },
                 <span class="ident">req</span>,
             ),
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                <span class="kw">match</span> <span class="ident">err</span> {
-                    <span class="ident">MatchError::ExtraTrailingSlash</span> <span class="op">|</span> <span class="ident">MatchError::MissingTrailingSlash</span> =&gt; {
-                        <span class="kw">let</span> <span class="ident">redirect_to</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">without_tsr</span>) <span class="op">=</span> <span class="ident">path</span>.<span class="ident">strip_suffix</span>(<span class="string">&#39;/&#39;</span>) {
-                            <span class="ident">Cow::Borrowed</span>(<span class="ident">without_tsr</span>)
-                        } <span class="kw">else</span> {
-                            <span class="ident">Cow::Owned</span>(<span class="macro">format!</span>(<span class="string">&quot;{}/&quot;</span>, <span class="ident">path</span>))
-                        };
-                        <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;redirected_to&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">redirect_to</span>.<span class="ident">as_ref</span>());
-                        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">matcher</span>.<span class="ident">at_mut</span>(<span class="ident">redirect_to</span>.<span class="ident">as_ref</span>()) {
-                            <span class="prelude-val">Ok</span>(<span class="ident">matched</span>) =&gt; {
-                                <span class="ident">Service::call</span>(
-                                    <span class="comment">// SAFETY: our ptr is always initialized</span>
-                                    <span class="kw">unsafe</span> { <span class="ident">matched</span>.<span class="ident">value</span>.<span class="ident">as_mut</span>().<span class="ident">deref_mut</span>() },
-                                    <span class="ident">req</span>,
-                                )
-                            }
-                            <span class="kw">_</span> =&gt; <span class="ident">Service::call</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">any</span>, <span class="ident">req</span>),
-                        }
-                    }
-                    <span class="ident">MatchError::NotFound</span> =&gt; <span class="ident">Service::call</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">any</span>, <span class="ident">req</span>),
-                }
+            <span class="prelude-val">Err</span>(<span class="ident">MatchError::ExtraTrailingSlash</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">redirect_to</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">trim_end_matches</span>(<span class="string">&#39;/&#39;</span>).<span class="ident">to_string</span>();
+                <span class="self">self</span>.<span class="ident">call_redirected</span>(<span class="ident">req</span>, <span class="ident">redirect_to</span>)
             }
+            <span class="prelude-val">Err</span>(<span class="ident">MatchError::MissingTrailingSlash</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">redirect_to</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}/&quot;</span>, <span class="ident">path</span>);
+                <span class="self">self</span>.<span class="ident">call_redirected</span>(<span class="ident">req</span>, <span class="ident">redirect_to</span>)
+            }
+            <span class="kw">_</span> =&gt; <span class="ident">Service::call</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">any</span>, <span class="ident">req</span>),
         }
     }
 }

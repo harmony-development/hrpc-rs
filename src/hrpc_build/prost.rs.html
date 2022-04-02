@@ -341,6 +341,7 @@
 <span id="339">339</span>
 <span id="340">340</span>
 <span id="341">341</span>
+<span id="342">342</span>
 </pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::client</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>
@@ -478,6 +479,7 @@
 }
 
 <span class="kw">struct</span> <span class="ident">ServiceGenerator</span> {
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
     <span class="ident">builder</span>: <span class="ident">Builder</span>,
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client&quot;</span>)]</span>
     <span class="ident">clients</span>: <span class="ident">TokenStream</span>,
@@ -498,21 +500,21 @@
 }
 
 <span class="kw">impl</span> <span class="ident">prost_build::ServiceGenerator</span> <span class="kw">for</span> <span class="ident">ServiceGenerator</span> {
-    <span class="kw">fn</span> <span class="ident">generate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">service</span>: <span class="ident">prost_build::Service</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>) {
+    <span class="kw">fn</span> <span class="ident">generate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_service</span>: <span class="ident">prost_build::Service</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>) {
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_server</span> {
-            <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="ident">server::generate</span>(<span class="kw-2">&amp;</span><span class="ident">service</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">proto_path</span>);
+            <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="ident">server::generate</span>(<span class="kw-2">&amp;</span><span class="ident">_service</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">proto_path</span>);
             <span class="self">self</span>.<span class="ident">servers</span>.<span class="ident">extend</span>(<span class="ident">server</span>);
         }
 
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client&quot;</span>)]</span>
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_client</span> {
-            <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">client::generate</span>(<span class="kw-2">&amp;</span><span class="ident">service</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">proto_path</span>);
+            <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">client::generate</span>(<span class="kw-2">&amp;</span><span class="ident">_service</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">proto_path</span>);
             <span class="self">self</span>.<span class="ident">clients</span>.<span class="ident">extend</span>(<span class="ident">client</span>);
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">finalize</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>) {
+    <span class="kw">fn</span> <span class="ident">finalize</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>) {
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;client&quot;</span>)]</span>
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_client</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">clients</span>.<span class="ident">is_empty</span>() {
             <span class="kw">let</span> <span class="ident">clients</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">clients</span>;
@@ -522,7 +524,7 @@
             };
 
             <span class="kw">let</span> <span class="ident">code</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">client_service</span>);
-            <span class="ident">buf</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">code</span>);
+            <span class="ident">_buf</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">code</span>);
 
             <span class="self">self</span>.<span class="ident">clients</span> <span class="op">=</span> <span class="ident">TokenStream::default</span>();
         }
@@ -536,7 +538,7 @@
             };
 
             <span class="kw">let</span> <span class="ident">code</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">server_service</span>);
-            <span class="ident">buf</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">code</span>);
+            <span class="ident">_buf</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">code</span>);
 
             <span class="self">self</span>.<span class="ident">servers</span> <span class="op">=</span> <span class="ident">TokenStream::default</span>();
         }
