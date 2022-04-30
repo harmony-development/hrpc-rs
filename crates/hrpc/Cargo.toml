@@ -145,7 +145,7 @@ tokio-tungstenite = { version = "0.17", default-features = false, features = [
     "rustls-tls-native-roots",
     "connect",
 ], optional = true }
-axum-server = { version = "0.3", default-features = false, features = [
+axum-server = { version = "0.4", default-features = false, features = [
     "tls-rustls",
 ], optional = true }
 

@@ -21,7 +21,7 @@ tokio = { version = "1", features = [
 # We will use tower's RateLimitLayer to rate limit our endpoints
 tower = { version = "0.4", features = ["limit"] }
 # tower-http for CORS layer and tracing
-tower-http = { version = "0.2", features = ["cors"] }
+tower-http = { version = "0.3", features = ["cors"] }
 # Logging utilities
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
