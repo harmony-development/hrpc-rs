@@ -630,7 +630,7 @@ dependencies = [
 
 [[package]]
 name = "hrpc"
-version = "0.33.28"
+version = "0.33.29"
 dependencies = [
  "axum-server",
  "base64",
