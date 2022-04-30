@@ -1,22 +1,16 @@
 {
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    nixCargoIntegration = {
-      url = "github:yusdacra/nix-cargo-integration";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-  };
+  inputs.nci.url = "github:yusdacra/nix-cargo-integration";
 
   outputs = inputs:
-    inputs.nixCargoIntegration.lib.makeOutputs {
+    inputs.nci.lib.makeOutputs {
       root = ./.;
       overrides = {
         crateOverrides = common: prev: {
-          interop = prevv: let
+          interop = old: let
             env = {PROTOC = "protoc";};
           in
             {
-              buildInputs = (prevv.buildInputs or []) ++ [common.pkgs.protobuf];
+              buildInputs = (old.buildInputs or []) ++ [common.pkgs.protobuf];
               propagatedEnv = env;
             }
             // env;
